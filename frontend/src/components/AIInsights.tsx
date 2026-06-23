@@ -1,12 +1,12 @@
 import { Brain } from "lucide-react";
 
-export default function AIInsights() {
+export default function AIInsights() {  //can be imported in other files
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6">
+    <div className="bg-white rounded-2xl shadow-sm p-6"> {/*tailwind classes for styling */}
+
 
       <div className="flex items-center gap-3 mb-6">
-        <Brain className="text-blue-600" size={28} />
-
+        <Brain className="text-blue-600" size={28} /> {/*change color of brain */}
         <h2 className="text-xl font-semibold">
           AI Insights
         </h2>
@@ -32,18 +32,7 @@ export default function AIInsights() {
       </div>
 
 
-      <button
-        className="
-        mt-6
-        bg-blue-600
-        text-white
-        px-5
-        py-3
-        rounded-xl
-        hover:bg-blue-700
-        transition
-      "
-      >
+      <button  className="mt-6 bg-blue-600 text-white px-5 py-3 rounded-xl hover:bg-blue-700 transition ">
         Generate Insights
       </button>
 
