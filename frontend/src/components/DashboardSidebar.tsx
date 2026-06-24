@@ -31,8 +31,7 @@ export default function DashboardSidebar() {
           return (
             <button
               key={item.name}
-              className="
-                flex
+              className="flex
                 items-center
                 gap-3
                 w-full

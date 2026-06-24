@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routes.upload import router as upload_router
 
-app = FastAPI()
+app = FastAPI(title="AI Analytics API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -11,10 +12,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-def root():
-    return {"message": "Backend Running"}
+app.include_router(upload_router)
 
-@app.get("/health")
-def health():
-    return {"status": "healthy"}
+@app.get("/")
+def home():
+    return {"message": "Backend is running"}

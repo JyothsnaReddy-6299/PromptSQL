@@ -19,7 +19,7 @@ export default function LandingPage() {
 
             <div className="relative z-10">
 
-                <Navbar />
+                <Navbar />     {/* this order of the different components stack them vertically in the page */}
 
                 <Hero />
 
