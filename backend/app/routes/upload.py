@@ -1,90 +1,129 @@
-from fastapi import APIRouter, UploadFile, File
-<<<<<<< HEAD
-import pandas as pd
-import os
-
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from app.database.connection import engine
-=======
-import os
-import shutil
 import pandas as pd
-from sqlalchemy import create_engine
->>>>>>> 5c5ce2251e911f794b066c7be088e1183b3f9cdb
+import os
 
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-DATABASE_URL = "mysql+pymysql://root:your_password@localhost/ai_analytics"
-engine = create_engine(DATABASE_URL)
 
+def clean_table_name(filename: str) -> str:
+    """
+    Convert filename into a valid MySQL table name.
+    Example:
+        data.xlsx -> data
+        Sales Report.csv -> sales_report
+    """
+    table_name = filename.rsplit(".", 1)[0]
+    table_name = table_name.replace(" ", "_")
+    table_name = table_name.lower()
 
-def clean_table_name(name: str):
-    return name.replace(" ", "_").replace("-", "_").split(".")[0]
-
-def clean_table_name(filename: str):
-    return filename.lower().replace(" ", "_").split(".")[0]
+    return table_name
 
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-<<<<<<< HEAD
 
-    filepath = os.path.join(UPLOAD_DIR, file.filename)
+    try:
 
-    with open(filepath, "wb") as f:
-        f.write(await file.read())
+        filepath = os.path.join(
+            UPLOAD_DIR,
+            file.filename
+        )
 
-    # read file
-    if file.filename.endswith(".csv"):
-        df = pd.read_csv(filepath)
-    else:
-        df = pd.read_excel(filepath)
+        # Save uploaded file
+        with open(filepath, "wb") as buffer:
+            buffer.write(await file.read())
 
-    table_name = clean_table_name(file.filename)
 
-    # IMPORTANT: send to MySQL
-    df.to_sql(
-        name=table_name,
-        con=engine,
-        if_exists="replace",
-        index=False
-    )
+        # Read file
+        if file.filename.endswith(".csv"):
 
-=======
+            df = pd.read_csv(filepath)
 
-    filepath = os.path.join(UPLOAD_DIR, file.filename)
+        elif file.filename.endswith((".xlsx", ".xls")):
 
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+            df = pd.read_excel(filepath)
 
-    # READ FILE
-    if file.filename.endswith(".csv"):
-        df = pd.read_csv(filepath)
-    else:
-        df = pd.read_excel(filepath)
+        else:
 
-    table_name = clean_table_name(file.filename)
+            raise HTTPException(
 
-    # STORE INTO MYSQL
-    df.to_sql(
-        name=table_name,
-        con=engine,
-        if_exists="replace",
-        index=False
-    )
+                status_code=400,
 
->>>>>>> 5c5ce2251e911f794b066c7be088e1183b3f9cdb
-    return {
-        "filename": file.filename,
-        "table_name": table_name,
-        "rows": len(df),
-        "columns": len(df.columns),
-<<<<<<< HEAD
-        "missing_values": int(df.isnull().sum().sum())
-=======
-        "missing_values": int(df.isnull().sum().sum()),
-        "column_names": list(df.columns)
->>>>>>> 5c5ce2251e911f794b066c7be088e1183b3f9cdb
-    }
+                detail="Unsupported file type"
+
+            )
+
+
+        # MySQL table name
+        table_name = clean_table_name(
+
+            file.filename
+
+        )
+
+
+        # Insert into MySQL
+        df.to_sql(
+
+            name=table_name,
+
+            con=engine,
+
+            if_exists="replace",
+
+            index=False
+
+        )
+
+
+        rows = len(df)
+
+        columns = len(df.columns)
+
+        missing_values = int(
+
+            df.isnull().sum().sum()
+
+        )
+
+
+        return {
+
+            "filename": file.filename,
+
+            "table_name": table_name,
+
+            "rows": rows,
+
+            "columns": columns,
+
+            "missing_values": missing_values
+
+        }
+
+
+    except SQLAlchemyError as e:
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=f"MySQL Error: {str(e)}"
+
+        )
+
+
+    except Exception as e:
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=str(e)
+
+        )
