@@ -1,62 +1,109 @@
-import { Send } from "lucide-react";
+import { useState } from "react";
+import axios from "axios";
 
 export default function ChatBox() {
-    return (
 
-        <div className="bg-white rounded-2xl shadow-sm p-6">
+const [question,setQuestion]=useState("");
 
-            <h2 className="text-xl font-semibold mb-4">
-                Chat with Data
-            </h2>
+const [summary,setSummary]=useState("");
+const [sql,setSql]=useState("");
+const [records,setRecords]=useState<any[]>([]);
 
-            <p className="text-gray-500 mb-6">
-                Ask questions about your uploaded dataset.
-            </p>
+const askAI = async()=>{
+
+try{
+
+const response = await axios.post(
+
+"http://127.0.0.1:8000/ask",
+
+{
+
+question,
+
+table_name:"data"
+
+}
+
+);
+
+setSummary(response.data.summary);
+
+setSql(response.data.sql);
+
+setRecords(response.data.result);
+
+}
+
+catch(error){
+
+console.log(error);
+
+}
+
+};
+
+return(
+
+<div className="bg-white p-6 rounded-3xl shadow">
+
+<h2 className="text-xl font-bold mb-4">
+
+Ask AI
+
+</h2>
 
 
-            <textarea
-                placeholder="Example: What is the average salary?"
-                className="
-                    w-full
-                    h-32
-                    border
-                    border-gray-200
-                    rounded-xl
-                    p-4
-                    resize-none
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-500
-                "
-            />
+<textarea
+
+value={question}
+
+onChange={(e)=>setQuestion(e.target.value)}
+
+placeholder="Ask anything about your dataset..."
+
+className="w-full border rounded-xl p-3 h-32"
+
+/>
 
 
-            <div className="flex justify-end mt-4">
+<button onClick={askAI} className="mt-4 bg-blue-600 text-white px-5 py-2 rounded-xl">
 
-                <button
-                    className="
-                        flex
-                        items-center
-                        gap-2
-                        bg-blue-600
-                        text-white
-                        px-5
-                        py-3
-                        rounded-xl
-                        hover:bg-blue-700
-                        transition
-                    "
-                >
+Ask
 
-                    <Send size={18}/>
+</button>
 
-                    Send
 
-                </button>
 
-            </div>
+<div className="mt-6">
 
-        </div>
+    <h3 className="font-semibold text-lg">
+        AI Response
+    </h3>
 
-    );
+    <p className="bg-slate-100 p-4 rounded-xl mt-2">
+        {summary}
+    </p>
+
+</div>
+
+
+<div className="mt-6">
+
+    <h3 className="font-semibold">
+        Generated SQL
+    </h3>
+
+    <div className="bg-slate-100 p-4 rounded-xl mt-2">
+        <code>
+            {sql}
+        </code>
+    </div>
+
+</div>
+
+</div>
+
+);
+
 }
