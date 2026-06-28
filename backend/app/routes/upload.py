@@ -43,10 +43,26 @@ async def upload_file(file: UploadFile = File(...)):
         if file.filename.endswith(".csv"):
 
             df = pd.read_csv(filepath)
+            df.columns = (
+            df.columns
+            .str.strip()                 # Remove leading/trailing spaces
+            .str.replace(" ", "_")       # Replace spaces with _
+            .str.replace("-", "_")       # Replace - with _
+            .str.replace("/", "_")       # Replace / with _
+            .str.replace(r"[^A-Za-z0-9_]", "", regex=True)
+        )
 
         elif file.filename.endswith((".xlsx", ".xls")):
 
             df = pd.read_excel(filepath)
+            df.columns = (
+            df.columns
+            .str.strip()                 # Remove leading/trailing spaces
+            .str.replace(" ", "_")       # Replace spaces with _
+            .str.replace("-", "_")       # Replace - with _
+            .str.replace("/", "_")       # Replace / with _
+            .str.replace(r"[^A-Za-z0-9_]", "", regex=True)
+        )
 
         else:
 
