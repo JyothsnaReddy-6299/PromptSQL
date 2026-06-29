@@ -5,6 +5,8 @@ from app.services.sql_generator import generate_sql
 from app.services.sql_validator import validate_sql
 from app.services.sql_executor import execute_sql
 from app.services.summary_generator import generate_summary
+from app.services.response_generator import generate_response
+from app.services.question_classifier import is_analytical
 
 router = APIRouter()
 
@@ -40,23 +42,28 @@ def ask_question(payload: AskRequest):
         # 3. Execute SQL
         records = execute_sql(sql_query)
 
-        # 4. FULL RESULT (do NOT truncate this)
         total_count = len(records)
+        
 
-        # 5. ONLY SAMPLE goes to LLM (IMPORTANT FIX)
-        summary_input = records[:20]
-
-        summary = generate_summary(
-            payload.question,
-            summary_input
-        )
+        # 4. Generate response
+        if is_analytical(payload.question):
+            summary = generate_summary(
+                payload.question,
+                records[:20]
+            )
+        else:
+            summary = generate_response(
+                payload.question,
+                records
+            )
 
         return {
             "summary": summary,
             "sql": sql_query,
             "count": total_count,
-            "result": records   # full data returned here
+            "result": records
         }
 
     except Exception as e:
+        print(e)
         return {"error": str(e)}

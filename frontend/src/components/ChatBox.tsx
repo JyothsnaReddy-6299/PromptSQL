@@ -13,30 +13,31 @@ export default function ChatBox() {
   const askAI = async () => {
 
     if (!question.trim()) {
-      setError("Please enter a question");
+      setError("Please enter a question.");
       return;
     }
 
     setLoading(true);
     setError("");
 
+    setSummary("");
+    setSql("");
+    setRecords([]);
+
     try {
+
       const response = await axios.post(
         "http://127.0.0.1:8000/ask",
         {
           question,
-          table_name: "data"
+          table_name: "ecommerce_sales_dataset" // Change this when using another uploaded table
         }
       );
 
       const data = response.data;
 
-      // backend error handling
       if (data.error) {
         setError(data.error);
-        setSummary("");
-        setSql("");
-        setRecords([]);
         return;
       }
 
@@ -44,17 +45,27 @@ export default function ChatBox() {
       setSql(data.sql || "");
       setRecords(data.result || []);
 
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
-    } finally {
+    }
+    catch (err: any) {
+
+      if (err.response) {
+        setError(err.response.data.error || "Server Error");
+      }
+      else {
+        setError(err.message);
+      }
+
+    }
+    finally {
       setLoading(false);
     }
   };
 
   return (
+
     <div className="bg-white p-6 rounded-3xl shadow">
 
-      <h2 className="text-xl font-bold mb-4">
+      <h2 className="text-2xl font-bold mb-5">
         Ask AI
       </h2>
 
@@ -62,51 +73,122 @@ export default function ChatBox() {
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
         placeholder="Ask anything about your dataset..."
-        className="w-full border rounded-xl p-3 h-32"
+        className="w-full border rounded-xl p-4 h-32"
       />
 
       <button
         onClick={askAI}
-        className="mt-4 bg-blue-600 text-white px-5 py-2 rounded-xl"
         disabled={loading}
+        className="mt-5 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl"
       >
         {loading ? "Thinking..." : "Ask"}
       </button>
 
-      {/* ERROR */}
       {error && (
-        <div className="mt-4 text-red-600 font-medium">
+        <div className="mt-5 bg-red-100 text-red-700 p-3 rounded-xl">
           {error}
         </div>
       )}
 
-      {/* SUMMARY */}
       {summary && (
-        <div className="mt-6">
-          <h3 className="font-semibold text-lg">AI Response</h3>
-          <p className="bg-slate-100 p-4 rounded-xl mt-2">
+        <div className="mt-8">
+
+          <h3 className="text-xl font-semibold">
+            AI Response
+          </h3>
+
+          <div className="bg-slate-100 rounded-xl p-4 mt-2 whitespace-pre-wrap">
             {summary}
-          </p>
-        </div>
-      )}
-
-      {/* SQL */}
-      {sql && (
-        <div className="mt-6">
-          <h3 className="font-semibold">Generated SQL</h3>
-          <div className="bg-slate-100 p-4 rounded-xl mt-2">
-            <code>{sql}</code>
           </div>
+
         </div>
       )}
 
-      {/* RESULT COUNT */}
-      {records.length > 0 && (
-        <div className="mt-4 text-sm text-gray-600">
-          Total Records: {records.length}
+      {sql && (
+        <div className="mt-8">
+
+          <h3 className="text-xl font-semibold">
+            Generated SQL
+          </h3>
+
+          <pre className="bg-gray-100 rounded-xl p-4 mt-2 overflow-x-auto">
+            <code>{sql}</code>
+          </pre>
+
         </div>
+      )}
+
+      {records.length > 0 && (
+
+        <div className="mt-8">
+
+          <h3 className="text-xl font-semibold">
+            Retrieved Records
+          </h3>
+
+          <p className="text-gray-600 mt-1">
+            Total Records: {records.length}
+          </p>
+
+          <div className="overflow-auto mt-4 border rounded-xl max-h-[500px]">
+
+            <table className="min-w-full border-collapse">
+
+              <thead className="sticky top-0 bg-gray-100">
+
+                <tr>
+
+                  {Object.keys(records[0]).map((column) => (
+
+                    <th
+                      key={column}
+                      className="border p-3 text-left font-semibold"
+                    >
+                      {column}
+                    </th>
+
+                  ))}
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {records.map((row, index) => (
+
+                  <tr
+                    key={index}
+                    className="hover:bg-gray-50"
+                  >
+
+                    {Object.keys(records[0]).map((column) => (
+
+                      <td
+                        key={column}
+                        className="border p-3"
+                      >
+                        {String(row[column])}
+                      </td>
+
+                    ))}
+
+                  </tr>
+
+                ))}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
       )}
 
     </div>
+
   );
+
 }
