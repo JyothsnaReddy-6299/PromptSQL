@@ -3,78 +3,122 @@ from sqlalchemy import inspect
 from app.database.connection import engine
 
 
+BLOCKED_KEYWORDS = {
+    "DROP",
+    "DELETE",
+    "UPDATE",
+    "INSERT",
+    "ALTER",
+    "CREATE",
+    "TRUNCATE",
+    "REPLACE"
+}
+
+
 def validate_sql(sql_query, table_name):
+    """
+    Validates AI-generated SQL before execution.
+    """
 
-    sql = sql_query.strip().lower()
+    sql = sql_query.strip()
 
-    # Allow only SELECT queries
-    if not sql.startswith("select"):
+    # ----------------------------
+    # Only SELECT queries allowed
+    # ----------------------------
+
+    if not sql.lower().startswith("select"):
         return False, "Only SELECT queries are allowed."
 
-    # Block dangerous SQL keywords
-    blocked_keywords = [
-        "drop",
-        "delete",
-        "truncate",
-        "update",
-        "insert",
-        "alter",
-        "create",
-        "replace"
-    ]
+    # ----------------------------
+    # Dangerous keywords
+    # ----------------------------
 
-    for keyword in blocked_keywords:
-        if keyword in sql:
-            return False, f"'{keyword.upper()}' queries are not allowed."
+    upper_sql = sql.upper()
 
-    # Check whether the table exists
+    for keyword in BLOCKED_KEYWORDS:
+
+        if re.search(rf"\b{keyword}\b", upper_sql):
+
+            return (
+                False,
+                f"{keyword} statements are not allowed."
+            )
+
     inspector = inspect(engine)
 
     tables = inspector.get_table_names()
 
+    # ----------------------------
+    # Check table exists
+    # ----------------------------
+
     if table_name not in tables:
-        return False, f"Table '{table_name}' does not exist."
 
-    # Get all valid columns
-    columns = inspector.get_columns(table_name)
+        return (
+            False,
+            f"Table '{table_name}' does not exist."
+        )
 
-    valid_columns = {
-        column["name"].lower()
-        for column in columns
-    }
+    # ----------------------------
+    # Verify FROM table
+    # ----------------------------
 
-    # SQL keywords/functions to ignore
-    sql_keywords = {
-        "select", "from", "where", "and", "or",
-        "group", "by", "order", "limit",
-        "having", "count", "sum", "avg",
-        "min", "max", "distinct", "as",
-        "asc", "desc", "between", "like",
-        "in", "not", "is", "null",
-        "join", "left", "right",
-        "inner", "outer", "on"
-    }
+    match = re.search(
 
-    # Remove quoted string values
-    sql_without_strings = re.sub(r"'[^']*'", "", sql)
+        r"FROM\s+`?([^`\s]+)`?",
 
-    # Extract identifiers
-    identifiers = re.findall(
-        r"[A-Za-z_][A-Za-z0-9_]*",
-        sql_without_strings
+        sql,
+
+        re.IGNORECASE
+
     )
 
-    for word in identifiers:
+    if not match:
 
-        if word in sql_keywords:
-            continue
+        return (
+            False,
+            "No FROM clause found."
+        )
 
-        if word == table_name.lower():
-            continue
+    used_table = match.group(1)
 
-        if word in valid_columns:
-            continue
+    if used_table != table_name:
 
-        return False, f"Unknown column: {word}"
+        return (
+            False,
+            "Generated SQL uses the wrong table."
+        )
 
-    return True, "SQL is valid."
+    # ----------------------------
+    # Check all backticked columns
+    # ----------------------------
+
+    valid_columns = {
+
+        column["name"]
+
+        for column in inspector.get_columns(table_name)
+
+    }
+
+    used_columns = re.findall(
+
+        r"`([^`]+)`",
+
+        sql
+
+    )
+
+    for column in used_columns:
+
+        if column not in valid_columns:
+
+            return (
+                False,
+                f"Unknown column '{column}'."
+            )
+
+    return (
+        True,
+        "SQL is valid."
+    )   
