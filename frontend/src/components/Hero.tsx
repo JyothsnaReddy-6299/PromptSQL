@@ -22,7 +22,7 @@ return (
 
 <Sparkles size={16}/>
 
-Powered by Advanced AI Technology
+ AI-Powered Query Engine
 
 </div>
 
@@ -31,13 +31,13 @@ Powered by Advanced AI Technology
 <h1 className="mt-10 text-7xl font-bold leading-tight">
 
 
-AI Data Analytics
+Natural Language
 
 
 <br/>
 
 
-Assistant
+ SQL Generator
 
 
 
@@ -64,7 +64,7 @@ Generate charts, insights and reports instantly.
     onClick={handleUploadClick}
     className="mt-12 bg-gradient-to-r from-blue-600 to-cyan-500 px-8 py-4 rounded-xl text-white flex gap-3 items-center mx-auto hover:scale-105 transition"
 >
-    Upload Dataset
+    Start Querying
 </button>
 
 

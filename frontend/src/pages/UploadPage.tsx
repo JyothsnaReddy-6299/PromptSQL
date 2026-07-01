@@ -82,7 +82,7 @@ export default function UploadPage() {
                 </h1>
 
                 <p className="text-gray-500 mb-12">
-                    Upload your Excel or CSV file to start AI analysis
+                    Upload your Excel or CSV file to start
                 </p>
 
                 <div className="bg-white rounded-3xl p-10 border shadow-sm">

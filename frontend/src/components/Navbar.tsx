@@ -14,7 +14,7 @@ export default function Navbar() {
           </div>
 
           <h1 className="text-3xl font-bold text-slate-800">
-            AI Data Analytics
+            PromptSQL
           </h1>
 
         </div>

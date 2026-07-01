@@ -43,7 +43,7 @@ Join thousands of analysts using AI to make better decisions
 
 onClick={()=>navigate("/upload")}
 
-className="mt-12 bg-white text-blue-600 px-12 py-5 rounded-2xl font-semibold text-xl hover:scale-105 transition"
+className="mt-12 bg-white text-blue-600 px-12 py-5 rounded-2xl font-semibold text-xl hover:scale-105 transition "
 
 >
 
