@@ -1,6 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from app.database.connection import engine
+from app.services.table_manager import set_current_table
+
 import pandas as pd
 import os
 
@@ -107,12 +109,16 @@ async def upload_file(file: UploadFile = File(...)):
                 )
 
         # Store in MySQL
+        # Store in MySQL
         df.to_sql(
             name=table_name,
             con=engine,
             if_exists="replace",
             index=False
         )
+
+# Store the latest uploaded table name
+        set_current_table(table_name)
 
         return {
 
@@ -129,7 +135,6 @@ async def upload_file(file: UploadFile = File(...)):
             )
 
         }
-
     except SQLAlchemyError as e:
 
         raise HTTPException(

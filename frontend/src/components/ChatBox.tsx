@@ -30,7 +30,6 @@ export default function ChatBox() {
         "http://127.0.0.1:8000/ask",
         {
           question,
-          table_name: "ecommerce_sales_dataset" // Change this when using another uploaded table
         }
       );
 
@@ -42,7 +41,7 @@ export default function ChatBox() {
       }
 
       setSummary(data.summary || "");
-      setSql(data.sql || "");
+      setSql(data.generated_sql || "");
       setRecords(data.result || []);
 
     }

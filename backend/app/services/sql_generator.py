@@ -21,55 +21,172 @@ def generate_sql(question, table_name):
     prompt = f"""
 You are an expert MySQL SQL generator.
 
-You have ONLY ONE TABLE.
+You have EXACTLY ONE TABLE.
 
-Table Name:
+=========================
+TABLE NAME
+=========================
+
 `{table_name}`
 
-Schema:
+=========================
+SCHEMA
+=========================
+
 {schema}
 
-Rules:
+=========================
+YOUR TASK
+=========================
+
+First understand the user's intent.
+
+Possible intents include:
+
+• Retrieve records
+• Filter records
+• Count records
+• Sum values
+• Average values
+• Maximum value
+• Minimum value
+• Highest total
+• Lowest total
+• Top N
+• Bottom N
+• Group-wise aggregation
+• Sorting
+• Date filtering
+
+Then identify:
+
+• Output columns
+• Filter columns
+• Aggregate column
+• Grouping column
+• Sorting column
+
+ONLY from the schema above.
+
+Never invent anything.
+
+=========================
+RULES
+=========================
 
 1. Generate ONLY ONE valid MySQL SELECT query.
 
-2. NEVER generate INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE or REPLACE.
+2. NEVER generate:
+INSERT
+UPDATE
+DELETE
+DROP
+ALTER
+CREATE
+TRUNCATE
+REPLACE
 
 3. Use ONLY the table name provided.
 
 4. Use ONLY the column names provided.
 
-5. NEVER invent columns.
+5. NEVER invent column names.
 
 6. NEVER rename columns.
 
-7. If a column contains spaces or special characters,
-   ALWAYS wrap it in backticks.
+7. Preserve column names EXACTLY as they appear.
+
+8. If a column contains spaces,
+always wrap it with backticks.
 
 Example:
+
 `Employee Name`
+
 `Product Category`
+
 `Total Sales`
 
-8. If aggregation is needed, use the exact column names.
+9. Never replace spaces with underscores.
+
+Wrong:
+
+Total_Sales
+
+Correct:
+
+`Total Sales`
+
+10. Never convert column names to lowercase.
+
+11. If the question asks:
+
+highest
+
+lowest
+
+top
+
+bottom
+
+maximum
+
+minimum
+
+largest
+
+smallest
+
+then generate the proper SQL using:
+
+ORDER BY
+
+LIMIT
+
+GROUP BY
+
+SUM
+
+AVG
+
+COUNT
+
+MAX
+
+MIN
+
+whichever is appropriate.
+
+12. If aggregation is required,
+generate GROUP BY correctly.
+
+13. If sorting is required,
+generate ORDER BY correctly.
+
+14. If a numeric column is stored as TEXT,
+cast it before aggregation.
 
 Example:
-SUM(`Total Sales`)
 
-9. If sorting is needed:
+SUM(
+CAST(`Total Sales` AS DECIMAL(18,2))
+)
 
-ORDER BY `Total Sales` DESC
+15. If the question cannot be answered using the schema,
 
-10. If the question cannot be answered using the schema,
-return ONLY:
+return ONLY
 
 INVALID_QUERY
 
-11. Return ONLY SQL.
+16. Return ONLY SQL.
+
 Do NOT explain.
+
 Do NOT use markdown.
 
-User Question:
+=========================
+QUESTION
+=========================
 
 {question}
 """
@@ -83,7 +200,7 @@ User Question:
             {
                 "role": "system",
                 "content":
-                "You convert natural language into MySQL."
+                "You are an expert MySQL query generator. Never invent tables or columns."
             },
 
             {
@@ -98,10 +215,9 @@ User Question:
     sql = response.choices[0].message.content.strip()
 
     sql = (
-        sql
-        .replace("```sql", "")
-        .replace("```", "")
-        .strip()
+        sql.replace("```sql", "")
+           .replace("```", "")
+           .strip()
     )
 
     if sql == "INVALID_QUERY":
@@ -114,7 +230,7 @@ User Question:
             "Only SELECT queries are allowed."
         )
 
-    print("\nGenerated SQL")
+    print("\nGenerated SQL:")
     print(sql)
     print()
 
