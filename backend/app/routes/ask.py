@@ -7,6 +7,7 @@ from app.services.sql_validator import validate_sql
 from app.services.sql_regenerator import regenerate_sql
 from app.services.sql_executor import execute_sql
 from app.services.summary_generator import generate_summary
+from app.services.question_classifier import classify_question
 
 router = APIRouter()
 
@@ -35,8 +36,12 @@ def ask_question(payload: AskRequest):
                 "error": "Please upload a dataset first."
             }
 
-        print(f"\nCurrent Table : {table_name}")
-        print(f"Question      : {payload.question}")
+        question_type = classify_question(
+            payload.question
+        )
+
+        print("Current Table:", table_name)
+        print("Question Type:", question_type)
 
         # -----------------------------------------
         # Step 2 : Generate SQL
@@ -95,10 +100,25 @@ def ask_question(payload: AskRequest):
         # Step 5 : Generate Summary
         # -----------------------------------------
 
-        summary = generate_summary(
-            payload.question,
-            records
-        )
+        if question_type == "retrieval":
+
+            summary = (
+                f"Found {len(records)} matching records."
+            )
+
+        elif question_type == "analytical":
+
+            summary = generate_summary(
+                payload.question,
+                records
+            )
+
+        else:
+
+            summary = generate_summary(
+                payload.question,
+                records
+            )
 
         # -----------------------------------------
         # Step 6 : Return Response
