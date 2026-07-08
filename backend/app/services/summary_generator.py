@@ -13,35 +13,60 @@ MAX_RECORDS_FOR_SUMMARY = 20
 
 
 def generate_summary(question, records):
+    """
+    Generates a natural language summary for row-based query results.
+
+    Aggregate queries (COUNT, SUM, AVG, MIN, MAX)
+    are handled separately by aggregate_summary.py.
+    """
 
     if not records:
         return "No matching records found."
 
-    # Send only a sample to avoid token limits
     sample_records = records[:MAX_RECORDS_FOR_SUMMARY]
 
     prompt = f"""
-You are a professional data analyst.
+You are an expert data analyst.
 
-The SQL query has already been executed.
+A SQL query has already been executed.
 
-Your job is ONLY to explain the query result.
-
-Question:
+User Question:
 {question}
 
-Query Result:
+Returned Records:
 {json.dumps(sample_records, indent=2, default=str)}
 
-Rules:
+Instructions:
 
-1. Answer ONLY using the query result.
-2. Never invent values.
-3. Never mention SQL, databases, JSON or Python.
-4. If there is one record, answer naturally.
-5. If there are multiple records, summarize them clearly.
-6. Keep the answer under 100 words.
-7. If values are IDs or names, include them.
+1. Answer ONLY using the returned records.
+
+2. Never invent facts.
+
+3. Never assume there are more records than shown.
+
+4. If the records contain employee details,
+summarize them naturally.
+
+5. If there are multiple rows,
+mention the total number of matching records using this number:
+
+Total Matching Records = {len(records)}
+
+6. Mention important values whenever appropriate.
+
+7. Keep the answer concise (2-5 sentences).
+
+8. Do NOT say things like:
+   - "Based on the sample..."
+   - "The provided data..."
+   - "I think..."
+   - "It appears..."
+
+9. If only one record is returned,
+describe that record clearly.
+
+10. If multiple records are returned,
+briefly summarize them and mention the total count.
 """
 
     response = client.chat.completions.create(
@@ -49,14 +74,18 @@ Rules:
         model="llama-3.3-70b-versatile",
 
         messages=[
+
             {
                 "role": "system",
-                "content": "You explain SQL query results."
+                "content":
+                "You summarize SQL query results accurately without inventing information."
             },
+
             {
                 "role": "user",
                 "content": prompt
             }
+
         ]
 
     )

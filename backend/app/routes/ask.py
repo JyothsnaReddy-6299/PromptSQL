@@ -6,8 +6,10 @@ from app.services.sql_generator import generate_sql
 from app.services.sql_validator import validate_sql
 from app.services.sql_regenerator import regenerate_sql
 from app.services.sql_executor import execute_sql
+
+from app.services.result_interpreter import interpret_result
+from app.services.aggregate_summary import generate_aggregate_summary
 from app.services.summary_generator import generate_summary
-from app.services.question_classifier import classify_question
 
 router = APIRouter()
 
@@ -25,7 +27,7 @@ def ask_question(payload: AskRequest):
     try:
 
         # -----------------------------------------
-        # Step 1 : Get current uploaded table
+        # Get current uploaded table
         # -----------------------------------------
 
         table_name = get_current_table()
@@ -36,15 +38,12 @@ def ask_question(payload: AskRequest):
                 "error": "Please upload a dataset first."
             }
 
-        question_type = classify_question(
-            payload.question
-        )
-
-        print("Current Table:", table_name)
-        print("Question Type:", question_type)
+        print("\n==============================")
+        print("Current Table :", table_name)
+        print("Question      :", payload.question)
 
         # -----------------------------------------
-        # Step 2 : Generate SQL
+        # Generate SQL
         # -----------------------------------------
 
         sql_query = generate_sql(
@@ -52,83 +51,98 @@ def ask_question(payload: AskRequest):
             table_name
         )
 
-        print("\nGenerated SQL:")
+        print("\nGenerated SQL")
         print(sql_query)
 
         # -----------------------------------------
-        # Step 3 : Validate SQL
+        # Validate SQL
         # -----------------------------------------
 
-        for attempt in range(MAX_RETRIES):
+        for _ in range(MAX_RETRIES):
 
-            is_valid, message = validate_sql(
+            valid, message = validate_sql(
                 sql_query,
                 table_name
             )
 
-            if is_valid:
+            if valid:
                 break
 
-            print(f"\nValidation Failed (Attempt {attempt + 1})")
+            print("\nValidation Failed")
             print(message)
 
             sql_query = regenerate_sql(
-                question=payload.question,
-                table_name=table_name,
-                previous_sql=sql_query,
-                error_message=message
+                payload.question,
+                table_name,
+                sql_query,
+                message
             )
 
-            print("\nRegenerated SQL:")
+            print("\nRegenerated SQL")
             print(sql_query)
 
         else:
+
             return {
                 "success": False,
                 "error": message
             }
 
         # -----------------------------------------
-        # Step 4 : Execute SQL
+        # Execute SQL
         # -----------------------------------------
 
         records = execute_sql(sql_query)
 
-        print(f"\nRecords Retrieved : {len(records)}")
+        print("\nReturned Records :", len(records))
+
+        if len(records) > 0:
+            print(records[:3])
 
         # -----------------------------------------
-        # Step 5 : Generate Summary
+        # Decide summary type
         # -----------------------------------------
 
-        if question_type == "retrieval":
+        result_type = interpret_result(
+            sql_query,
+            records
+        )
 
-            summary = (
-                f"Found {len(records)} matching records."
-            )
+        print("\nResult Type :", result_type)
 
-        elif question_type == "analytical":
+        # -----------------------------------------
+        # Generate Summary
+        # -----------------------------------------
 
-            summary = generate_summary(
+        if result_type in ["AGGREGATE", "GROUP_AGGREGATE"]:
+
+            print("Using Aggregate Summary")
+
+            summary = generate_aggregate_summary(
                 payload.question,
+                sql_query,
                 records
             )
 
         else:
 
+            print("Using LLM Summary")
+
             summary = generate_summary(
                 payload.question,
                 records
             )
 
+        print("\nSummary")
+        print(summary)
+
         # -----------------------------------------
-        # Step 6 : Return Response
+        # Response
         # -----------------------------------------
 
         return {
 
             "success": True,
-
-            "table_name": table_name,
 
             "summary": summary,
 
@@ -142,7 +156,7 @@ def ask_question(payload: AskRequest):
 
     except Exception as e:
 
-        print("\nERROR:")
+        print("\nException")
         print(str(e))
 
         return {

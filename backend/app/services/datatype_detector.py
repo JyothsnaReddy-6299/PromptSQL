@@ -1,55 +1,83 @@
 import pandas as pd
-from sqlalchemy import Integer, Float, DateTime, Text
+import re
 
 
-def detect_mysql_types(df: pd.DataFrame):
+NUMERIC_THRESHOLD = 0.90
+DATE_THRESHOLD = 0.90
+
+
+def is_numeric_series(series: pd.Series) -> bool:
     """
-    Automatically detects appropriate MySQL column types
-    for any uploaded dataframe.
+    Returns True if most values in the column are numeric.
+    Handles:
+    92,368
+    $45,000
+    ₹1,75,391
+    24%
     """
 
-    dtype_mapping = {}
+    s = (
+        series.astype(str)
+        .str.strip()
+        .str.replace(",", "", regex=False)
+        .str.replace("$", "", regex=False)
+        .str.replace("₹", "", regex=False)
+        .str.replace("%", "", regex=False)
+    )
+
+    numeric = pd.to_numeric(
+        s,
+        errors="coerce"
+    )
+
+    ratio = numeric.notna().mean()
+
+    return ratio >= NUMERIC_THRESHOLD
+
+
+def is_date_series(series: pd.Series) -> bool:
+    """
+    Returns True if most values are valid dates.
+    """
+
+    dates = pd.to_datetime(
+        series,
+        errors="coerce",
+
+    )
+
+    ratio = dates.notna().mean()
+
+    return ratio >= DATE_THRESHOLD
+
+
+def detect_column_types(df: pd.DataFrame):
+    """
+    Detects every column's datatype.
+
+    Returns:
+
+    {
+        "Employee ID":"text",
+        "Annual Salary":"numeric",
+        "Bonus %":"numeric",
+        "Hire Date":"date"
+    }
+    """
+
+    detected = {}
 
     for column in df.columns:
 
-        # Remove commas from numeric values
-        cleaned = (
-            df[column]
-            .astype(str)
-            .str.replace(",", "", regex=False)
-        )
+        series = df[column]
 
-        # Try integer
-        try:
-            numeric = pd.to_numeric(cleaned)
+        if is_numeric_series(series):
+            detected[column] = "numeric"
 
-            # Integer column
-            if (numeric.dropna() % 1 == 0).all():
-                dtype_mapping[column] = Integer()
-            else:
-                dtype_mapping[column] = Float()
+        elif is_date_series(series):
+            detected[column] = "date"
 
-            continue
+        else:
+            detected[column] = "text"
 
-        except Exception:
-            pass
-
-        # Try datetime
-        try:
-
-            parsed = pd.to_datetime(
-                df[column],
-                errors="raise"
-            )
-
-            dtype_mapping[column] = DateTime()
-
-            continue
-
-        except Exception:
-            pass
-
-        # Default text
-        dtype_mapping[column] = Text()
-
-    return dtype_mapping
+    return detected

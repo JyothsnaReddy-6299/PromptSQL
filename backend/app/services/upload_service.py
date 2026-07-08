@@ -1,84 +1,121 @@
 import os
 import pandas as pd
 
-from sqlalchemy import inspect
 from app.database.connection import engine
-from app.services.datatype_detector import detect_mysql_types
+from app.services.datatype_detector import detect_column_types
+from app.services.data_cleaner import clean_dataframe
+from app.services.table_manager import set_current_table
 
 
-UPLOAD_FOLDER = "uploads"
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-
-def clean_table_name(filename):
+def clean_table_name(filename: str):
     """
-    Clean only the table name.
-    Column names are preserved exactly.
+    Creates a valid MySQL table name.
+    Only the table name is cleaned.
+    Column names remain EXACTLY as uploaded.
     """
 
-    table_name = os.path.splitext(filename)[0]
+    table_name = filename.rsplit(".", 1)[0]
 
     table_name = (
         table_name
         .strip()
         .replace(" ", "_")
         .replace("-", "_")
+        .replace("/", "_")
+        .lower()
     )
 
     return table_name
 
 
-def upload_dataset(upload_file):
+def load_dataset(filepath: str):
 
-    filename = upload_file.filename
+    if filepath.endswith(".csv"):
+        return pd.read_csv(filepath)
 
-    filepath = os.path.join(
-        UPLOAD_FOLDER,
-        filename
-    )
-
-    with open(filepath, "wb") as f:
-        f.write(upload_file.file.read())
-
-    # Read file
-    if filename.endswith(".csv"):
-        df = pd.read_csv(filepath)
+    elif filepath.endswith((".xlsx", ".xls")):
+        return pd.read_excel(filepath)
 
     else:
-        df = pd.read_excel(filepath)
+        raise Exception("Unsupported file type.")
 
-    # Remove only leading/trailing spaces
-    df.columns = [
-        str(col).strip()
-        for col in df.columns
-    ]
 
-    # Detect MySQL data types
-    dtype_mapping = detect_mysql_types(df)
+def upload_dataset(filepath: str, filename: str):
+    """
+    Complete upload pipeline.
+    """
+
+    # ------------------------
+    # Read dataset
+    # ------------------------
+
+    df = load_dataset(filepath)
+
+    # ------------------------
+    # Preserve ORIGINAL column names
+    # ------------------------
+
+    df.columns = df.columns.str.strip()
+
+    # ------------------------
+    # Detect datatypes
+    # ------------------------
+
+    detected_types = detect_column_types(df)
+
+    print("\nDetected Types")
+    print(detected_types)
+
+    # ------------------------
+    # Clean data
+    # ------------------------
+
+    cleaned_df = clean_dataframe(
+        df,
+        detected_types
+    )
+
+    # ------------------------
+    # Table name
+    # ------------------------
 
     table_name = clean_table_name(filename)
 
-    inspector = inspect(engine)
+    # ------------------------
+    # Store in MySQL
+    # ------------------------
 
-    if table_name in inspector.get_table_names():
-
-        with engine.begin() as conn:
-            conn.exec_driver_sql(
-                f"DROP TABLE `{table_name}`"
-            )
-
-    df.to_sql(
-        table_name,
-        engine,
+    cleaned_df.to_sql(
+        name=table_name,
+        con=engine,
         if_exists="replace",
-        index=False,
-        dtype=dtype_mapping
+        index=False
     )
 
+    # ------------------------
+    # Save current table
+    # ------------------------
+
+    set_current_table(table_name)
+
+    # ------------------------
+    # Statistics
+    # ------------------------
+
     return {
+
+        "filename": filename,
+
         "table_name": table_name,
-        "rows": len(df),
-        "columns": len(df.columns),
-        "column_names": list(df.columns)
+
+        "rows": len(cleaned_df),
+
+        "columns": len(cleaned_df.columns),
+
+        "missing_values": int(
+            cleaned_df.isna().sum().sum()
+        ),
+
+        "detected_types": detected_types
+
     }
