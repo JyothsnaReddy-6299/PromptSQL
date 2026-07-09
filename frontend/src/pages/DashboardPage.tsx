@@ -1,56 +1,160 @@
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../components/DashboardSidebar";
 import DashboardNavbar from "../components/DashboardNavbar";
 import KPICards from "../components/KPICards";
-import ChartsSection from "../components/ChartsSection";
-import AIInsights from "../components/AIInsights";
 import ChatBox from "../components/ChatBox";
-import { useLocation } from "react-router-dom";
+import TablePreview from "../components/TablePreview";
+import ReportsManager from "../components/ReportsManager";
+import { getPreview } from "../services/api";
 
 export default function DashboardPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
 
-    const location = useLocation();
+  const [activeSection, setActiveSection] = useState("overview");
+  const [previewColumns, setPreviewColumns] = useState<string[]>([]);
+  const [previewRecords, setPreviewRecords] = useState<Record<string, any>[]>([]);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    const data =
-        location.state ||
-        JSON.parse(sessionStorage.getItem("dataset") || "{}");
+  const datasetMeta =
+    location.state ||
+    JSON.parse(sessionStorage.getItem("dataset") || "{}");
 
-    const fileName = data?.filename || "No file uploaded";
-    const rows = data?.rows || 0;
-    const columns = data?.columns || 0;
-    const missing = data?.missing_values || 0;
-    const size = data?.size || "N/A";
+  const fileName = datasetMeta?.filename || "";
+  const rows = datasetMeta?.rows || 0;
+  const columnsCount = datasetMeta?.columns || 0;
+  const missing = datasetMeta?.missing_values || 0;
+  const detectedTypes = datasetMeta?.detected_types || {};
 
-    return (
-        <div className="flex min-h-screen bg-slate-50">
+  const size = datasetMeta?.size || `${((rows * columnsCount * 12) / 1024).toFixed(1)} KB`;
 
-            <DashboardSidebar />
+  useEffect(() => {
+    if (!fileName) {
+      navigate("/upload");
+      return;
+    }
 
-            <div className="flex-1 p-6">
+    const fetchDatasetPreview = async () => {
+      try {
+        setLoadingPreview(true);
+        const data = await getPreview();
+        if (data.success) {
+          setPreviewColumns(data.columns || []);
+          setPreviewRecords(data.records || []);
+        } else {
+          console.error("Preview load failure:", data.error);
+        }
+      } catch (e) {
+        console.error("Failed fetching preview:", e);
+      } finally {
+        setLoadingPreview(false);
+      }
+    };
 
-                <DashboardNavbar fileName={fileName} />
+    fetchDatasetPreview();
+  }, [fileName, refreshTrigger, navigate]);
 
-                <div className="mt-6">
-                    <KPICards
-                        rows={rows}
-                        columns={columns}
-                        missing={missing}
-                        size={size}
-                    />
-                </div>
+  useEffect(() => {
+    if (activeSection === "reports") return;
 
-                <div className="mt-8">
-                    <ChatBox />
-                </div>
+    const sections = ["overview", "preview", "chat"];
+    
+    const observerOptions = {
+      root: null,
+      rootMargin: "-15% 0px -75% 0px",
+      threshold: 0
+    };
 
-                <div className="mt-8">
-                    <ChartsSection />
-                </div>
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          setActiveSection(entry.target.id);
+        }
+      });
+    };
 
-                <div className="mt-8">
-                    <AIInsights />
-                </div>
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
 
+    sections.forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) observer.observe(element);
+    });
+
+    return () => {
+      sections.forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) observer.unobserve(element);
+      });
+    };
+  }, [previewRecords, activeSection]);
+
+  const handleSectionClick = (sectionId: string) => {
+    setActiveSection(sectionId);
+    if (sectionId !== "reports") {
+      setTimeout(() => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+          element.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+          });
+        }
+      }, 50);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-warmgray-50 text-warmgray-900">
+      {/* Left Sidebar */}
+      <DashboardSidebar 
+        activeSection={activeSection} 
+        onSectionClick={handleSectionClick} 
+      />
+
+      {/* Main Content Area - Reduced Padding & Spacing */}
+      <div className="flex-1 p-4 md:p-6 space-y-5 overflow-y-auto max-h-screen">
+        {/* Navbar */}
+        <DashboardNavbar 
+          fileName={fileName} 
+          onRefresh={() => setRefreshTrigger(p => p + 1)}
+          isRefreshing={loadingPreview}
+        />
+
+        {activeSection === "reports" ? (
+          <div id="reports" className="scroll-mt-24">
+            <ReportsManager />
+          </div>
+        ) : (
+          <>
+            {/* Overview Section */}
+            <div id="overview" className="scroll-mt-24 space-y-4">
+              <KPICards
+                rows={rows}
+                columns={columnsCount}
+                missing={missing}
+                size={size}
+                detectedTypes={detectedTypes}
+              />
             </div>
-        </div>
-    );
+
+            {/* Raw Dataset Preview Table */}
+            <div id="preview" className="scroll-mt-24">
+              <TablePreview
+                columns={previewColumns}
+                records={previewRecords}
+                loading={loadingPreview}
+              />
+            </div>
+
+            {/* Chat box assistant */}
+            <div id="chat" className="scroll-mt-24">
+              <ChatBox />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }

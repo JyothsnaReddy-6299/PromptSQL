@@ -1,0 +1,11 @@
+reportlab
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+pymysql
+pandas
+python-dotenv
+openpyxl
+python-multipart
+cryptography

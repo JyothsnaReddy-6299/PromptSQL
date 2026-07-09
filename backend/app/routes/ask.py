@@ -137,6 +137,30 @@ def ask_question(payload: AskRequest):
         print(summary)
 
         # -----------------------------------------
+        # Save to Query History
+        # -----------------------------------------
+        try:
+            from app.database.connection import SessionLocal
+            from app.models.history import QueryHistory
+
+            import json
+            db_session = SessionLocal()
+            db_history = QueryHistory(
+                user_id="default_user",
+                table_name=table_name,
+                question=payload.question,
+                generated_sql=sql_query,
+                summary=summary,
+                result_count=len(records),
+                result_json=json.dumps(records)
+            )
+            db_session.add(db_history)
+            db_session.commit()
+            db_session.close()
+        except Exception as history_err:
+            print("\nFailed logging query history:", str(history_err))
+
+        # -----------------------------------------
         # Response
         # -----------------------------------------
 

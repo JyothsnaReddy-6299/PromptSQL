@@ -1,0 +1,15 @@
+{
+  "name": "sql-project-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install --prefix frontend",
+    "frontend": "npm run dev --prefix frontend",
+    "backend": "cd backend && ..\\venv\\Scripts\\python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "build": "npm run build --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
