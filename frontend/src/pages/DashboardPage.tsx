@@ -6,6 +6,7 @@ import KPICards from "../components/KPICards";
 import ChatBox from "../components/ChatBox";
 import TablePreview from "../components/TablePreview";
 import ReportsManager from "../components/ReportsManager";
+import AuditManager from "../components/AuditManager";
 import { getPreview } from "../services/api";
 
 export default function DashboardPage() {
@@ -57,7 +58,17 @@ export default function DashboardPage() {
   }, [fileName, refreshTrigger, navigate]);
 
   useEffect(() => {
-    if (activeSection === "reports") return;
+    const handleModified = () => {
+      setRefreshTrigger((p) => p + 1);
+    };
+    window.addEventListener("dataset-modified", handleModified);
+    return () => {
+      window.removeEventListener("dataset-modified", handleModified);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "reports" || activeSection === "audit") return;
 
     const sections = ["overview", "preview", "chat"];
     
@@ -92,7 +103,7 @@ export default function DashboardPage() {
 
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);
-    if (sectionId !== "reports") {
+    if (sectionId !== "reports" && sectionId !== "audit") {
       setTimeout(() => {
         const element = document.getElementById(sectionId);
         if (element) {
@@ -125,6 +136,10 @@ export default function DashboardPage() {
         {activeSection === "reports" ? (
           <div id="reports" className="scroll-mt-24">
             <ReportsManager />
+          </div>
+        ) : activeSection === "audit" ? (
+          <div id="audit" className="scroll-mt-24">
+            <AuditManager />
           </div>
         ) : (
           <>

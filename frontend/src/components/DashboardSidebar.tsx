@@ -6,7 +6,8 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  FileText
+  FileText,
+  ClipboardList
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -20,7 +21,8 @@ const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
   { id: "preview", name: "Data Table Preview", icon: Database },
   { id: "chat", name: "Ask AI Assistant", icon: MessageSquare },
-  { id: "reports", name: "Saved Reports", icon: FileText }
+  { id: "reports", name: "Saved Reports", icon: FileText },
+  { id: "audit", name: "Audit Logs", icon: ClipboardList }
 ];
 
 export default function DashboardSidebar({

@@ -188,3 +188,39 @@ export async function downloadReportFile(reportId: number, format: "pdf" | "exce
   const extension = format === "excel" ? "xlsx" : format;
   await triggerBlobDownload(response, `${title.replace(/\s+/g, "_")}.${extension}`);
 }
+
+// -------------------------------------------------------------
+// DML & DDL MODIFICATIONS API
+// -------------------------------------------------------------
+export async function askModification(question: string) {
+  const response = await fetch(`${API_URL}/api/modification/ask`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ question }),
+  });
+  if (!response.ok) {
+    const detail = await response.json();
+    throw new Error(detail?.detail || "SQL Generation for modification failed");
+  }
+  return response.json();
+}
+
+export async function executeModification(sql: string, intent: string, tableName: string) {
+  const response = await fetch(`${API_URL}/api/modification/execute`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ sql, intent, table_name: tableName }),
+  });
+  if (!response.ok) throw new Error("Failed executing database modification query");
+  return response.json();
+}
+
+export async function getAuditLogs() {
+  const response = await fetch(`${API_URL}/api/audit`);
+  if (!response.ok) throw new Error("Failed fetching audit logs");
+  return response.json();
+}

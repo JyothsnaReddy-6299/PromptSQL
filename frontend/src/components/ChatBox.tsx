@@ -15,7 +15,9 @@ import {
   History,
   Trash2,
   FolderHeart,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Play
 } from "lucide-react";
 import axios from "axios";
 import { 
@@ -25,7 +27,9 @@ import {
   createReport,
   downloadActivePDF,
   downloadActiveExcel,
-  downloadActiveCSV
+  downloadActiveCSV,
+  askModification,
+  executeModification
 } from "../services/api";
 
 interface Message {
@@ -38,6 +42,16 @@ interface Message {
   activeTab?: "table" | "chart";
   chartType?: "bar" | "line";
   reportSaved?: boolean;
+
+  // Modification confirmation workflow properties
+  intent?: string;
+  warning?: string;
+  requires_confirmation?: boolean;
+  table_name?: string;
+  is_executing?: boolean;
+  rows_affected?: number;
+  execution_time_ms?: number;
+  canceled?: boolean;
 }
 
 export default function ChatBox() {
@@ -108,6 +122,30 @@ export default function ChatBox() {
     ]);
 
     try {
+      // 1. Intercept user question by calling intent detector and preview generator
+      const modCheck = await askModification(currentQuestion);
+
+      if (modCheck.success && modCheck.requires_confirmation) {
+        // This is a database modification (DML or DDL)
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: modCheck.impact_explanation,
+            question: currentQuestion,
+            sql: modCheck.sql,
+            intent: modCheck.intent,
+            warning: modCheck.warning,
+            requires_confirmation: true,
+            table_name: modCheck.table_name,
+            records: []
+          }
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      // 2. If it is standard SELECT, proceed through the read-only ask router
       const response = await axios.post("/ask", {
         question: currentQuestion
       });
@@ -131,7 +169,7 @@ export default function ChatBox() {
         {
           sender: "ai",
           text: data.summary || "Here are the retrieved records.",
-          question: currentQuestion, // Store current question in AI bubble message object for exporting
+          question: currentQuestion,
           sql: data.generated_sql || "",
           records: data.result || [],
           activeTab: "table",
@@ -139,18 +177,17 @@ export default function ChatBox() {
         }
       ]);
 
-      // Reload history logs to display new query
       if (showHistory) {
         loadHistoryLogs();
       }
 
     } catch (err: any) {
-      const errMsg = err.response?.data?.error || err.message || "Server Error";
+      const errMsg = err.message || "Server Error";
       setMessages((prev) => [
         ...prev,
         {
           sender: "ai",
-          text: "I failed to connect to the analytics server.",
+          text: "I failed to process that request.",
           error: errMsg
         }
       ]);
@@ -159,7 +196,54 @@ export default function ChatBox() {
     }
   };
 
-  // Reopen query history offline (without hitting database uvicorn executor again)
+  const handleConfirmModification = async (idx: number, msg: Message) => {
+    if (!msg.sql || !msg.intent || !msg.table_name) return;
+
+    try {
+      // Set executing loading state
+      const updating = [...messages];
+      updating[idx].is_executing = true;
+      setMessages(updating);
+
+      // Execute transactionally
+      const result = await executeModification(msg.sql, msg.intent, msg.table_name);
+
+      const finalized = [...messages];
+      finalized[idx].is_executing = false;
+      finalized[idx].requires_confirmation = false;
+
+      if (result.success) {
+        finalized[idx].text = result.message; // LLM generated confirmation e.g. "18 records updated."
+        finalized[idx].rows_affected = result.rows_affected;
+        finalized[idx].execution_time_ms = result.execution_time_ms;
+        
+        // Dispatch window event so explorer table fetches latest mysql table rows immediately!
+        window.dispatchEvent(new Event("dataset-modified"));
+      } else {
+        finalized[idx].text = "Database execution failed. The transaction was automatically rolled back.";
+        finalized[idx].error = result.error || "Transaction rolled back.";
+      }
+      
+      setMessages(finalized);
+    } catch (err: any) {
+      const finalized = [...messages];
+      finalized[idx].is_executing = false;
+      finalized[idx].requires_confirmation = false;
+      finalized[idx].text = "Failed connecting to database executor.";
+      finalized[idx].error = err.message;
+      setMessages(finalized);
+    }
+  };
+
+  const handleCancelModification = (idx: number) => {
+    const updated = [...messages];
+    updated[idx].requires_confirmation = false;
+    updated[idx].canceled = true;
+    updated[idx].text = "Database modification operation was canceled by the user.";
+    setMessages(updated);
+  };
+
+  // Reopen query history offline
   const handleReopenHistory = (item: any) => {
     let records: any[] = [];
     try {
@@ -206,7 +290,6 @@ export default function ChatBox() {
     }
   };
 
-  // Export action triggers
   const handleExportPDF = async (msg: Message) => {
     try {
       await downloadActivePDF(msg.question || "Query", msg.text, msg.sql || "", msg.records || []);
@@ -273,7 +356,6 @@ export default function ChatBox() {
           </div>
         </div>
 
-        {/* History Toggle button */}
         <button
           onClick={() => setShowHistory(!showHistory)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold cursor-pointer transition ${
@@ -287,16 +369,13 @@ export default function ChatBox() {
         </button>
       </div>
 
-      {/* Main Section dividing message panel and history drawer */}
       <div className="flex-1 flex gap-4 overflow-hidden mb-3">
-        {/* Messages Scroll Area */}
         <div className="flex-1 overflow-y-auto pr-1 space-y-4">
           {messages.map((msg, idx) => (
             <div
               key={idx}
               className={`flex gap-3 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
-              {/* AI Avatar */}
               {msg.sender === "ai" && (
                 <div className="w-8 h-8 bg-gradient-to-br from-terracotta-500 to-terracotta-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-terracotta-500/10 shrink-0">
                   <Brain size={16} />
@@ -304,31 +383,49 @@ export default function ChatBox() {
               )}
 
               <div className={`max-w-[85%] space-y-2.5 ${msg.sender === "user" ? "text-right" : "text-left"}`}>
-                {/* Message Bubble */}
+                {/* Regular Message Text */}
                 <div
                   className={`p-4 rounded-2xl text-xs leading-relaxed ${
                     msg.sender === "user"
                       ? "bg-warmgray-950 text-white rounded-tr-sm"
+                      : msg.canceled
+                      ? "bg-warmgray-50 text-warmgray-400 border border-warmgray-150 border-dashed"
                       : "bg-warmgray-50/80 text-warmgray-850 rounded-tl-sm border border-warmgray-100/50"
                   }`}
                 >
                   <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
 
-                  {/* Error Box */}
+                  {/* Warning tags */}
+                  {msg.warning && msg.requires_confirmation && (
+                    <div className="mt-2.5 bg-terracotta-50 border border-terracotta-200 text-terracotta-800 rounded-xl p-3 flex gap-2 items-start font-semibold text-[10.5px]">
+                      <AlertTriangle size={14} className="text-terracotta-500 shrink-0 mt-0.5" />
+                      <span>{msg.warning}</span>
+                    </div>
+                  )}
+
+                  {/* Diagnostic Error Box */}
                   {msg.error && (
                     <div className="mt-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl p-3 font-mono text-[10px] text-left">
                       <span className="font-bold block mb-0.5">Execution Failure:</span>
                       {msg.error}
                     </div>
                   )}
+
+                  {/* Success metrics */}
+                  {!msg.requires_confirmation && msg.rows_affected !== undefined && (
+                    <div className="mt-3 pt-2.5 border-t border-warmgray-200/50 flex gap-4 text-[9.5px] font-bold text-warmgray-400">
+                      <span>Rows affected: <strong className="text-warmgray-850">{msg.rows_affected}</strong></span>
+                      <span>Execution time: <strong className="text-warmgray-850">{msg.execution_time_ms} ms</strong></span>
+                    </div>
+                  )}
                 </div>
 
-                {/* SQL Display */}
-                {msg.sql && (
+                {/* SQL Code Block Preview */}
+                {msg.sql && !msg.canceled && (
                   <div className="bg-warmgray-950 rounded-xl border border-warmgray-900 overflow-hidden shadow-inner text-left font-mono text-[11px]">
                     <div className="bg-warmgray-900 px-3.5 py-1.5 border-b border-warmgray-950 flex justify-between items-center text-warmgray-400">
                       <span className="flex items-center gap-1 font-bold text-[9px] tracking-wide uppercase text-terracotta-400">
-                        <Database size={10} /> Generated Query
+                        <Database size={10} /> SQL Statement Preview
                       </span>
                       <button
                         onClick={() => handleCopy(msg.sql!)}
@@ -344,43 +441,76 @@ export default function ChatBox() {
                   </div>
                 )}
 
-                {/* Records Tables & Charts Tabs & NEW EXPORT ACTION BUTTONS */}
-                {msg.records && msg.records.length > 0 && (
+                {/* DML/DDL Confirmation Dialog Buttons */}
+                {msg.requires_confirmation && (
+                  <div className="bg-warmgray-50 border border-warmgray-200/60 rounded-xl p-3 flex flex-col gap-2.5 text-left border-l-4 border-l-terracotta-500 shadow-sm">
+                    <p className="text-[10px] font-bold text-warmgray-800">
+                      This operation modifies database data or structures. Explicit approval is required.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleConfirmModification(idx, msg)}
+                        disabled={msg.is_executing}
+                        className="bg-terracotta-500 hover:bg-terracotta-600 disabled:bg-terracotta-300 text-white px-3.5 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-sm shadow-terracotta-500/10"
+                      >
+                        {msg.is_executing ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Play size={10} className="fill-white" />
+                        )}
+                        <span>{msg.is_executing ? "Executing..." : "Confirm & Execute"}</span>
+                      </button>
+                      <button
+                        onClick={() => handleCancelModification(idx)}
+                        disabled={msg.is_executing}
+                        className="bg-white border border-warmgray-250 hover:bg-warmgray-50 text-warmgray-600 px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* SQL statements actions bar */}
+                {msg.sql && !msg.canceled && (
                   <div className="border border-warmgray-100/80 rounded-xl bg-white overflow-hidden shadow-sm text-left">
                     <div className="bg-warmgray-50 border-b border-warmgray-100 px-3 py-2 flex items-center justify-between flex-wrap gap-2">
                       <div className="flex gap-1.5">
-                        <button
-                          onClick={() => {
-                            const updated = [...messages];
-                            updated[idx].activeTab = "table";
-                            setMessages(updated);
-                          }}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
-                            msg.activeTab === "table"
-                              ? "bg-white text-warmgray-900 border border-warmgray-150 shadow-sm"
-                              : "text-warmgray-500 hover:text-warmgray-850"
-                          }`}
-                        >
-                          <Table size={10} className="text-terracotta-500" /> Table View
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            const updated = [...messages];
-                            updated[idx].activeTab = "chart";
-                            setMessages(updated);
-                          }}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
-                            msg.activeTab === "chart"
-                              ? "bg-white text-warmgray-900 border border-warmgray-150 shadow-sm"
-                              : "text-warmgray-500 hover:text-warmgray-850"
-                          }`}
-                        >
-                          <BarChart3 size={10} className="text-terracotta-500" /> Chart View
-                        </button>
+                        {msg.records && msg.records.length > 0 && (
+                          <>
+                            <button
+                              onClick={() => {
+                                const updated = [...messages];
+                                updated[idx].activeTab = "table";
+                                setMessages(updated);
+                              }}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
+                                msg.activeTab === "table"
+                                  ? "bg-white text-warmgray-900 border border-warmgray-150 shadow-sm"
+                                  : "text-warmgray-500 hover:text-warmgray-850"
+                              }`}
+                            >
+                              <Table size={10} className="text-terracotta-500" /> Table View
+                            </button>
+                            
+                            <button
+                              onClick={() => {
+                                const updated = [...messages];
+                                updated[idx].activeTab = "chart";
+                                setMessages(updated);
+                              }}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
+                                msg.activeTab === "chart"
+                                  ? "bg-white text-warmgray-900 border border-warmgray-150 shadow-sm"
+                                  : "text-warmgray-500 hover:text-warmgray-850"
+                              }`}
+                            >
+                              <BarChart3 size={10} className="text-terracotta-500" /> Chart View
+                            </button>
+                          </>
+                        )}
                       </div>
 
-                      {/* Export Actions & Save Report */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           onClick={() => handleExportPDF(msg)}
@@ -389,20 +519,24 @@ export default function ChatBox() {
                         >
                           <Download size={9} className="text-terracotta-500" /> PDF
                         </button>
-                        <button
-                          onClick={() => handleExportExcel(msg.records!)}
-                          className="flex items-center gap-1 text-warmgray-500 hover:text-warmgray-900 border border-warmgray-100 hover:bg-white px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
-                          title="Export Excel Worksheet"
-                        >
-                          <Download size={9} className="text-terracotta-500" /> Excel
-                        </button>
-                        <button
-                          onClick={() => handleExportCSV(msg.records!)}
-                          className="flex items-center gap-1 text-warmgray-500 hover:text-warmgray-900 border border-warmgray-100 hover:bg-white px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
-                          title="Export raw CSV Sheet"
-                        >
-                          <Download size={9} className="text-terracotta-500" /> CSV
-                        </button>
+                        {msg.records && msg.records.length > 0 && (
+                          <>
+                            <button
+                              onClick={() => handleExportExcel(msg.records!)}
+                              className="flex items-center gap-1 text-warmgray-500 hover:text-warmgray-900 border border-warmgray-100 hover:bg-white px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
+                              title="Export Excel"
+                            >
+                              <Download size={9} className="text-terracotta-500" /> Excel
+                            </button>
+                            <button
+                              onClick={() => handleExportCSV(msg.records!)}
+                              className="flex items-center gap-1 text-warmgray-500 hover:text-warmgray-900 border border-warmgray-100 hover:bg-white px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
+                              title="Export CSV"
+                            >
+                              <Download size={9} className="text-terracotta-500" /> CSV
+                            </button>
+                          </>
+                        )}
 
                         <button
                           onClick={() => {
@@ -423,9 +557,9 @@ export default function ChatBox() {
                       </div>
                     </div>
 
-                    {/* Inline Save Report Title input */}
+                    {/* Inline Save Report */}
                     {saveReportIdx === idx && (
-                      <div className="bg-warmgray-50 border-b border-warmgray-100 p-2.5 flex items-center justify-between gap-2 text-[10px] font-bold animate-fade-in">
+                      <div className="bg-warmgray-50 border-b border-warmgray-100 p-2.5 flex items-center justify-between gap-2 text-[10px] font-bold">
                         <input
                           type="text"
                           value={reportTitle}
@@ -456,11 +590,11 @@ export default function ChatBox() {
                       </div>
                     )}
 
-                    {msg.activeTab === "table" && (
+                    {msg.activeTab === "table" && msg.records && (
                       <InnerTable records={msg.records} />
                     )}
 
-                    {msg.activeTab === "chart" && (
+                    {msg.activeTab === "chart" && msg.records && (
                       <InnerChart records={msg.records} type={msg.chartType || "bar"} onChangeType={(type) => {
                         const updated = [...messages];
                         updated[idx].chartType = type;
@@ -494,7 +628,7 @@ export default function ChatBox() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Query History Log drawer sidepanel */}
+        {/* History sidebar drawer */}
         {showHistory && (
           <div className="w-60 border-l border-warmgray-100 pl-3 flex flex-col h-full shrink-0 overflow-hidden animate-fade-in">
             <div className="flex justify-between items-center pb-2 border-b border-warmgray-100 mb-2">
@@ -537,7 +671,6 @@ export default function ChatBox() {
                       <span>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
 
-                    {/* Delete item button */}
                     <button
                       onClick={(e) => handleDeleteHistory(e, item.id)}
                       className="absolute top-1 right-1 p-0.5 rounded hover:bg-red-50 text-warmgray-400 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition cursor-pointer"
@@ -674,7 +807,7 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
   );
 }
 
-// Inner SVG Chart Renderer Component (No library required) - Styled for Terracotta
+// Inner SVG Chart Renderer Component
 function InnerChart({ 
   records,
   type = "bar",
@@ -686,11 +819,9 @@ function InnerChart({
 }) {
   const keys = Object.keys(records[0] || {});
   
-  // Find numerical & categorical columns
   let valueKey = keys.find(k => typeof records[0][k] === "number");
   let labelKey = keys.find(k => k !== valueKey);
 
-  // Parser try
   if (!valueKey) {
     valueKey = keys.find(k => !isNaN(parseFloat(records[0][k])));
   }
@@ -707,7 +838,6 @@ function InnerChart({
     );
   }
 
-  // Prep chart arrays (limit to 10 for clean layout)
   const cleanRecords = records.slice(0, 10);
   const labels = cleanRecords.map(r => String(r[labelKey!] ?? "Unknown"));
   const values = cleanRecords.map(r => {
@@ -719,7 +849,6 @@ function InnerChart({
   const minValue = Math.min(...values, 0);
   const range = maxValue - minValue;
 
-  // SVG parameters
   const width = 500;
   const height = 180;
   const paddingLeft = 65;

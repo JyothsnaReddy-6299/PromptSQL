@@ -40,7 +40,7 @@ export default function Hero() {
             onClick={handleUploadClick}
             className="w-full sm:w-auto bg-gradient-to-r from-terracotta-500 via-terracotta-600 to-sand-400 px-8 py-3.5 rounded-xl text-white font-bold text-sm shadow-md shadow-terracotta-500/10 hover:scale-105 active:scale-98 transition duration-300 flex items-center justify-center gap-2.5 cursor-pointer"
           >
-            <span>Start Analyzing Free</span>
+            <span>Start Querying</span>
             <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
           </button>
 
