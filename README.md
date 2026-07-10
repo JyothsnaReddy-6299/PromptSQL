@@ -1,4 +1,4 @@
-# 🔮 PromptSQL: AI-Powered Dataset Analytics Platform
+# 🔮 PromptSQL: AI-Powered Dataset Assistant
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
@@ -8,7 +8,7 @@
 [![Groq Llama 3](https://img.shields.io/badge/Groq_Llama_3-f55a2a?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 
-PromptSQL is an advanced, enterprise-grade **Natural Language to SQL (NL-to-SQL) analytics platform** that bridges the gap between raw datasets and business insights. Upload any CSV or Excel file, and chat with your database directly using natural language. The system automatically creates a clean schema, translates your questions into optimized SQL, executes them safely, and renders beautiful SVG visualizations alongside AI-interpreted summaries.
+PromptSQL is an advanced, enterprise-grade **Natural Language to SQL (NL-to-SQL) analytics platform** that bridges the gap between raw datasets and business insights. Upload any CSV or Excel file, and chat with your database directly using natural language. The system automatically creates a clean schema, translates your questions into optimized SQL, executes them safely alongside AI-interpreted summaries.
 
 ---
 
@@ -20,7 +20,6 @@ PromptSQL is an advanced, enterprise-grade **Natural Language to SQL (NL-to-SQL)
 - Sanitizes table names, normalizes headers, and handles missing/null values seamlessly.
 
 ### 💬 2. Conversational NL-to-SQL Engine
-- Powered by high-speed **Llama-3 (Groq API)** inference.
 - Translates conversational questions (e.g., *"Show me the top 5 clients by revenue in 2025"*) into native SQL queries.
 - Dynamically injects context-specific schemas, constraints, and data formats into prompts.
 
@@ -35,7 +34,6 @@ PromptSQL is an advanced, enterprise-grade **Natural Language to SQL (NL-to-SQL)
 
 ### 📈 5. Zero-Dependency Responsive Visualizations
 - Auto-detects categorical/numerical variables inside returned results.
-- Generates gorgeous, light-weight, highly-responsive SVG charts (Bar & Line charts) natively without bulky external charting packages.
 - Dynamically aggregates, sorts, and limits categorical data to render clean, readable distributions.
 
 ### 📄 6. Multi-Format Exporters & Saved Reports
@@ -51,32 +49,6 @@ PromptSQL is an advanced, enterprise-grade **Natural Language to SQL (NL-to-SQL)
 ## 🏛️ System Architecture
 
 PromptSQL operates on a hybrid architecture combining a high-performance **FastAPI** backend with a modern **React 19 + TypeScript** frontend.
-
-```mermaid
-graph TD
-    A[Client UI / React] -->|1. Upload CSV/Excel| B(FastAPI Server)
-    B -->|2. Detect Schema & Clean| C[(MySQL DB)]
-    
-    A -->|3. Ask Question / Mod Request| B
-    B -->|4. Retrieve Schema Context| C
-    B -->|5. Schema & NL Request| D[Groq AI / Llama 3 Engine]
-    D -->|6. Drafted SQL Query| B
-    
-    B -->|7. Verify & Dry-run Query| E{SQL Validator}
-    E -->|Failed: Retries with error| D
-    E -->|Passed SELECT| F[SQL Executor]
-    E -->|Passed MODIFY| G[Impact Estimator]
-    
-    G -->|8. Dry-run Affected Rows count| C
-    G -->|9. Generate Warning| H[UI Confirmation Modal]
-    H -->|User Approves| F
-    
-    F -->|10. Execute Transaction| C
-    C -->|11. Raw Records| B
-    
-    B -->|12. Auto Chart & Summary Gen| I[Result Interpreter]
-    I -->|13. Final JSON Payload| A
-```
 
 ---
 
@@ -208,6 +180,3 @@ PromptSQL is stylized using a custom warm-gray aesthetic, tailored glassmorphism
 - **No external charts**: Tailored interactive canvas-less charts generated via raw React SVG elements, allowing instant loads and custom CSS styles.
 
 ---
-
-## 📄 License
-This project is licensed under the MIT License. Feel free to copy, modify, and build upon this platform.
