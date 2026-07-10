@@ -216,6 +216,7 @@ export default function ChatBox() {
         finalized[idx].text = result.message; // LLM generated confirmation e.g. "18 records updated."
         finalized[idx].rows_affected = result.rows_affected;
         finalized[idx].execution_time_ms = result.execution_time_ms;
+        finalized[idx].records = result.records || []; // Save modified/inserted records
         
         // Dispatch window event so explorer table fetches latest mysql table rows immediately!
         window.dispatchEvent(new Event("dataset-modified"));

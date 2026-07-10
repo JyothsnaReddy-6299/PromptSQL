@@ -17,22 +17,77 @@ client = Groq(api_key=api_key)
 def execute_modification(sql: str, table_name: str, intent: str) -> dict:
     """
     Executes a DML or DDL query inside a transaction, rolling back automatically
-    on exception, and returns rows affected and execution time.
+    on exception, and returns rows affected, execution time, and records affected.
     """
     start_time = time.time()
+    records = []
     
     try:
-        # engine.begin() automatically starts a transaction, commits on success, and rolls back on failure
+        # Pre-fetch records if it is a DELETE operation (to know what was deleted)
+        if intent == "DELETE":
+            try:
+                sql_lower = sql.lower()
+                where_idx = sql_lower.find("where")
+                if where_idx != -1:
+                    where_clause = sql[where_idx:]
+                    select_sql = f"SELECT * FROM `{table_name}` {where_clause}"
+                else:
+                    select_sql = f"SELECT * FROM `{table_name}`"
+                if select_sql.endswith(";"):
+                    select_sql = select_sql[:-1]
+                with engine.connect() as conn:
+                    res = conn.execute(text(select_sql))
+                    records = [dict(row._mapping) for row in res]
+            except Exception as select_err:
+                print("Failed pre-fetching deleted records:", select_err)
+
+        # Execute query transactionally
         with engine.begin() as connection:
             result = connection.execute(text(sql))
             rows_affected = result.rowcount
             
         elapsed_time_ms = (time.time() - start_time) * 1000
         
-        # Rowcount can be negative or None for certain operations/DDLs
         if rows_affected is None or rows_affected < 0:
             rows_affected = 0
             
+        # Post-fetch records for INSERT or UPDATE (to know what was changed)
+        if intent == "INSERT":
+            try:
+                from sqlalchemy import inspect
+                inspector = inspect(engine)
+                cols = [c["name"] for c in inspector.get_columns(table_name)]
+                pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
+                sort_col = pk_cols[0] if pk_cols else (cols[0] if cols else None)
+                
+                if sort_col:
+                    select_sql = f"SELECT * FROM `{table_name}` ORDER BY `{sort_col}` DESC LIMIT 1"
+                else:
+                    select_sql = f"SELECT * FROM `{table_name}` LIMIT 1"
+                    
+                with engine.connect() as conn:
+                    res = conn.execute(text(select_sql))
+                    records = [dict(row._mapping) for row in res]
+            except Exception as insert_err:
+                print("Failed post-fetching inserted records:", insert_err)
+                
+        elif intent == "UPDATE":
+            try:
+                sql_lower = sql.lower()
+                where_idx = sql_lower.find("where")
+                if where_idx != -1:
+                    where_clause = sql[where_idx:]
+                    select_sql = f"SELECT * FROM `{table_name}` {where_clause}"
+                else:
+                    select_sql = f"SELECT * FROM `{table_name}`"
+                if select_sql.endswith(";"):
+                    select_sql = select_sql[:-1]
+                with engine.connect() as conn:
+                    res = conn.execute(text(select_sql))
+                    records = [dict(row._mapping) for row in res]
+            except Exception as update_err:
+                print("Failed post-fetching updated records:", update_err)
+
         ai_message = generate_confirmation_message(intent, table_name, rows_affected, sql)
         
         return {
@@ -41,6 +96,7 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
             "execution_time_ms": round(elapsed_time_ms, 2),
             "sql": sql,
             "message": ai_message,
+            "records": records,
             "error": None
         }
     except Exception as e:
@@ -51,6 +107,7 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
             "execution_time_ms": round(elapsed_time_ms, 2),
             "sql": sql,
             "message": "Database execution failed. Transaction rolled back successfully.",
+            "records": [],
             "error": str(e)
         }
 
@@ -76,6 +133,10 @@ def generate_confirmation_message(intent: str, table_name: str, rows_affected: i
       "1 new record inserted."
       "Table renamed successfully."
       "The Product table was truncated successfully."
+    - If Rows Affected is 0 and the operation was UPDATE or DELETE:
+      Examine the SQL WHERE clause to find what criteria/id was used (e.g. `Order ID = 1045`).
+      Explicitly state that no records matching this criteria/id exist in the database, so 0 records were modified.
+      Example: "No record with Order ID 1045 exists in the database."
     - Do NOT hallucinate. Use ONLY the execution details provided.
     - Return ONLY the confirmation message text. No quotes, no markdown, no greetings.
     """
@@ -98,6 +159,14 @@ def generate_confirmation_message(intent: str, table_name: str, rows_affected: i
         return response.choices[0].message.content.strip()
     except Exception:
         # Fallback confirmations
+        if rows_affected == 0 and intent in ["UPDATE", "DELETE"]:
+            sql_lower = sql.lower()
+            where_idx = sql_lower.find("where")
+            if where_idx != -1:
+                where_clause = sql[where_idx + 5:].strip()
+                return f"No records matching '{where_clause}' exist in the database."
+            return f"0 records affected. No matching records found."
+            
         if intent == "INSERT":
             return f"1 record inserted into {table_name} successfully."
         if intent == "UPDATE":

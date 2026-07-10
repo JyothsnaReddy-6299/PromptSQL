@@ -169,6 +169,7 @@ export default function UploadPage() {
             type="file"
             accept=".csv,.xlsx,.xls"
             onChange={handleFileSelect}
+            onClick={(e) => e.stopPropagation()}
             className="hidden"
           />
 

@@ -83,11 +83,11 @@ export default function Hero() {
             <span>Explore Features</span>
           </a>
         </div>
+      </div>
 
-        {/* Loop horizontal workflow animation replaced in place of mockup */}
-        <div className="mt-14 max-w-4xl mx-auto">
-          <WorkflowMarquee />
-        </div>
+      {/* Loop horizontal workflow animation breakout edge-to-edge */}
+      <div className="mt-14 w-full">
+        <WorkflowMarquee />
       </div>
     </section>
   );

@@ -115,6 +115,7 @@ def execute_modification_query(payload: ModificationExecuteRequest, db: Session 
     if result["success"]:
         try:
             from app.models.history import QueryHistory
+            from app.utils.json_helper import sanitize_for_json
             import json
             db_history = QueryHistory(
                 user_id="default_user",
@@ -123,7 +124,7 @@ def execute_modification_query(payload: ModificationExecuteRequest, db: Session 
                 generated_sql=payload.sql,
                 summary=result["message"],
                 result_count=result["rows_affected"],
-                result_json=json.dumps([])
+                result_json=json.dumps(sanitize_for_json(result.get("records", [])))
             )
             db.add(db_history)
             db.commit()

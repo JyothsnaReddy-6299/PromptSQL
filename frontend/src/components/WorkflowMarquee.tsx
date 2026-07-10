@@ -168,7 +168,7 @@ export default function WorkflowMarquee() {
     <div 
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative rounded-2xl border border-warmgray-100 bg-white/40 p-4 shadow-xl max-w-4xl mx-auto backdrop-blur-md overflow-hidden min-h-[220px] flex items-center"
+      className="relative w-full border-y border-warmgray-100/50 bg-white/20 backdrop-blur-md overflow-hidden min-h-[170px] flex items-center py-3"
     >
       {/* Subtle Grid Pattern Background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:16px_20px] pointer-events-none" />
