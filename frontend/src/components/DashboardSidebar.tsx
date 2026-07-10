@@ -53,18 +53,24 @@ export default function DashboardSidebar({
         {/* Header */}
         <div className="p-6 border-b border-warmgray-900 flex items-center justify-between">
           {!collapsed && (
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-terracotta-500 to-terracotta-600 p-2 rounded-xl text-white">
+            <div 
+              onClick={() => navigate("/")}
+              className="flex items-center gap-3 cursor-pointer group/logo"
+            >
+              <div className="bg-gradient-to-br from-terracotta-500 to-terracotta-600 p-2 rounded-xl text-white group-hover/logo:scale-105 transition-transform duration-300">
                 <Brain size={20} />
               </div>
               <div className="flex flex-col">
-                <span className="text-lg font-black text-white tracking-tight">PromptSQL</span>
+                <span className="text-lg font-black text-white tracking-tight group-hover/logo:text-terracotta-400 transition-colors">PromptSQL</span>
                 <span className="text-[9px] text-warmgray-500 font-bold uppercase">Analytics Hub</span>
               </div>
             </div>
           )}
           {collapsed && (
-            <div className="bg-gradient-to-br from-terracotta-500 to-terracotta-600 p-2 rounded-xl text-white mx-auto">
+            <div 
+              onClick={() => navigate("/")}
+              className="bg-gradient-to-br from-terracotta-500 to-terracotta-600 p-2 rounded-xl text-white mx-auto cursor-pointer hover:scale-105 transition-transform duration-300"
+            >
               <Brain size={20} />
             </div>
           )}

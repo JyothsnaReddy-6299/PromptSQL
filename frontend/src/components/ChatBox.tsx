@@ -206,7 +206,7 @@ export default function ChatBox() {
       setMessages(updating);
 
       // Execute transactionally
-      const result = await executeModification(msg.sql, msg.intent, msg.table_name);
+      const result = await executeModification(msg.sql, msg.intent, msg.table_name, msg.question || "");
 
       const finalized = [...messages];
       finalized[idx].is_executing = false;
@@ -219,6 +219,9 @@ export default function ChatBox() {
         
         // Dispatch window event so explorer table fetches latest mysql table rows immediately!
         window.dispatchEvent(new Event("dataset-modified"));
+        
+        // Refresh sidebar history drawer
+        loadHistoryLogs();
       } else {
         finalized[idx].text = "Database execution failed. The transaction was automatically rolled back.";
         finalized[idx].error = result.error || "Transaction rolled back.";

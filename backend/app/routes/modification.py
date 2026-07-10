@@ -32,6 +32,7 @@ class ModificationExecuteRequest(BaseModel):
     sql: str
     intent: str
     table_name: str
+    question: str
 
 
 @router.post("/ask")
@@ -109,5 +110,24 @@ def execute_modification_query(payload: ModificationExecuteRequest, db: Session 
         db.commit()
     except Exception as audit_err:
         print("Audit logging error:", audit_err)
+
+    # Save to Query History if modification was executed successfully
+    if result["success"]:
+        try:
+            from app.models.history import QueryHistory
+            import json
+            db_history = QueryHistory(
+                user_id="default_user",
+                table_name=payload.table_name,
+                question=payload.question,
+                generated_sql=payload.sql,
+                summary=result["message"],
+                result_count=result["rows_affected"],
+                result_json=json.dumps([])
+            )
+            db.add(db_history)
+            db.commit()
+        except Exception as history_err:
+            print("Failed logging modification query to history:", history_err)
 
     return result

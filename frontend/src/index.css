@@ -4,35 +4,122 @@
   --animate-spin-slow: spin 12s linear infinite;
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   
-  /* Terracotta Theme Palette */
-  --color-terracotta-50: #FCF7F6;
-  --color-terracotta-100: #F7ECE9;
-  --color-terracotta-200: #EED4CE;
-  --color-terracotta-300: #E0B4AB;
-  --color-terracotta-400: #CC8A7E;
-  --color-terracotta-500: #C35237; /* Primary */
-  --color-terracotta-600: #AA4E3A; /* Hover */
-  --color-terracotta-700: #8E3F2E;
-  --color-terracotta-800: #713123;
-  --color-terracotta-900: #582419;
+  /* Forest Green Theme Palette (Map to Terracotta variable classes) */
+  --color-terracotta-50: #F4F7F4;
+  --color-terracotta-100: #E4ECE4;
+  --color-terracotta-200: #C2D5C2;
+  --color-terracotta-300: #9FBD9F;
+  --color-terracotta-400: #739C73;
+  --color-terracotta-500: #2D6A4F; /* Forest Green Primary */
+  --color-terracotta-600: #1B4332; /* Hover */
+  --color-terracotta-700: #081C15;
+  --color-terracotta-800: #05100B;
+  --color-terracotta-900: #020705;
 
-  /* Cream & Warm Gray Palette */
-  --color-warmgray-50: #FAF8F5;  /* Main Cream BG */
-  --color-warmgray-100: #F3ECE6; /* Warm Borders */
-  --color-warmgray-200: #EADFD7;
-  --color-warmgray-300: #D8C3B5;
-  --color-warmgray-400: #BD9F8D;
-  --color-warmgray-500: #A07F6B;
-  --color-warmgray-850: #352B26; /* Dark Muted Chocolate Text */
-  --color-warmgray-900: #2A1E1C; /* Main Chocolate Text */
-  --color-warmgray-950: #1C1210; /* Warm Off-Black / Mockups */
+  /* Ivory & Warm Slate-Green Charcoal Palette (Map to WarmGray variable classes) */
+  --color-warmgray-50: #FFFFF6;  /* Main Ivory BG */
+  --color-warmgray-100: #FAF7EA; /* Ivory Borders */
+  --color-warmgray-200: #EFEBD9;
+  --color-warmgray-300: #DFD7C1;
+  --color-warmgray-400: #C5BC9E;
+  --color-warmgray-500: #A69C7E;
+  --color-warmgray-850: #2D3025; /* Dark Charcoal Muted Text */
+  --color-warmgray-900: #1F221A; /* Main Dark Charcoal Text */
+  --color-warmgray-950: #12140E; /* Warm Green-Tinged Off-Black / Mockups */
 
   /* Gold & Sand Accents */
-  --color-sand-50: #FDFDF9;
-  --color-sand-100: #FAF6E3;
-  --color-sand-200: #F2EBB5;
-  --color-sand-300: #EAE087;
-  --color-sand-400: #DECF5C;
+  --color-sand-50: #FFFFFB;
+  --color-sand-100: #FFFDF0;
+  --color-sand-200: #FAF6D0;
+  --color-sand-300: #EFE9A3;
+  --color-sand-400: #DFD874;
+}
+
+/* Custom animations for premium AI workflow carousel and micro-interactions */
+@keyframes marquee {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(45, 106, 79, 0.15); }
+  50% { box-shadow: 0 0 24px rgba(45, 106, 79, 0.4); }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(1deg); }
+}
+
+@keyframes float-particle {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(12px, -24px, 0); }
+}
+
+@keyframes fill-progress {
+  0% { width: 0%; }
+  80%, 100% { width: 100%; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes arrow-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3.5px); }
+}
+
+@keyframes height-grow {
+  0%, 100% { height: 35%; }
+  50% { height: 100%; }
+}
+
+@keyframes moving-border {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Utility classes for micro interactions */
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.animate-float-slow {
+  animation: float-slow 5s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-fill-progress {
+  animation: fill-progress 2.5s ease-in-out infinite;
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+.animate-arrow-bounce {
+  animation: arrow-bounce 1.5s ease-in-out infinite;
+}
+
+.animate-height-grow {
+  animation: height-grow 1.2s ease-in-out infinite;
+}
+
+.animate-moving-border {
+  background-size: 200% 200%;
+  animation: moving-border 5s linear infinite;
 }
 
 /* Custom global styles for smooth scrolling and clean font defaults */

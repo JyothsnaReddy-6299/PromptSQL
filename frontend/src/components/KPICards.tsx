@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Layers, Grid, AlertTriangle, Cpu } from "lucide-react";
 
 interface Props {
@@ -6,6 +7,32 @@ interface Props {
   missing?: number;
   size?: string;
   detectedTypes?: Record<string, string>;
+}
+
+function CountUp({ end, duration = 1200 }: { end: number; duration?: number }) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp: number | null = null;
+    let animFrameId: number;
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      setCount(Math.floor(progress * end));
+      if (progress < 1) {
+        animFrameId = window.requestAnimationFrame(step);
+      }
+    };
+
+    animFrameId = window.requestAnimationFrame(step);
+
+    return () => {
+      window.cancelAnimationFrame(animFrameId);
+    };
+  }, [end, duration]);
+
+  return <>{count.toLocaleString()}</>;
 }
 
 export default function KPICards({
@@ -22,7 +49,7 @@ export default function KPICards({
   const cardData = [
     {
       title: "Total Rows",
-      value: rows.toLocaleString(),
+      value: <CountUp end={rows} />,
       desc: "Total records",
       icon: <Layers className="text-terracotta-500" size={18} />,
       badge: `${(rows > 1000 ? (rows / 1000).toFixed(1) + "k" : rows)} rows`,
@@ -31,7 +58,7 @@ export default function KPICards({
     },
     {
       title: "Schema Columns",
-      value: columns.toLocaleString(),
+      value: <CountUp end={columns} />,
       desc: `${numCols} num, ${textCols} text`,
       icon: <Grid className="text-sand-400" size={18} />,
       badge: `${columns} fields`,
@@ -40,7 +67,7 @@ export default function KPICards({
     },
     {
       title: "Missing Cells",
-      value: missing.toLocaleString(),
+      value: <CountUp end={missing} />,
       desc: "Null or blank cells",
       icon: <AlertTriangle className={missing > 0 ? "text-terracotta-400 animate-pulse" : "text-emerald-500"} size={18} />,
       badge: missing > 0 ? `${((missing / (rows * columns || 1)) * 100).toFixed(1)}% empty` : "Complete",

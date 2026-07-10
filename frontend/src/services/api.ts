@@ -207,13 +207,13 @@ export async function askModification(question: string) {
   return response.json();
 }
 
-export async function executeModification(sql: string, intent: string, tableName: string) {
+export async function executeModification(sql: string, intent: string, tableName: string, question: string) {
   const response = await fetch(`${API_URL}/api/modification/execute`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ sql, intent, table_name: tableName }),
+    body: JSON.stringify({ sql, intent, table_name: tableName, question }),
   });
   if (!response.ok) throw new Error("Failed executing database modification query");
   return response.json();

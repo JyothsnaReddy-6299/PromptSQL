@@ -148,21 +148,22 @@ export default function UploadPage() {
           </p>
         </div>
 
-        {/* Drag and Drop Zone */}
-        <div
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
-            dragActive
-              ? "border-terracotta-500 bg-terracotta-50/20 scale-99 shadow-inner"
-              : selectedFile
-              ? "border-emerald-350 bg-emerald-50/10"
-              : "border-warmgray-250 hover:border-terracotta-450 bg-warmgray-50/20 hover:bg-warmgray-50/40"
-          }`}
-        >
+        {/* Drag and Drop Zone with moving animated border */}
+        <div className="p-[2.5px] rounded-[20px] bg-gradient-to-r from-terracotta-100 via-terracotta-500 to-terracotta-100 animate-moving-border shadow-sm">
+          <div
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`relative rounded-[17px] p-8 text-center cursor-pointer bg-white transition-all duration-300 border border-dashed ${
+              dragActive
+                ? "border-terracotta-500 bg-terracotta-50/20 scale-99 shadow-inner"
+                : selectedFile
+                ? "border-emerald-300 bg-emerald-50/15"
+                : "border-warmgray-200 hover:border-terracotta-300 bg-warmgray-50/10 hover:bg-warmgray-50/30"
+            }`}
+          >
           <input
             ref={fileInputRef}
             type="file"
@@ -205,6 +206,7 @@ export default function UploadPage() {
             </div>
           )}
         </div>
+      </div>
 
         {/* Status Messaging */}
         {uploadStatus && (

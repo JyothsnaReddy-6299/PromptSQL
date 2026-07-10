@@ -142,6 +142,7 @@ def ask_question(payload: AskRequest):
         try:
             from app.database.connection import SessionLocal
             from app.models.history import QueryHistory
+            from app.utils.json_helper import sanitize_for_json
 
             import json
             db_session = SessionLocal()
@@ -152,7 +153,7 @@ def ask_question(payload: AskRequest):
                 generated_sql=sql_query,
                 summary=summary,
                 result_count=len(records),
-                result_json=json.dumps(records)
+                result_json=json.dumps(sanitize_for_json(records))
             )
             db_session.add(db_history)
             db_session.commit()
