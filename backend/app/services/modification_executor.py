@@ -14,6 +14,51 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 
+def extract_first_insert_identity(sql: str) -> tuple:
+    import re
+    # Match: INSERT INTO `table` (`col1`, `col2`, ...) VALUES ('val1', 'val2', ...)
+    match = re.search(r"insert\s+into\s+\S+\s*\((.*?)\)\s*values\s*\((.*?)\)", sql, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None, None
+        
+    cols_str, vals_str = match.groups()
+    
+    # Split columns by comma and strip spaces/backticks
+    cols = [c.strip().replace("`", "").replace("'", "").replace('"', '') for c in cols_str.split(",")]
+    
+    # Split values by comma respecting single/double quotes
+    vals = []
+    current_val = []
+    in_single_quote = False
+    in_double_quote = False
+    escape = False
+    
+    for char in vals_str:
+        if escape:
+            current_val.append(char)
+            escape = False
+            continue
+        if char == '\\':
+            escape = True
+            continue
+        if char == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            continue
+        if char == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+            continue
+        if char == ',' and not in_single_quote and not in_double_quote:
+            vals.append("".join(current_val).strip())
+            current_val = []
+            continue
+        current_val.append(char)
+    vals.append("".join(current_val).strip())
+    
+    if cols and vals:
+        return cols[0], vals[0]
+    return None, None
+
+
 def execute_modification(sql: str, table_name: str, intent: str) -> dict:
     """
     Executes a DML or DDL query inside a transaction, rolling back automatically
@@ -54,20 +99,28 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
         # Post-fetch records for INSERT or UPDATE (to know what was changed)
         if intent == "INSERT":
             try:
-                from sqlalchemy import inspect
-                inspector = inspect(engine)
-                cols = [c["name"] for c in inspector.get_columns(table_name)]
-                pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
-                sort_col = pk_cols[0] if pk_cols else (cols[0] if cols else None)
-                
-                if sort_col:
-                    select_sql = f"SELECT * FROM `{table_name}` ORDER BY `{sort_col}` DESC LIMIT 1"
+                col_name, col_val = extract_first_insert_identity(sql)
+                if col_name and col_val:
+                    select_sql = f"SELECT * FROM `{table_name}` WHERE `{col_name}` = :col_val LIMIT 1"
+                    with engine.connect() as conn:
+                        res = conn.execute(text(select_sql), {"col_val": col_val})
+                        records = [dict(row._mapping) for row in res]
                 else:
-                    select_sql = f"SELECT * FROM `{table_name}` LIMIT 1"
+                    # Fallback to previous sorting logic
+                    from sqlalchemy import inspect
+                    inspector = inspect(engine)
+                    cols = [c["name"] for c in inspector.get_columns(table_name)]
+                    pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
+                    sort_col = pk_cols[0] if pk_cols else (cols[0] if cols else None)
                     
-                with engine.connect() as conn:
-                    res = conn.execute(text(select_sql))
-                    records = [dict(row._mapping) for row in res]
+                    if sort_col:
+                        select_sql = f"SELECT * FROM `{table_name}` ORDER BY `{sort_col}` DESC LIMIT 1"
+                    else:
+                        select_sql = f"SELECT * FROM `{table_name}` LIMIT 1"
+                        
+                    with engine.connect() as conn:
+                        res = conn.execute(text(select_sql))
+                        records = [dict(row._mapping) for row in res]
             except Exception as insert_err:
                 print("Failed post-fetching inserted records:", insert_err)
                 

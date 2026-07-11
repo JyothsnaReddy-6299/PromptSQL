@@ -48,8 +48,14 @@ export async function askQuestion(question: string) {
   return response.json();
 }
 
-export async function getPreview() {
-  const response = await fetch(`${API_URL}/preview`);
+export async function getPreview(search?: string, sortCol?: string, sortDir?: string) {
+  let url = `${API_URL}/preview?`;
+  const params = [];
+  if (search) params.push(`search=${encodeURIComponent(search)}`);
+  if (sortCol) params.push(`sort_col=${encodeURIComponent(sortCol)}`);
+  if (sortDir) params.push(`sort_dir=${encodeURIComponent(sortDir)}`);
+  url += params.join("&");
+  const response = await fetch(url);
   return response.json();
 }
 

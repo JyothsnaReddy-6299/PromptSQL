@@ -5,27 +5,38 @@ interface Props {
   columns: string[];
   records: Record<string, any>[];
   loading?: boolean;
+  searchTerm: string;
+  onSearchChange: (val: string) => void;
+  sortCol: string;
+  sortDir: string;
+  onSortChange: (col: string, dir: string) => void;
 }
 
 export default function TablePreview({
   columns = [],
   records = [],
-  loading = false
+  loading = false,
+  searchTerm,
+  onSearchChange,
+  sortCol = "",
+  sortDir = "ASC",
+  onSortChange
 }: Props) {
-  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const filteredRecords = records.filter((row) => {
-    return Object.values(row).some((val) =>
-      String(val).toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const handleHeaderClick = (colName: string) => {
+    if (sortCol === colName) {
+      onSortChange(colName, sortDir === "ASC" ? "DESC" : "ASC");
+    } else {
+      onSortChange(colName, "ASC");
+    }
+  };
 
-  const totalItems = filteredRecords.length;
+  const totalItems = records.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedRecords = filteredRecords.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedRecords = records.slice(startIndex, startIndex + itemsPerPage);
 
   const handleExportCSV = () => {
     if (records.length === 0) return;
@@ -76,7 +87,7 @@ export default function TablePreview({
               placeholder="Search records..."
               value={searchTerm}
               onChange={(e) => {
-                setSearchTerm(e.target.value);
+                onSearchChange(e.target.value);
                 setCurrentPage(1);
               }}
               className="bg-warmgray-50/50 border border-warmgray-100 rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-terracotta-500 w-full sm:w-52 focus:bg-white transition-all text-warmgray-950 font-semibold"
@@ -118,10 +129,16 @@ export default function TablePreview({
                   {columns.map((col) => (
                     <th
                       key={col}
-                      className="px-3 py-2.5 font-bold text-warmgray-900 bg-warmgray-50 select-none whitespace-nowrap text-[10px] uppercase border-r border-warmgray-100/50 last:border-0"
+                      onClick={() => handleHeaderClick(col)}
+                      className="px-3 py-2.5 font-bold text-warmgray-900 bg-warmgray-50 select-none whitespace-nowrap text-[10px] uppercase border-r border-warmgray-100/50 last:border-0 cursor-pointer hover:bg-warmgray-100 hover:text-terracotta-600 transition-all duration-200"
                     >
-                      <span>
-                        {col}
+                      <span className="flex items-center gap-1">
+                        <span>{col}</span>
+                        {sortCol === col && (
+                          <span className="text-[8px] text-terracotta-500 font-bold font-mono">
+                            {sortDir === "ASC" ? "▲" : "▼"}
+                          </span>
+                        )}
                       </span>
                     </th>
                   ))}

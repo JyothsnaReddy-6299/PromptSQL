@@ -18,6 +18,9 @@ export default function DashboardPage() {
   const [previewRecords, setPreviewRecords] = useState<Record<string, any>[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortCol, setSortCol] = useState("");
+  const [sortDir, setSortDir] = useState("ASC");
 
   const datasetMeta =
     location.state ||
@@ -31,31 +34,66 @@ export default function DashboardPage() {
 
   const size = datasetMeta?.size || `${((rows * columnsCount * 12) / 1024).toFixed(1)} KB`;
 
+  const [totalRows, setTotalRows] = useState(rows);
+  const [totalCols, setTotalCols] = useState(columnsCount);
+  const [totalMissing, setTotalMissing] = useState(missing);
+
+  useEffect(() => {
+    if (rows) {
+      setTotalRows(rows);
+    }
+  }, [rows]);
+
+  useEffect(() => {
+    if (columnsCount) {
+      setTotalCols(columnsCount);
+    }
+  }, [columnsCount]);
+
+  useEffect(() => {
+    if (missing) {
+      setTotalMissing(missing);
+    }
+  }, [missing]);
+
   useEffect(() => {
     if (!fileName) {
       navigate("/upload");
       return;
     }
 
-    const fetchDatasetPreview = async () => {
-      try {
-        setLoadingPreview(true);
-        const data = await getPreview();
-        if (data.success) {
-          setPreviewColumns(data.columns || []);
-          setPreviewRecords(data.records || []);
-        } else {
-          console.error("Preview load failure:", data.error);
+    const timer = setTimeout(() => {
+      const fetchDatasetPreview = async () => {
+        try {
+          setLoadingPreview(true);
+          const data = await getPreview(searchTerm, sortCol, sortDir);
+          if (data.success) {
+            setPreviewColumns(data.columns || []);
+            setPreviewRecords(data.records || []);
+            if (data.columns) {
+              setTotalCols(data.columns.length);
+            }
+            if (typeof data.total_rows === "number") {
+              setTotalRows(data.total_rows);
+            }
+            if (typeof data.total_missing === "number") {
+              setTotalMissing(data.total_missing);
+            }
+          } else {
+            console.error("Preview load failure:", data.error);
+          }
+        } catch (e) {
+          console.error("Failed fetching preview:", e);
+        } finally {
+          setLoadingPreview(false);
         }
-      } catch (e) {
-        console.error("Failed fetching preview:", e);
-      } finally {
-        setLoadingPreview(false);
-      }
-    };
+      };
 
-    fetchDatasetPreview();
-  }, [fileName, refreshTrigger, navigate]);
+      fetchDatasetPreview();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [fileName, refreshTrigger, searchTerm, sortCol, sortDir, navigate]);
 
   useEffect(() => {
     const handleModified = () => {
@@ -146,9 +184,9 @@ export default function DashboardPage() {
             {/* Overview Section */}
             <div id="overview" className="scroll-mt-24 space-y-4">
               <KPICards
-                rows={rows}
-                columns={columnsCount}
-                missing={missing}
+                rows={totalRows}
+                columns={totalCols}
+                missing={totalMissing}
                 size={size}
                 detectedTypes={detectedTypes}
               />
@@ -160,6 +198,14 @@ export default function DashboardPage() {
                 columns={previewColumns}
                 records={previewRecords}
                 loading={loadingPreview}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                sortCol={sortCol}
+                sortDir={sortDir}
+                onSortChange={(col, dir) => {
+                  setSortCol(col);
+                  setSortDir(dir);
+                }}
               />
             </div>
 
