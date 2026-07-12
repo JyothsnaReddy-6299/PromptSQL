@@ -1,5 +1,6 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Header
 import os
+from typing import Optional
 
 from app.services.upload_service import upload_dataset
 
@@ -10,7 +11,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), x_user_id: Optional[str] = Header(None)):
 
     try:
 
@@ -24,7 +25,8 @@ async def upload_file(file: UploadFile = File(...)):
 
         result = upload_dataset(
             filepath=filepath,
-            filename=file.filename
+            filename=file.filename,
+            user_id=x_user_id or "default_user"
         )
 
         return result
@@ -40,19 +42,18 @@ async def upload_file(file: UploadFile = File(...)):
         )
 
 
-from typing import Optional
-
 @router.get("/preview")
 def get_preview(
     search: Optional[str] = None,
     sort_col: Optional[str] = None,
-    sort_dir: Optional[str] = "ASC"
+    sort_dir: Optional[str] = "ASC",
+    x_table_name: Optional[str] = Header(None)
 ):
     from app.services.table_manager import get_current_table
     from app.database.connection import engine
     from sqlalchemy import text, inspect
 
-    table_name = get_current_table()
+    table_name = x_table_name or get_current_table()
     if not table_name:
         return {
             "success": False,

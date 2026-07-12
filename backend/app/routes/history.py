@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
@@ -46,9 +46,10 @@ class HistorySchema(BaseModel):
 
 @router.get("", response_model=List[HistorySchema])
 def get_history(
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     return (
         db.query(QueryHistory)
         .filter(QueryHistory.user_id == user_id)
@@ -60,10 +61,11 @@ def get_history(
 @router.post("", response_model=HistorySchema)
 def create_history_item(
     payload: HistoryCreateSchema,
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     db_item = QueryHistory(
-        user_id=payload.user_id or "default_user",
+        user_id=x_user_id or payload.user_id or "default_user",
         table_name=payload.table_name,
         question=payload.question,
         generated_sql=payload.generated_sql,
@@ -80,9 +82,10 @@ def create_history_item(
 @router.delete("/{id}")
 def delete_history_item(
     id: int,
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     item = (
         db.query(QueryHistory)
         .filter(QueryHistory.id == id, QueryHistory.user_id == user_id)
@@ -97,9 +100,10 @@ def delete_history_item(
 
 @router.delete("")
 def clear_history(
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     db.query(QueryHistory).filter(QueryHistory.user_id == user_id).delete()
     db.commit()
     return {"success": True, "message": "Cleared all history"}

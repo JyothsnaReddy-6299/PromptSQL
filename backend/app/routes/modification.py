@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -36,11 +36,14 @@ class ModificationExecuteRequest(BaseModel):
 
 
 @router.post("/ask")
-def ask_modification(payload: ModificationAskRequest):
+def ask_modification(
+    payload: ModificationAskRequest,
+    x_table_name: Optional[str] = Header(None)
+):
     """
     Checks intent, generates SQL, validates safety checks, and returns a preview impact description.
     """
-    table_name = get_current_table()
+    table_name = x_table_name or get_current_table()
     if not table_name:
         raise HTTPException(status_code=400, detail="Please upload a dataset first.")
 
@@ -88,17 +91,23 @@ def ask_modification(payload: ModificationAskRequest):
 
 
 @router.post("/execute")
-def execute_modification_query(payload: ModificationExecuteRequest, db: Session = Depends(get_db)):
+def execute_modification_query(
+    payload: ModificationExecuteRequest,
+    db: Session = Depends(get_db),
+    x_user_id: Optional[str] = Header(None)
+):
     """
     Executes a validated query transactionally and saves audit log entry in database.
     """
+    user_id = x_user_id or "default_user"
+
     # Execute query inside transaction
     result = execute_modification(payload.sql, payload.table_name, payload.intent)
 
     # Save to Audit Log
     try:
         db_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             operation=payload.intent,
             table_name=payload.table_name,
             generated_sql=payload.sql,
@@ -118,7 +127,7 @@ def execute_modification_query(payload: ModificationExecuteRequest, db: Session 
             from app.utils.json_helper import sanitize_for_json
             import json
             db_history = QueryHistory(
-                user_id="default_user",
+                user_id=user_id,
                 table_name=payload.table_name,
                 question=payload.question,
                 generated_sql=payload.sql,

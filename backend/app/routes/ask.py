@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 from pydantic import BaseModel
+from typing import Optional
 
 from app.services.table_manager import get_current_table
 from app.services.sql_generator import generate_sql
@@ -22,7 +23,11 @@ MAX_RETRIES = 2
 
 
 @router.post("/ask")
-def ask_question(payload: AskRequest):
+def ask_question(
+    payload: AskRequest,
+    x_user_id: Optional[str] = Header(None),
+    x_table_name: Optional[str] = Header(None)
+):
 
     try:
 
@@ -30,7 +35,7 @@ def ask_question(payload: AskRequest):
         # Get current uploaded table
         # -----------------------------------------
 
-        table_name = get_current_table()
+        table_name = x_table_name or get_current_table()
 
         if table_name is None:
             return {
@@ -147,7 +152,7 @@ def ask_question(payload: AskRequest):
             import json
             db_session = SessionLocal()
             db_history = QueryHistory(
-                user_id="default_user",
+                user_id=x_user_id or "default_user",
                 table_name=table_name,
                 question=payload.question,
                 generated_sql=sql_query,

@@ -3,7 +3,7 @@ from io import BytesIO
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -56,9 +56,10 @@ class ReportDetailSchema(ReportListSchema):
 
 @router.get("", response_model=List[ReportListSchema])
 def get_reports(
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     return (
         db.query(SavedReport)
         .filter(SavedReport.user_id == user_id)
@@ -70,9 +71,10 @@ def get_reports(
 @router.get("/{id}", response_model=ReportDetailSchema)
 def get_report_detail(
     id: int,
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)
@@ -102,10 +104,11 @@ def get_report_detail(
 @router.post("", response_model=ReportListSchema)
 def create_report(
     payload: ReportCreateSchema,
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     db_item = SavedReport(
-        user_id=payload.user_id or "default_user",
+        user_id=x_user_id or payload.user_id or "default_user",
         title=payload.title,
         table_name=payload.table_name,
         question=payload.question,
@@ -123,9 +126,10 @@ def create_report(
 def rename_report(
     id: int,
     payload: ReportRenameSchema,
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)
@@ -142,9 +146,10 @@ def rename_report(
 @router.delete("/{id}")
 def delete_report(
     id: int,
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)
@@ -161,9 +166,10 @@ def delete_report(
 def export_saved_report(
     id: int,
     format: str,
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
+    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)

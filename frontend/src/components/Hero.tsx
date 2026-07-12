@@ -8,12 +8,13 @@ function Typewriter({ text, delay = 0, speed = 60 }: { text: string; delay?: num
   const [displayed, setDisplayed] = useState("");
 
   useEffect(() => {
+    let currentLength = 0;
     const timer = setTimeout(() => {
-      let i = 0;
       const interval = setInterval(() => {
-        setDisplayed((prev) => prev + text.charAt(i));
-        i++;
-        if (i >= text.length) {
+        if (currentLength < text.length) {
+          currentLength++;
+          setDisplayed(text.slice(0, currentLength));
+        } else {
           clearInterval(interval);
         }
       }, speed);
@@ -51,16 +52,16 @@ export default function Hero() {
 
         {/* Heading with Typewriter Typing animation */}
         <h1 className="mt-5 text-4xl md:text-5xl lg:text-6xl font-black text-warmgray-900 tracking-tight leading-none min-h-[110px] md:min-h-[140px]">
-          <Typewriter text="Talk to Your Data" speed={50} />
+          <Typewriter text="Natural Language Meets" speed={50} />
           <span className="block mt-2.5 bg-gradient-to-r from-terracotta-600 via-terracotta-500 to-sand-400 bg-clip-text text-transparent">
-            <Typewriter text="Like a Human." delay={1100} speed={60} />
+            <Typewriter text="SQL Intelligence." delay={1500} speed={60} />
             <span className="inline-block w-1 h-7 md:h-11 bg-terracotta-500 ml-1.5 animate-blink align-middle" />
           </span>
         </h1>
 
         {/* Subtitle */}
         <p className="mt-5 text-sm md:text-base lg:text-lg text-warmgray-500 max-w-2xl mx-auto leading-relaxed font-medium">
-          Upload any CSV or Excel spreadsheet and immediately interrogate it using natural language. No complex database query writing, no custom schema mapping—just instant insights.
+          No complex database query writing, no custom schema mapping—just instant insights.
         </p>
 
         {/* CTAs with Magnetic mouse attraction */}

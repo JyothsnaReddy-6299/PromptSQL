@@ -1,5 +1,5 @@
-import { FileSpreadsheet, Upload, RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { FileSpreadsheet, RefreshCw } from "lucide-react";
+
 
 interface Props {
   fileName?: string;
@@ -12,7 +12,7 @@ export default function DashboardNavbar({
   onRefresh,
   isRefreshing = false
 }: Props) {
-  const navigate = useNavigate();
+
 
   return (
     <div className="bg-white border border-warmgray-100 rounded-2xl shadow-sm px-6 py-4 flex items-center justify-between sticky top-4 z-40 backdrop-blur-md bg-white/95">
@@ -44,17 +44,6 @@ export default function DashboardNavbar({
           </button>
         )}
 
-        <button
-          onClick={() => navigate("/upload")}
-          className="flex items-center gap-2 bg-gradient-to-r from-terracotta-500 to-terracotta-600 hover:from-terracotta-600 hover:to-terracotta-700 text-white font-bold px-4 py-2.5 rounded-xl transition shadow-md shadow-terracotta-500/10 hover:shadow-lg active:scale-95 text-sm cursor-pointer"
-        >
-          <Upload size={16} />
-          <span className="hidden sm:inline">Upload New</span>
-        </button>
-
-        <div className="w-10 h-10 border border-warmgray-100 rounded-xl bg-gradient-to-br from-terracotta-50 to-sand-50 flex items-center justify-center font-bold text-terracotta-600 text-sm shadow-sm select-none">
-          DB
-        </div>
       </div>
     </div>
   );

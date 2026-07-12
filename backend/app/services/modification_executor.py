@@ -1,17 +1,7 @@
 import time
 from sqlalchemy import text
 from app.database.connection import engine
-from groq import Groq
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-api_key = os.getenv("GROQ_API_KEY")
-
-if not api_key:
-    raise Exception("GROQ_API_KEY not found.")
-
-client = Groq(api_key=api_key)
+# Groq imports removed to simplify query confirmations without API calls
 
 
 def extract_first_insert_identity(sql: str) -> tuple:
@@ -167,67 +157,26 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
 
 def generate_confirmation_message(intent: str, table_name: str, rows_affected: int, sql: str) -> str:
     """
-    Generates a professional confirmation message using Llama model based on result.
+    Generates a professional confirmation message based on result without LLM calls.
     """
-    prompt = f"""
-    You are a database system confirmation generator.
-    Generate a professional, human-readable confirmation message for a database modification query that was executed successfully.
-    
-    Execution Details:
-    - Operation Type (Intent): {intent}
-    - Table Name: {table_name}
-    - Rows Affected: {rows_affected}
-    - Executed SQL: {sql}
-    
-    Rules:
-    - Describe what happened clearly and concisely.
-    - Examples:
-      "18 employee records were updated successfully."
-      "1 new record inserted."
-      "Table renamed successfully."
-      "The Product table was truncated successfully."
-    - If Rows Affected is 0 and the operation was UPDATE or DELETE:
-      Examine the SQL WHERE clause to find what criteria/id was used (e.g. `Order ID = 1045`).
-      Explicitly state that no records matching this criteria/id exist in the database, so 0 records were modified.
-      Example: "No record with Order ID 1045 exists in the database."
-    - Do NOT hallucinate. Use ONLY the execution details provided.
-    - Return ONLY the confirmation message text. No quotes, no markdown, no greetings.
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a database confirmation writer. Output only the short confirmation message text."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.1
-        )
-        return response.choices[0].message.content.strip()
-    except Exception:
-        # Fallback confirmations
-        if rows_affected == 0 and intent in ["UPDATE", "DELETE"]:
-            sql_lower = sql.lower()
-            where_idx = sql_lower.find("where")
-            if where_idx != -1:
-                where_clause = sql[where_idx + 5:].strip()
-                return f"No records matching '{where_clause}' exist in the database."
-            return f"0 records affected. No matching records found."
-            
-        if intent == "INSERT":
-            return f"1 record inserted into {table_name} successfully."
-        if intent == "UPDATE":
-            return f"{rows_affected} records updated in {table_name} successfully."
-        if intent == "DELETE":
-            return f"{rows_affected} records deleted from {table_name} successfully."
-        if intent == "TRUNCATE":
-            return f"Table {table_name} truncated successfully."
-        if intent == "DROP":
-            return f"Table {table_name} dropped successfully."
-        return f"Database operation {intent} executed successfully on {table_name}."
+    if rows_affected == 0 and intent in ["UPDATE", "DELETE"]:
+        sql_lower = sql.lower()
+        where_idx = sql_lower.find("where")
+        if where_idx != -1:
+            where_clause = sql[where_idx + 5:].strip()
+            if where_clause.endswith(";"):
+                where_clause = where_clause[:-1].strip()
+            return f"No records matching '{where_clause}' exist in the database."
+        return "0 records affected. No matching records found."
+        
+    if intent == "INSERT":
+        return f"1 record inserted into {table_name} successfully."
+    if intent == "UPDATE":
+        return f"{rows_affected} records updated in {table_name} successfully."
+    if intent == "DELETE":
+        return f"{rows_affected} records deleted from {table_name} successfully."
+    if intent == "TRUNCATE":
+        return f"Table {table_name} truncated successfully."
+    if intent == "DROP":
+        return f"Table {table_name} dropped successfully."
+    return f"Database operation {intent} executed successfully on {table_name}."

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
@@ -35,15 +35,31 @@ class AuditLogSchema(BaseModel):
 
 @router.get("", response_model=List[AuditLogSchema])
 def get_audit_logs(
-    user_id: Optional[str] = "default_user",
+    x_user_id: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
     Returns audit history logs ordered by timestamp desc.
     """
+    user_id = x_user_id or "default_user"
     return (
         db.query(AuditLog)
         .filter(AuditLog.user_id == user_id)
         .order_by(AuditLog.timestamp.desc())
         .all()
     )
+
+
+@router.delete("/{log_id}")
+def delete_audit_log(
+    log_id: int,
+    x_user_id: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    user_id = x_user_id or "default_user"
+    log = db.query(AuditLog).filter(AuditLog.id == log_id, AuditLog.user_id == user_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Audit log not found")
+    db.delete(log)
+    db.commit()
+    return {"success": True, "message": f"Audit log {log_id} deleted successfully"}

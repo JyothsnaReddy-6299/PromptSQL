@@ -25,27 +25,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Links */}
-        <div className="hidden md:flex items-center gap-8 font-semibold text-sm">
-          <a 
-            href="#features" 
-            className="text-warmgray-500 hover:text-terracotta-500 transition-colors duration-200 cursor-pointer"
-          >
-            Features
-          </a>
-          <a 
-            onClick={() => navigate("/upload")}
-            className="text-warmgray-500 hover:text-terracotta-500 transition-colors duration-200 cursor-pointer"
-          >
-            Dataset Explorer
-          </a>
-          <a 
-            onClick={() => navigate("/upload")} 
-            className="text-warmgray-500 hover:text-terracotta-500 transition-colors duration-200 cursor-pointer"
-          >
-            AI Assistant
-          </a>
-        </div>
+
 
         {/* CTA Button */}
         <div>

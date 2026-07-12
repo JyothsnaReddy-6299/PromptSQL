@@ -1,5 +1,27 @@
 const API_URL = "";
 
+// Custom fetch wrapper to automatically inject user session headers
+const originalFetch = window.fetch;
+const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const headers = { ...(init?.headers as Record<string, string> || {}) };
+  const userId = localStorage.getItem("promptsql_user_id");
+  if (userId) {
+    headers["X-User-ID"] = userId;
+  }
+  try {
+    const dataset = JSON.parse(sessionStorage.getItem("dataset") || "{}");
+    if (dataset && dataset.table_name) {
+      headers["X-Table-Name"] = dataset.table_name;
+    }
+  } catch (e) {
+    // Ignore parsing errors
+  }
+  return originalFetch(input, {
+    ...init,
+    headers,
+  });
+};
+
 // Helper to trigger blob file downloads in the browser
 async function triggerBlobDownload(response: Response, defaultFilename: string) {
   if (!response.ok) {
@@ -228,5 +250,13 @@ export async function executeModification(sql: string, intent: string, tableName
 export async function getAuditLogs() {
   const response = await fetch(`${API_URL}/api/audit`);
   if (!response.ok) throw new Error("Failed fetching audit logs");
+  return response.json();
+}
+
+export async function deleteAuditLog(logId: number) {
+  const response = await fetch(`${API_URL}/api/audit/${logId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed deleting audit log");
   return response.json();
 }

@@ -6,9 +6,10 @@ import {
   Terminal, 
   CheckCircle2, 
   XCircle,
-  Database
+  Database,
+  Trash2
 } from "lucide-react";
-import { getAuditLogs } from "../services/api";
+import { getAuditLogs, deleteAuditLog } from "../services/api";
 
 export default function AuditManager() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -31,6 +32,34 @@ export default function AuditManager() {
   useEffect(() => {
     loadAuditHistory();
   }, []);
+
+  const handleDeleteLog = async (logId: number) => {
+    if (!confirm("Are you sure you want to delete this audit log entry?")) return;
+    try {
+      await deleteAuditLog(logId);
+      setLogs((prev) => prev.filter((log) => log.id !== logId));
+    } catch (err: any) {
+      alert(err.message || "Failed to delete log entry");
+    }
+  };
+
+  const formatIST = (timestampStr: string) => {
+    try {
+      const date = new Date(timestampStr);
+      return date.toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hour12: true,
+        timeZone: "Asia/Kolkata"
+      });
+    } catch (e) {
+      return timestampStr;
+    }
+  };
 
   const getOperationBadgeColor = (op: string) => {
     const o = op.toUpperCase();
@@ -80,13 +109,14 @@ export default function AuditManager() {
           <table className="min-w-full border-collapse text-left text-xs text-warmgray-850">
             <thead className="bg-warmgray-50 sticky top-0 border-b border-warmgray-100 z-10 font-bold text-[9px] uppercase text-warmgray-500 tracking-wider">
               <tr>
-                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 py-3">Timestamp (IST)</th>
                 <th className="px-4 py-3">Operation</th>
                 <th className="px-4 py-3">Target Table</th>
                 <th className="px-4 py-3">SQL statement</th>
                 <th className="px-4 py-3 text-center">Affected</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Diagnostics</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-warmgray-100 bg-white font-semibold">
@@ -94,9 +124,9 @@ export default function AuditManager() {
                 <tr key={log.id} className="hover:bg-warmgray-50/30 transition">
                   {/* Timestamp */}
                   <td className="px-4 py-3.5 whitespace-nowrap text-warmgray-500 text-[10px]">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 font-bold">
                       <Calendar size={12} className="text-warmgray-400" />
-                      <span>{new Date(log.timestamp).toLocaleString()}</span>
+                      <span>{formatIST(log.timestamp)}</span>
                     </div>
                   </td>
                   
@@ -146,6 +176,17 @@ export default function AuditManager() {
                   {/* Diagnostic / Error Message */}
                   <td className="px-4 py-3.5 max-w-xs truncate text-[10px] font-mono text-red-500" title={log.error_message || ""}>
                     {log.error_message || <span className="text-warmgray-400 italic">none</span>}
+                  </td>
+
+                  {/* Actions (Delete) */}
+                  <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                    <button
+                      onClick={() => handleDeleteLog(log.id)}
+                      className="p-1.5 text-warmgray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                      title="Delete log entry"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </td>
                 </tr>
               ))}

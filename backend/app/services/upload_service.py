@@ -40,7 +40,7 @@ def load_dataset(filepath: str):
         raise Exception("Unsupported file type.")
 
 
-def upload_dataset(filepath: str, filename: str):
+def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     """
     Complete upload pipeline.
     """
@@ -80,6 +80,13 @@ def upload_dataset(filepath: str, filename: str):
     # ------------------------
 
     table_name = clean_table_name(filename)
+    if user_id and user_id != "default_user":
+        safe_user_id = "".join([c if c.isalnum() else "_" for c in user_id])
+        table_name = f"{table_name}_{safe_user_id}"
+        if len(table_name) > 64:
+            overflow = len(table_name) - 64
+            cleaned_base = clean_table_name(filename)
+            table_name = f"{cleaned_base[:-overflow]}_{safe_user_id}"
 
     # ------------------------
     # Store in MySQL
