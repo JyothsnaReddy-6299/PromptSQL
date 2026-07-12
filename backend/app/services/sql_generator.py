@@ -17,6 +17,7 @@ client = Groq(api_key=api_key)
 def generate_sql(question, table_name):
 
     schema = schema_to_prompt(table_name)
+    friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
 
     prompt = f"""
 You are an expert MySQL SQL generator.
@@ -27,7 +28,7 @@ You have EXACTLY ONE TABLE.
 TABLE NAME
 =========================
 
-`{table_name}`
+`{friendly_name}`
 
 =========================
 SCHEMA
@@ -184,6 +185,8 @@ Do NOT explain.
 
 Do NOT use markdown.
 
+17. If the user request asks to 'display all details', 'show all columns', 'everything', 'all records', 'all information', or does not specify particular fields (implied select all), use `SELECT *` instead of listing all columns individually.
+
 =========================
 QUESTION
 =========================
@@ -200,7 +203,7 @@ QUESTION
             {
                 "role": "system",
                 "content":
-                "You are an expert MySQL query generator. Never invent tables or columns."
+                "You are an expert MySQL query generator. Never invent tables or columns. Output ONLY the raw SQL code."
             },
 
             {

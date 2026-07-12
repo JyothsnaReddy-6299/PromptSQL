@@ -19,12 +19,13 @@ def regenerate_sql(
 ):
 
     schema = schema_to_prompt(table_name)
+    friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
 
     prompt = f"""
 The previous SQL query is invalid.
 
 Table Name:
-`{table_name}`
+`{friendly_name}`
 
 Schema:
 
@@ -62,6 +63,8 @@ Rules:
 
 9. No markdown.
 
+10. If the user request asks to 'display all details', 'show all columns', 'everything', 'all records', 'all information', or does not specify particular fields, use `SELECT *` instead of listing all columns individually.
+
 Return ONLY SQL.
 """
 
@@ -73,7 +76,7 @@ Return ONLY SQL.
             {
                 "role": "system",
                 "content":
-                "You repair invalid MySQL queries."
+                "You repair invalid MySQL queries. Output ONLY raw SQL. No markdown wrappers."
             },
             {
                 "role": "user",

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Header
 from pydantic import BaseModel
 from typing import Optional
+import re
 
 from app.services.table_manager import get_current_table
 from app.services.sql_generator import generate_sql
@@ -59,14 +60,19 @@ def ask_question(
         print("\nGenerated SQL")
         print(sql_query)
 
+        # Get base friendly table name
+        friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
+
         # -----------------------------------------
         # Validate SQL
         # -----------------------------------------
 
         for _ in range(MAX_RETRIES):
+            # Translate friendly SQL to physical SQL for verification/execution
+            physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", table_name, sql_query)
 
             valid, message = validate_sql(
-                sql_query,
+                physical_sql,
                 table_name
             )
 
@@ -76,11 +82,14 @@ def ask_question(
             print("\nValidation Failed")
             print(message)
 
+            # Sanitize physical table name in error message so LLM sees friendly name
+            sanitized_message = message.replace(table_name, friendly_name)
+
             sql_query = regenerate_sql(
                 payload.question,
                 table_name,
                 sql_query,
-                message
+                sanitized_message
             )
 
             print("\nRegenerated SQL")
@@ -97,7 +106,8 @@ def ask_question(
         # Execute SQL
         # -----------------------------------------
 
-        records = execute_sql(sql_query)
+        physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", table_name, sql_query)
+        records = execute_sql(physical_sql)
 
         print("\nReturned Records :", len(records))
 

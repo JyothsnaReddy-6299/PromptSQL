@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
+import re
 
 from app.database.connection import SessionLocal
 from app.models.audit_log import AuditLog
@@ -64,8 +65,12 @@ def ask_modification(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SQL Generation error: {str(e)}")
 
+    # Get base friendly table name
+    friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
+    physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", table_name, sql)
+
     # 4. Validate SQL safety rules
-    validation = validate_modification_sql(sql, table_name, intent)
+    validation = validate_modification_sql(physical_sql, table_name, intent)
     if not validation["valid"]:
         return {
             "success": False,
@@ -73,10 +78,10 @@ def ask_modification(
         }
 
     # 5. Estimate count of rows to be affected
-    est_rows = estimate_affected_rows(sql, table_name, intent)
+    est_rows = estimate_affected_rows(physical_sql, table_name, intent)
 
     # 6. Generate natural language impact explanation
-    impact_text = explain_impact(sql, table_name, intent, est_rows)
+    impact_text = explain_impact(physical_sql, table_name, intent, est_rows)
 
     return {
         "success": True,
@@ -101,8 +106,11 @@ def execute_modification_query(
     """
     user_id = x_user_id or "default_user"
 
+    friendly_name = payload.table_name.split("_usr_")[0] if "_usr_" in payload.table_name else payload.table_name
+    physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", payload.table_name, payload.sql)
+
     # Execute query inside transaction
-    result = execute_modification(payload.sql, payload.table_name, payload.intent)
+    result = execute_modification(physical_sql, payload.table_name, payload.intent)
 
     # Save to Audit Log
     try:

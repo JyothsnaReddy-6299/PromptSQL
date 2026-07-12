@@ -111,6 +111,10 @@ def validate_sql(sql_query, table_name):
 
     for column in used_columns:
 
+        # Skip table name references
+        if column.lower() == table_name.lower():
+            continue
+
         if column not in valid_columns:
 
             return (

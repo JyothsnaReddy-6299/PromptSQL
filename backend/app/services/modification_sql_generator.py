@@ -17,6 +17,7 @@ def generate_modification_sql(question: str, table_name: str, intent: str) -> st
     Generates a valid MySQL statement matching a DML/DDL intent type.
     """
     schema = schema_to_prompt(table_name)
+    friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
     
     prompt = f"""
     You are an expert MySQL query generator.
@@ -25,7 +26,7 @@ def generate_modification_sql(question: str, table_name: str, intent: str) -> st
     =========================
     ACTIVE TABLE NAME
     =========================
-    `{table_name}`
+    `{friendly_name}`
     
     =========================
     SCHEMA
@@ -45,14 +46,14 @@ def generate_modification_sql(question: str, table_name: str, intent: str) -> st
     3. Use column names EXACTLY as they appear in the schema. Do not rename or invent column names.
     4. If column names or table names contain spaces or special characters, always wrap them in backticks (e.g. `First Name`, `Quantity Ordered`).
     5. Generate proper SQL syntax for MySQL.
-    6. For INSERT: generate "INSERT INTO `{table_name}` (col1, col2) VALUES (val1, val2)"
-    7. For UPDATE: generate "UPDATE `{table_name}` SET col1 = val1 WHERE ..."
-    8. For DELETE: generate "DELETE FROM `{table_name}` WHERE ..."
-    9. For MERGE/UPSERT in MySQL, use "INSERT INTO `{table_name}` ... ON DUPLICATE KEY UPDATE ..."
-    10. For ALTER: generate "ALTER TABLE `{table_name}` ADD COLUMN `new_col` TEXT", "ALTER TABLE `{table_name}` DROP COLUMN `old_col`", etc.
-    11. For DROP: generate "DROP TABLE `{table_name}`"
-    12. For TRUNCATE: generate "TRUNCATE TABLE `{table_name}`"
-    13. For RENAME: generate "RENAME TABLE `{table_name}` TO `new_name`"
+    6. For INSERT: generate "INSERT INTO `{friendly_name}` (col1, col2) VALUES (val1, val2)"
+    7. For UPDATE: generate "UPDATE `{friendly_name}` SET col1 = val1 WHERE ..."
+    8. For DELETE: generate "DELETE FROM `{friendly_name}` WHERE ..."
+    9. For MERGE/UPSERT in MySQL, use "INSERT INTO `{friendly_name}` ... ON DUPLICATE KEY UPDATE ..."
+    10. For ALTER: generate "ALTER TABLE `{friendly_name}` ADD COLUMN `new_col` TEXT", "ALTER TABLE `{friendly_name}` DROP COLUMN `old_col`", etc.
+    11. For DROP: generate "DROP TABLE `{friendly_name}`"
+    12. For TRUNCATE: generate "TRUNCATE TABLE `{friendly_name}`"
+    13. For RENAME: generate "RENAME TABLE `{friendly_name}` TO `new_name`"
     14. Output ONLY the raw SQL code. Do NOT explain. Do NOT use markdown code blocks.
     
     =========================
