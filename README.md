@@ -7,7 +7,6 @@
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
   [![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
   [![Groq Llama 3](https://img.shields.io/badge/Groq_Llama_3-f55a2a?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
-  [![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
   *An enterprise-grade **Natural Language to SQL (NL-to-SQL) analytics console** that bridges the gap between raw datasets and business insights. Upload any CSV or Excel file, and chat with your database directly using natural language. The system automatically creates isolated tables, translates your questions into optimized SQL, executes them safely alongside AI-interpreted summaries.*
 
@@ -71,8 +70,7 @@ GROQ_API_KEY=gsk_your_actual_groq_api_key
 
 ---
 
-<details>
-<summary><b>🔧 Manual Developer Setup (Click to Expand)</b></summary>
+## 🔧 Manual Developer Setup
 
 If you'd like to run frontend and backend separately for hot-reloading development environments:
 
@@ -98,10 +96,9 @@ npm run dev
 ```
 The development frontend server will boot up at **`http://localhost:5173`**.
 
-</details>
+---
 
-<details>
-<summary><b>🛡️ Database Mutation Safety Protocol (Click to Expand)</b></summary>
+## 🛡️ Database Mutation Safety Protocol
 
 | Stage | Security Layer | Action |
 | :--- | :--- | :--- |
@@ -109,5 +106,3 @@ The development frontend server will boot up at **`http://localhost:5173`**.
 | **2. Simulation** | Impact Estimator | Generates a virtual dry-run targeting `SELECT COUNT(*)` on active tables to determine exactly how many entries match the criteria. |
 | **3. Verification** | AI Explainer & UI Alert | Generates a descriptive warning explaining exactly how many rows will be altered or deleted. |
 | **4. Auditing** | Audit Logs & Transactions | Logs the query, user approving action, status, and outcome. Runs everything transactionally so it rolls back automatically on execution failures. |
-
-</details>
