@@ -12,16 +12,16 @@
 
   ---
 
-  ### 📺 [Watch the Demo Video](demo_video.mp4)
-
   <br />
 
-  <!-- Mockup frame for video link -->
-  <a href="demo_video.mp4">
-    <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1000&q=80" width="80%" alt="PromptSQL Video Walkthrough Demo" style="border-radius: 12px; border: 4px solid #1a1918; box-shadow: 0 10px 25px rgba(0,0,0,0.4);" />
-  </a>
+  <video src="demo video.mp4" controls width="80%" style="border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 25px rgba(0,0,0,0.4);">
+    Your browser does not support the video tag. You can <a href="demo video.mp4">watch the demo video here</a>.
+  </video>
   
-  *Click the frame above to play the demo walkthrough (place your video file at `demo_video.mp4` in the project root).*
+  <br />
+  <br />
+
+  *Place your walkthrough recording at `demo_video.mp4` in the project root folder to play it directly in the player above.*
 
 </div>
 
