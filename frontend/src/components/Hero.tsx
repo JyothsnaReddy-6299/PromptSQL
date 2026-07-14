@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
-import { Sparkles, ArrowRight, Play } from "lucide-react";
+import { ArrowRight, Sparkles, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useMagnetic } from "../hooks/useMagnetic";
-import WorkflowMarquee from "./WorkflowMarquee";
 
-function Typewriter({ text, delay = 0, speed = 60 }: { text: string; delay?: number; speed?: number }) {
+function Typewriter({ text, delay = 0, speed = 55 }: { text: string; delay?: number; speed?: number }) {
   const [displayed, setDisplayed] = useState("");
 
   useEffect(() => {
@@ -20,76 +18,93 @@ function Typewriter({ text, delay = 0, speed = 60 }: { text: string; delay?: num
       }, speed);
       return () => clearInterval(interval);
     }, delay);
-
     return () => clearTimeout(timer);
   }, [text, delay, speed]);
 
   return <>{displayed}</>;
 }
 
+const STATS = [
+  { value: "10x", label: "Faster than writing SQL" },
+  { value: "99%", label: "Query accuracy" },
+  { value: "< 1s", label: "Response time" },
+];
+
 export default function Hero() {
   const navigate = useNavigate();
 
-  const handleUploadClick = () => {
-    navigate("/upload");
-  };
-
-  const startQueryBtnRef = useMagnetic(0.25);
-  const exploreFeaturesBtnRef = useMagnetic(0.2);
-
   return (
-    <section className="relative pt-24 pb-12 md:pt-28 md:pb-14 bg-warmgray-50 overflow-hidden">
-      {/* Decorative Warm Blur Blobs */}
-      <div className="absolute top-1/4 left-1/10 w-96 h-96 bg-terracotta-300 rounded-full filter blur-3xl opacity-15 animate-pulse" />
-      <div className="absolute top-1/3 right-1/10 w-96 h-96 bg-sand-200 rounded-full filter blur-3xl opacity-20 animate-pulse duration-5000" />
+    <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-[#09090B]">
+      {/* Radial gradient glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] bg-indigo-600/10 rounded-full blur-[120px]" />
+        <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-violet-600/8 rounded-full blur-[100px]" />
+        <div className="absolute bottom-1/4 left-1/4 w-[350px] h-[350px] bg-indigo-500/6 rounded-full blur-[80px]" />
+      </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-terracotta-50 border border-terracotta-100 px-4 py-1.5 rounded-full text-terracotta-700 font-semibold text-[10px] animate-fade-in hover:scale-103 transition-transform duration-300">
-          <Sparkles size={12} className="text-terracotta-500 animate-spin-slow" />
-          <span>AI-Powered Text-to-SQL Analytics Engine</span>
-        </div>
+      {/* Grid pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.025] pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: "80px 80px",
+        }}
+      />
 
-        {/* Heading with Typewriter Typing animation */}
-        <h1 className="mt-5 text-4xl md:text-5xl lg:text-6xl font-black text-warmgray-900 tracking-tight leading-none min-h-[110px] md:min-h-[140px]">
-          <Typewriter text="Natural Language Meets" speed={50} />
-          <span className="block mt-2.5 bg-gradient-to-r from-terracotta-600 via-terracotta-500 to-sand-400 bg-clip-text text-transparent">
-            <Typewriter text="SQL Intelligence." delay={1500} speed={60} />
-            <span className="inline-block w-1 h-7 md:h-11 bg-terracotta-500 ml-1.5 animate-blink align-middle" />
+      <div className="relative z-10 max-w-5xl mx-auto px-6 text-center pt-28 pb-20">
+        {/* Announcement badge */}
+        <a
+          href="#features"
+          className="inline-flex items-center gap-2 bg-white/[0.06] border border-white/[0.1] hover:border-indigo-500/40 px-4 py-1.5 rounded-full text-xs font-medium text-zinc-300 hover:text-white transition-all duration-300 mb-8 group cursor-pointer"
+        >
+          <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
+          <span>Introducing AI-Powered Data Cleaning Suite</span>
+          <ChevronRight size={12} className="text-zinc-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+        </a>
+
+        {/* Main heading */}
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.05] mb-6">
+          <span className="block gradient-text">
+            <Typewriter text="Natural Language" speed={50} />
+          </span>
+          <span className="block mt-2">
+            <span className="gradient-text-purple">
+              <Typewriter text="Meets SQL Intelligence" delay={1200} speed={50} />
+            </span>
+            <span className="inline-block w-0.5 h-12 md:h-16 bg-indigo-400 ml-2 animate-blink align-middle opacity-80" />
           </span>
         </h1>
 
         {/* Subtitle */}
-        <p className="mt-5 text-sm md:text-base lg:text-lg text-warmgray-500 max-w-2xl mx-auto leading-relaxed font-medium">
-          No complex database query writing, no custom schema mapping—just instant insights.
+        <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed mb-10 font-normal">
+          Upload any dataset and interrogate it with plain English. PromptSQL maps your schema, generates optimized SQL, and delivers instant visual insights — no query writing needed.
         </p>
 
-        {/* CTAs with Magnetic mouse attraction */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
+        {/* CTA buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-16">
           <button
-            ref={startQueryBtnRef}
-            onClick={handleUploadClick}
-            className="w-full sm:w-auto bg-gradient-to-r from-terracotta-500 via-terracotta-600 to-sand-400 px-8 py-3.5 rounded-xl text-white font-bold text-sm shadow-md shadow-terracotta-500/10 hover:shadow-lg hover:shadow-terracotta-500/20 transition duration-300 flex items-center justify-center gap-2.5 cursor-pointer"
+            onClick={() => navigate("/upload")}
+            className="group relative w-full sm:w-auto bg-white hover:bg-zinc-50 text-zinc-900 font-semibold px-7 py-3.5 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer shadow-lg shadow-black/20"
           >
-            <span>Start Querying</span>
-            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            <Sparkles size={15} className="text-indigo-600" />
+            <span>Start Querying Free</span>
+            <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
+        </div>
 
-          <a
-            ref={exploreFeaturesBtnRef}
-            href="#features"
-            className="w-full sm:w-auto bg-white border border-warmgray-100 text-warmgray-850 px-6 py-3.5 rounded-xl font-bold text-sm hover:bg-warmgray-100 hover:text-warmgray-900 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Play size={14} className="fill-warmgray-500 text-warmgray-500" />
-            <span>Explore Features</span>
-          </a>
+        {/* Stats row */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12">
+          {STATS.map((stat, i) => (
+            <div key={i} className="text-center">
+              <div className="text-2xl font-bold text-white">{stat.value}</div>
+              <div className="text-xs text-zinc-500 mt-0.5">{stat.label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Loop horizontal workflow animation breakout edge-to-edge */}
-      <div className="mt-14 w-full">
-        <WorkflowMarquee />
-      </div>
+      {/* Bottom gradient fade into next section */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#09090B] to-transparent pointer-events-none" />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { ArrowLeft, Upload, FileSpreadsheet, Sparkles, Check, Database, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Sparkles, Check, Database, Loader2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
 import axios from "axios";
@@ -10,7 +10,7 @@ const LOADING_STEPS = [
   "Running data cleaners & cleaning missing values...",
   "Preparing SQL schema mapping...",
   "Loading dataset into secure MySQL engine...",
-  "Generating final stats & summary stats..."
+  "Generating final stats & summary stats...",
 ];
 
 export default function UploadPage() {
@@ -23,7 +23,6 @@ export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Drag and drop handlers
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -68,23 +67,16 @@ export default function UploadPage() {
       setProgress(5);
       setLoadingStepIdx(0);
 
-      // Start step rotation
       const stepInterval = setInterval(() => {
         setLoadingStepIdx((prev) => {
-          if (prev < LOADING_STEPS.length - 1) {
-            return prev + 1;
-          }
+          if (prev < LOADING_STEPS.length - 1) return prev + 1;
           return prev;
         });
       }, 1500);
 
-      // Progress bar simulation
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
+          if (prev >= 90) { clearInterval(progressInterval); return 90; }
           return prev + Math.floor(Math.random() * 15) + 5;
         });
       }, 600);
@@ -92,18 +84,15 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      // API call using relative path
       const response = await axios.post("/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       clearInterval(stepInterval);
       clearInterval(progressInterval);
       setProgress(100);
       setLoadingStepIdx(LOADING_STEPS.length - 1);
-      
+
       setTimeout(() => {
         setUploading(false);
         setUploadStatus("Upload successful");
@@ -116,174 +105,184 @@ export default function UploadPage() {
       setProgress(0);
       const errMsg = error.response?.data?.detail || "Upload failed. Please verify MySQL configuration and try again.";
       setUploadStatus(errMsg);
-      console.error(error);
     }
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-warmgray-50 flex items-center justify-center p-4">
-      {/* Decorative Blob */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-terracotta-100 rounded-full blur-3xl opacity-30" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-sand-100 rounded-full blur-3xl opacity-30" />
+    <div className="relative min-h-screen overflow-hidden bg-[#09090B] flex items-center justify-center p-4">
+      {/* Background glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-indigo-600/[0.08] rounded-full blur-[100px]" />
+      </div>
 
-      <div className="relative z-10 w-full max-w-xl bg-white rounded-2xl border border-warmgray-100 p-6 md:p-8 shadow-xl transition-all duration-300">
+      {/* Grid pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.02] pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: "80px 80px",
+        }}
+      />
+
+      <div className="relative z-10 w-full max-w-lg">
+        {/* Back link */}
         <button
           onClick={() => navigate("/")}
-          className="group inline-flex gap-1.5 items-center mb-6 text-warmgray-500 hover:text-terracotta-500 transition-colors font-bold text-xs cursor-pointer"
+          className="group inline-flex gap-1.5 items-center mb-8 text-zinc-500 hover:text-white transition-colors font-medium text-sm cursor-pointer"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
-          <span>Back to Home</span>
+          <span>Back to home</span>
         </button>
 
-        <div className="mb-6">
-          <div className="inline-flex items-center gap-1.5 bg-terracotta-50 border border-terracotta-100 px-2.5 py-1 rounded-full text-terracotta-700 text-[10px] font-bold mb-2">
-            <Sparkles size={10} className="animate-spin-slow" />
-            <span>Dataset Agnostic Engine</span>
+        <div className="bg-[#111113] border border-white/[0.07] rounded-2xl p-7 shadow-2xl shadow-black/40">
+          {/* Header */}
+          <div className="mb-7">
+            <div className="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full text-indigo-400 text-[11px] font-medium mb-4">
+              <Sparkles size={10} className="animate-spin-slow" />
+              <span>Dataset Agnostic Engine</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              Upload your dataset
+            </h1>
+            <p className="text-zinc-500 mt-1.5 text-sm leading-relaxed">
+              Load any structured CSV, XLS, or XLSX file to start querying with AI.
+            </p>
           </div>
-          <h1 className="text-2xl font-extrabold text-warmgray-900 tracking-tight">
-            Upload Your Dataset
-          </h1>
-          <p className="text-warmgray-500 mt-1 text-xs font-medium">
-            Load any structured CSV, XLS, or XLSX spreadsheet to start.
-          </p>
-        </div>
 
-        {/* Drag and Drop Zone with moving animated border */}
-        <div className="p-[2.5px] rounded-[20px] bg-gradient-to-r from-terracotta-100 via-terracotta-500 to-terracotta-100 animate-moving-border shadow-sm">
+          {/* Drop zone */}
           <div
             onDragEnter={handleDrag}
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`relative rounded-[17px] p-8 text-center cursor-pointer bg-white transition-all duration-300 border border-dashed ${
+            onClick={() => !selectedFile && fileInputRef.current?.click()}
+            className={`relative rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-300 ${
               dragActive
-                ? "border-terracotta-500 bg-terracotta-50/20 scale-99 shadow-inner"
+                ? "border-indigo-500/60 bg-indigo-500/[0.04]"
                 : selectedFile
-                ? "border-emerald-300 bg-emerald-50/15"
-                : "border-warmgray-200 hover:border-terracotta-300 bg-warmgray-50/10 hover:bg-warmgray-50/30"
+                ? "border-emerald-500/40 bg-emerald-500/[0.04] cursor-default"
+                : "border-white/[0.1] hover:border-white/[0.2] bg-white/[0.02] hover:bg-white/[0.04]"
             }`}
           >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={handleFileSelect}
-            onClick={(e) => e.stopPropagation()}
-            className="hidden"
-          />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileSelect}
+              onClick={(e) => e.stopPropagation()}
+              className="hidden"
+            />
 
-          <div className="mx-auto w-14 h-14 bg-white rounded-xl border border-warmgray-100 flex items-center justify-center shadow-md shadow-warmgray-100">
             {selectedFile ? (
-              <FileSpreadsheet size={24} className="text-emerald-500" />
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+                  <FileSpreadsheet size={22} className="text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{selectedFile.name}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setUploadStatus(""); }}
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-white bg-white/[0.05] hover:bg-white/[0.08] px-3 py-1.5 rounded-lg transition-all border border-white/[0.06] cursor-pointer"
+                >
+                  <X size={11} />
+                  Remove file
+                </button>
+              </div>
             ) : (
-              <Upload size={24} className="text-terracotta-500" />
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-12 h-12 bg-white/[0.04] border border-white/[0.08] rounded-xl flex items-center justify-center">
+                  <Upload size={20} className="text-zinc-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {dragActive ? "Drop your file here" : "Drag & drop your dataset"}
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-1">or click to browse — CSV, XLS, XLSX</p>
+                </div>
+              </div>
             )}
           </div>
 
-          {selectedFile ? (
-            <div className="mt-4">
-              <h3 className="text-base font-bold text-warmgray-900">
-                File Selected
-              </h3>
-              <p className="mt-1 text-xs font-bold text-emerald-700 bg-emerald-50 inline-block px-2.5 py-0.5 rounded-full border border-emerald-100">
-                📄 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-              </p>
-              <p className="mt-1.5 text-[10px] text-warmgray-400">
-                Click to browse or drag in another file
-              </p>
+          {/* Error/status */}
+          {uploadStatus && !uploadStatus.includes("successful") && (
+            <div className="mt-4 p-3.5 rounded-xl border border-red-500/20 bg-red-500/[0.06] flex gap-2.5 items-start">
+              <div className="w-4 h-4 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-red-400 text-[10px] font-bold">!</span>
+              </div>
+              <span className="text-xs text-red-400 leading-relaxed">{uploadStatus}</span>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {uploading ? (
+            <div className="mt-5 bg-[#0D0D0F] rounded-xl p-5 border border-white/[0.06] font-mono text-[11px]">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-indigo-400 flex items-center gap-2 font-medium">
+                  <Loader2 size={12} className="animate-spin" />
+                  Ingesting dataset...
+                </span>
+                <span className="text-zinc-600">{progress}%</span>
+              </div>
+
+              <div className="w-full bg-white/[0.05] rounded-full h-1 mb-4 overflow-hidden">
+                <div
+                  style={{ width: `${progress}%` }}
+                  className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-300"
+                />
+              </div>
+
+              <div className="space-y-2">
+                {LOADING_STEPS.map((step, idx) => {
+                  if (idx < loadingStepIdx) {
+                    return (
+                      <div key={idx} className="flex gap-2 items-center text-emerald-400">
+                        <Check size={11} />
+                        <span className="text-zinc-500">{step}</span>
+                      </div>
+                    );
+                  } else if (idx === loadingStepIdx) {
+                    return (
+                      <div key={idx} className="flex gap-2 items-center text-indigo-400 font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping shrink-0" />
+                        <span>{step}</span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div key={idx} className="flex gap-2 items-center text-zinc-700">
+                        <span className="w-1 h-1 rounded-full bg-zinc-800 shrink-0 ml-0.5" />
+                        <span>{step}</span>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
             </div>
           ) : (
-            <div className="mt-4">
-              <h3 className="text-base font-bold text-warmgray-900">
-                Drag & drop files here
-              </h3>
-              <p className="mt-1 text-warmgray-400 text-xs font-medium">
-                or click to browse your computer
-              </p>
-              <p className="mt-4 text-[10px] text-warmgray-400">
-                Supported formats: CSV, XLS, XLSX
-              </p>
+            selectedFile && (
+              <button
+                onClick={handleUpload}
+                className="mt-5 w-full bg-white hover:bg-zinc-50 text-zinc-900 py-3.5 rounded-xl font-semibold hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-lg shadow-black/20 cursor-pointer flex justify-center items-center gap-2 text-sm"
+              >
+                <Database size={15} />
+                <span>Process & Ingest Data</span>
+              </button>
+            )
+          )}
+
+          {/* Formats hint */}
+          {!selectedFile && !uploading && (
+            <div className="mt-5 flex items-center justify-center gap-4">
+              {[".CSV", ".XLS", ".XLSX"].map((fmt) => (
+                <span key={fmt} className="text-[10px] text-zinc-600 bg-white/[0.03] border border-white/[0.06] px-2.5 py-1 rounded-md font-mono">
+                  {fmt}
+                </span>
+              ))}
             </div>
           )}
         </div>
-      </div>
-
-        {/* Status Messaging */}
-        {uploadStatus && (
-          <div className={`mt-4 p-3 rounded-xl border text-xs flex gap-2 items-center ${
-            uploadStatus.includes("successful")
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-red-50 border-red-200 text-red-800"
-          }`}>
-            {uploadStatus.includes("successful") ? (
-              <Check size={14} className="text-emerald-600 shrink-0" />
-            ) : (
-              <span className="font-bold shrink-0 text-red-650">✕</span>
-            )}
-            <span>{uploadStatus}</span>
-          </div>
-        )}
-
-        {/* Upload Action / Loading State */}
-        {uploading ? (
-          <div className="mt-6 bg-warmgray-950 text-white rounded-2xl p-4 font-mono text-[10px] shadow-xl">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-terracotta-300 flex items-center gap-1.5 font-bold">
-                <Loader2 size={12} className="animate-spin text-terracotta-450" /> Ingesting Dataset
-              </span>
-              <span className="text-warmgray-400">{progress}%</span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-warmgray-900 rounded-full h-1.5 mb-4 overflow-hidden">
-              <div
-                style={{ width: `${progress}%` }}
-                className="bg-gradient-to-r from-terracotta-500 to-sand-300 h-full rounded-full transition-all duration-300"
-              />
-            </div>
-
-            {/* Simulated steps logs */}
-            <div className="space-y-1.5 text-warmgray-300">
-              {LOADING_STEPS.map((step, idx) => {
-                if (idx < loadingStepIdx) {
-                  return (
-                    <div key={idx} className="flex gap-1.5 items-center text-emerald-400 font-semibold">
-                      <span>✓</span>
-                      <span>{step}</span>
-                    </div>
-                  );
-                } else if (idx === loadingStepIdx) {
-                  return (
-                    <div key={idx} className="flex gap-1.5 items-center text-terracotta-400 animate-pulse font-bold">
-                      <span className="inline-block w-1 h-1 rounded-full bg-terracotta-400 animate-ping" />
-                      <span>{step}</span>
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div key={idx} className="flex gap-1.5 items-center text-warmgray-700">
-                      <span className="w-1 h-1 rounded-full bg-warmgray-900" />
-                      <span>{step}</span>
-                    </div>
-                  );
-                }
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="mt-6 flex gap-4">
-            {selectedFile && (
-              <button
-                onClick={handleUpload}
-                className="w-full bg-gradient-to-r from-terracotta-500 to-terracotta-600 text-white py-3 rounded-xl font-bold hover:scale-102 active:scale-98 transition duration-200 shadow-md shadow-terracotta-500/10 cursor-pointer flex justify-center items-center gap-1.5 text-sm"
-              >
-                <Database size={16} />
-                <span>Process & Ingest Data</span>
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

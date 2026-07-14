@@ -170,22 +170,23 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-warmgray-50 text-warmgray-900">
+    <div className="flex min-h-screen bg-[#09090B] text-zinc-100">
       {/* Left Sidebar */}
-      <DashboardSidebar 
-        activeSection={activeSection} 
-        onSectionClick={handleSectionClick} 
+      <DashboardSidebar
+        activeSection={activeSection}
+        onSectionClick={handleSectionClick}
       />
 
-      {/* Main Content Area - Reduced Padding & Spacing */}
-      <div className="flex-1 p-4 md:p-6 space-y-5 overflow-y-auto max-h-screen">
-        {/* Navbar */}
-        <DashboardNavbar 
-          fileName={fileName} 
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden max-h-screen">
+        {/* Sticky Navbar at top of content */}
+        <DashboardNavbar
+          fileName={fileName}
           onRefresh={() => setRefreshTrigger(p => p + 1)}
           isRefreshing={loadingPreview}
         />
 
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {activeSection === "reports" ? (
           <div id="reports" className="scroll-mt-24">
             <ReportsManager />
@@ -241,6 +242,7 @@ export default function DashboardPage() {
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

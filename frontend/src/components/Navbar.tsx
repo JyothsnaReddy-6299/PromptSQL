@@ -1,42 +1,100 @@
-import { Brain } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Brain, Menu, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-warmgray-50/80 backdrop-blur-md border-b border-warmgray-100 shadow-sm transition-all duration-300">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-8 py-3">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-[#09090B]/90 backdrop-blur-xl border-b border-white/[0.06] shadow-2xl shadow-black/20"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
-        <div 
+        <div
           onClick={() => navigate("/")}
-          className="flex items-center gap-3 cursor-pointer group"
+          className="flex items-center gap-2.5 cursor-pointer group"
         >
-          <div className="bg-gradient-to-br from-terracotta-500 to-terracotta-600 p-2.5 rounded-2xl shadow-md shadow-terracotta-500/10 group-hover:scale-105 transition-transform duration-300">
-            <Brain size={22} className="text-white" />
+          <div className="relative">
+            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-shadow duration-300">
+              <Brain size={16} className="text-white" />
+            </div>
+            <div className="absolute -inset-0.5 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg blur opacity-0 group-hover:opacity-30 transition-opacity duration-300 -z-10" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-2xl font-black text-warmgray-900 tracking-tight leading-none group-hover:text-terracotta-600 transition-colors">
-              PromptSQL
-            </span>
-            <span className="text-[10px] text-warmgray-500 font-bold tracking-widest uppercase mt-0.5">
-              AI Analytics
-            </span>
-          </div>
+          <span className="text-lg font-bold text-white tracking-tight group-hover:text-indigo-300 transition-colors duration-200">
+            PromptSQL
+          </span>
         </div>
 
+        {/* Nav Links */}
+        <div className="hidden md:flex items-center gap-1">
+          {[
+            { name: "Features", href: "#features" },
+            { name: "How it works", href: "#how-it-works" }
+          ].map((item) => (
+            <a
+              key={item.name}
+              href={item.href}
+              className="px-4 py-2 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.05] transition-all duration-200 cursor-pointer"
+            >
+              {item.name}
+            </a>
+          ))}
+        </div>
 
-
-        {/* CTA Button */}
-        <div>
+        {/* CTA */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/upload")}
-            className="bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold px-6 py-3 rounded-xl transition duration-200 hover:shadow-lg hover:shadow-terracotta-500/15 active:scale-95 text-sm cursor-pointer"
+            className="relative group bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-4 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer shadow-sm"
           >
-            Upload File
+            <span className="relative z-10">Get Started</span>
+          </button>
+          <button
+            className="md:hidden text-zinc-400 hover:text-white"
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
+
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className="md:hidden bg-[#111113]/95 backdrop-blur-xl border-b border-white/[0.06] px-6 pb-4 space-y-1">
+          {[
+            { name: "Features", href: "#features" },
+            { name: "How it works", href: "#how-it-works" }
+          ].map((item) => (
+            <a
+              key={item.name}
+              href={item.href}
+              className="block px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/[0.05] rounded-lg transition"
+              onClick={() => setMobileOpen(false)}
+            >
+              {item.name}
+            </a>
+          ))}
+          <button
+            onClick={() => navigate("/upload")}
+            className="w-full mt-2 bg-white text-zinc-900 font-semibold px-4 py-2.5 rounded-lg text-sm cursor-pointer"
+          >
+            Get Started Free
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

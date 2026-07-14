@@ -204,14 +204,14 @@ export default function DataCleaner({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border border-warmgray-100 rounded-2xl p-4 shadow-sm">
+      <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-2xl shadow-black/10">
         <div className="flex items-center gap-3">
-          <div className="bg-terracotta-50 p-2.5 rounded-xl text-terracotta-600">
-            <Wand2 size={20} className="text-terracotta-500" />
+          <div className="bg-indigo-500/10 p-2.5 rounded-xl text-indigo-400 border border-indigo-500/20">
+            <Wand2 size={20} className="text-indigo-450" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-warmgray-900">AI Data Cleaning & Preprocessing Suite</h2>
-            <p className="text-warmgray-500 text-[10px] mt-0.5 font-semibold">
+            <h2 className="text-base font-bold text-white">AI Data Cleaning & Preprocessing Suite</h2>
+            <p className="text-zinc-400 text-[10px] mt-0.5 font-medium">
               Preprocess and repair column missing cells, values, and de-duplicate records directly inside MySQL.
             </p>
           </div>
@@ -222,13 +222,13 @@ export default function DataCleaner({
       {statusMessage && (
         <div className={`p-4 border rounded-xl flex items-start gap-3 text-xs font-semibold animate-fade-in ${
           statusMessage.type === "success" 
-            ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
-            : "bg-red-50/50 border-red-200 text-red-800"
+            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+            : "bg-red-500/10 border-red-500/20 text-red-400"
         }`}>
           {statusMessage.type === "success" ? (
-            <CheckCircle size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+            <CheckCircle size={16} className="text-emerald-400 mt-0.5 shrink-0" />
           ) : (
-            <AlertTriangle size={16} className="text-red-600 mt-0.5 shrink-0" />
+            <AlertTriangle size={16} className="text-red-400 mt-0.5 shrink-0" />
           )}
           <div>{statusMessage.text}</div>
         </div>
@@ -237,18 +237,18 @@ export default function DataCleaner({
       {/* Cleaner Workspace grid */}
       <div className="grid md:grid-cols-3 gap-6">
         {/* De-duplication Card */}
-        <div className="bg-white border border-warmgray-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-warmgray-900 flex items-center gap-2">
-            <Trash2 className="text-terracotta-500" size={15} />
+        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-white flex items-center gap-2">
+            <Trash2 className="text-indigo-400" size={15} />
             <span>Deduplicate Dataset</span>
           </h3>
-          <p className="text-[10px] text-warmgray-500 leading-relaxed font-semibold">
+          <p className="text-[10px] text-zinc-400 leading-relaxed font-medium">
             Copies all distinct rows into a temporary storage workspace, flushes the original table, and repopulates the clean records.
           </p>
           <button
             onClick={handleRemoveDuplicates}
             disabled={cleaning || loading}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-terracotta-500 to-terracotta-600 hover:from-terracotta-600 hover:to-terracotta-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-sm hover:shadow active:scale-98 cursor-pointer disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-sm hover:shadow active:scale-98 cursor-pointer disabled:opacity-50"
           >
             {cleaning ? (
               <Loader2 size={13} className="animate-spin" />
@@ -260,19 +260,19 @@ export default function DataCleaner({
         </div>
 
         {/* Column Imputation Card */}
-        <div className="md:col-span-2 bg-white border border-warmgray-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-warmgray-900 flex items-center gap-2">
-            <Sparkles className="text-terracotta-500" size={15} />
+        <div className="md:col-span-2 bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-white flex items-center gap-2">
+            <Sparkles className="text-indigo-400" size={15} />
             <span>Missing Cells Imputer (Repair Nulls)</span>
           </h3>
-          <p className="text-[10px] text-warmgray-500 leading-relaxed font-semibold">
+          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
             Detects empty string and NULL cells in a selected column, calculating replacements based on statistical means, medians, modes, or custom constants.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4">
             {/* Column select */}
             <div className="space-y-1">
-              <label className="text-[9px] uppercase tracking-wider font-extrabold text-warmgray-450 block">Select Column</label>
+              <label className="text-[9px] uppercase tracking-wider font-extrabold text-zinc-500 block">Select Column</label>
               <select
                 value={selectedColumn}
                 onChange={(e) => {
@@ -284,7 +284,7 @@ export default function DataCleaner({
                     setStrategy("mean");
                   }
                 }}
-                className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900 font-semibold cursor-pointer"
+                className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
               >
                 <option value="">-- Choose Column --</option>
                 {columns.map((col) => (
@@ -297,12 +297,12 @@ export default function DataCleaner({
 
             {/* Imputation Strategy */}
             <div className="space-y-1">
-              <label className="text-[9px] uppercase tracking-wider font-extrabold text-warmgray-450 block">Cleaning Strategy</label>
+              <label className="text-[9px] uppercase tracking-wider font-extrabold text-zinc-500 block">Cleaning Strategy</label>
               <select
                 value={strategy}
                 onChange={(e) => setStrategy(e.target.value)}
                 disabled={!selectedColumn}
-                className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900 font-semibold cursor-pointer disabled:opacity-50"
+                className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer disabled:opacity-50"
               >
                 {selectedColumn && isNumericType(selectedColumn) && (
                   <>
@@ -320,23 +320,23 @@ export default function DataCleaner({
           {/* Custom value input */}
           {strategy === "custom" && (
             <div className="space-y-1 animate-fade-in">
-              <label className="text-[9px] uppercase tracking-wider font-extrabold text-warmgray-450 block">Custom Replacement Value</label>
+              <label className="text-[9px] uppercase tracking-wider font-extrabold text-zinc-500 block">Custom Replacement Value</label>
               <input
                 type="text"
                 placeholder="Enter custom replacement text or number..."
                 value={customValue}
                 onChange={(e) => setCustomValue(e.target.value)}
-                className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900 font-semibold"
+                className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-medium"
               />
             </div>
           )}
 
           {/* Numeric/Sales Columns Warning */}
           {selectedColumn && (isNumericType(selectedColumn) || selectedColumn.toLowerCase().includes("sale") || selectedColumn.toLowerCase().includes("price") || selectedColumn.toLowerCase().includes("quantity")) && (strategy === "custom" || strategy === "mode" || strategy === "mean" || strategy === "median") && (
-            <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-3.5 flex items-start gap-2.5 text-[10px] text-amber-850 font-semibold animate-fade-in">
-              <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="bg-amber-500/[0.06] border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-2.5 text-[10px] text-amber-300 font-semibold animate-fade-in">
+              <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-amber-900 block mb-0.5">⚠️ Data Integrity Suggestion</span>
+                <span className="font-bold text-amber-400 block mb-0.5">⚠️ Data Integrity Suggestion</span>
                 You are applying a uniform value (or column statistic) to a transaction metric ({selectedColumn}). 
                 Because sales and quantities differ per transaction, overwriting all empty cells with the same constant might skew your data.
                 To input different, unique values for each cell, use the <strong>Data Table Preview</strong> tab and double-click individual cells to edit them row-by-row.
@@ -347,12 +347,12 @@ export default function DataCleaner({
           <button
             onClick={handleImpute}
             disabled={cleaning || loading || !selectedColumn}
-            className="flex items-center justify-center gap-2 bg-warmgray-900 hover:bg-warmgray-850 text-white font-bold text-xs py-2.5 px-6 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50 block ml-auto"
+            className="flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2.5 px-6 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50 block ml-auto"
           >
             {cleaning ? (
               <Loader2 size={13} className="animate-spin" />
             ) : (
-              <Sparkles size={13} className="text-terracotta-400" />
+              <Sparkles size={13} className="text-indigo-400" />
             )}
             <span>Apply Repair</span>
           </button>
@@ -361,19 +361,19 @@ export default function DataCleaner({
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Text Standardization Card */}
-        <div className="bg-white border border-warmgray-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-warmgray-900 flex items-center gap-2">
-            <Type className="text-terracotta-500" size={15} />
+        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-white flex items-center gap-2">
+            <Type className="text-indigo-400" size={15} />
             <span>Text Standardization</span>
           </h3>
-          <p className="text-[10px] text-warmgray-500 leading-relaxed font-semibold">
+          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
             Clean messy strings by trimming whitespace or standardizing to upper/lower casing.
           </p>
           <div className="space-y-2">
             <select
               value={standardizeCol}
               onChange={(e) => setStandardizeCol(e.target.value)}
-              className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900 font-semibold cursor-pointer"
+              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
             >
               <option value="">-- Choose Column --</option>
               {columns.map((col) => (
@@ -383,7 +383,7 @@ export default function DataCleaner({
             <select
               value={standardizeOp}
               onChange={(e) => setStandardizeOp(e.target.value)}
-              className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900 font-semibold cursor-pointer"
+              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
             >
               <option value="trim">Trim Whitespace</option>
               <option value="lower">Lowercase</option>
@@ -392,7 +392,7 @@ export default function DataCleaner({
             <button
               onClick={handleStandardizeText}
               disabled={cleaning || loading || !standardizeCol}
-              className="w-full flex items-center justify-center gap-2 bg-warmgray-900 hover:bg-warmgray-850 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
             >
               <span>Standardize</span>
             </button>
@@ -400,32 +400,32 @@ export default function DataCleaner({
         </div>
 
         {/* Number Extraction Card */}
-        <div className="bg-white border border-warmgray-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-warmgray-900 flex items-center gap-2">
-            <Scissors className="text-terracotta-500" size={15} />
+        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-white flex items-center gap-2">
+            <Scissors className="text-indigo-400" size={15} />
             <span>Smart Number Extraction</span>
           </h3>
-          <p className="text-[10px] text-warmgray-500 leading-relaxed font-semibold">
+          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
             Extracts numeric digits from messy text strings (e.g. currencies, strings with text).
           </p>
           <div className="space-y-2">
             <select
               value={extractCol}
               onChange={(e) => setExtractCol(e.target.value)}
-              className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900 font-semibold cursor-pointer"
+              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
             >
               <option value="">-- Choose Column --</option>
               {columns.map((col) => (
                 <option key={col} value={col}>{col}</option>
               ))}
             </select>
-            <div className="text-[9px] text-emerald-600 bg-emerald-50 px-2 py-1.5 rounded-lg border border-emerald-100 font-semibold mt-2">
+            <div className="text-[9px] text-emerald-400 bg-emerald-500/[0.06] px-2.5 py-1.5 rounded-lg border border-emerald-500/20 font-semibold mt-2">
               Removes all letters and symbols except digits, dots, and minus signs.
             </div>
             <button
               onClick={handleExtractNumbers}
               disabled={cleaning || loading || !extractCol}
-              className="w-full mt-2 flex items-center justify-center gap-2 bg-warmgray-900 hover:bg-warmgray-850 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
             >
               <span>Extract Numbers</span>
             </button>
@@ -433,19 +433,19 @@ export default function DataCleaner({
         </div>
 
         {/* Outlier Capping Card */}
-        <div className="bg-white border border-warmgray-100 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-warmgray-900 flex items-center gap-2">
-            <Activity className="text-terracotta-500" size={15} />
+        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-white flex items-center gap-2">
+            <Activity className="text-indigo-400" size={15} />
             <span>Outlier Capping (Winsorization)</span>
           </h3>
-          <p className="text-[10px] text-warmgray-500 leading-relaxed font-semibold">
+          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
             Caps extreme numerical outliers to percentiles boundaries.
           </p>
           <div className="space-y-2">
             <select
               value={outlierCol}
               onChange={(e) => setOutlierCol(e.target.value)}
-              className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900 font-semibold cursor-pointer"
+              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
             >
               <option value="">-- Numeric Column --</option>
               {columns.filter(c => isNumericType(c)).map((col) => (
@@ -454,7 +454,7 @@ export default function DataCleaner({
             </select>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[8px] uppercase tracking-wider font-extrabold text-warmgray-450 block mb-1">Lower Limit</label>
+                <label className="text-[8px] uppercase tracking-wider font-extrabold text-zinc-500 block mb-1">Lower Limit</label>
                 <input
                   type="number"
                   step="0.01"
@@ -462,11 +462,11 @@ export default function DataCleaner({
                   max="0.5"
                   value={lowerBound}
                   onChange={(e) => setLowerBound(parseFloat(e.target.value))}
-                  className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900"
+                  className="w-full bg-[#18181B] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300"
                 />
               </div>
               <div>
-                <label className="text-[8px] uppercase tracking-wider font-extrabold text-warmgray-450 block mb-1">Upper Limit</label>
+                <label className="text-[8px] uppercase tracking-wider font-extrabold text-zinc-500 block mb-1">Upper Limit</label>
                 <input
                   type="number"
                   step="0.01"
@@ -474,14 +474,14 @@ export default function DataCleaner({
                   max="1"
                   value={upperBound}
                   onChange={(e) => setUpperBound(parseFloat(e.target.value))}
-                  className="w-full bg-warmgray-50/50 border border-warmgray-100 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-terracotta-500 text-warmgray-900"
+                  className="w-full bg-[#18181B] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300"
                 />
               </div>
             </div>
             <button
               onClick={handleCapOutliers}
               disabled={cleaning || loading || !outlierCol}
-              className="w-full mt-2 flex items-center justify-center gap-2 bg-warmgray-900 hover:bg-warmgray-850 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
             >
               <span>Cap Outliers</span>
             </button>
@@ -490,14 +490,14 @@ export default function DataCleaner({
       </div>
 
       {/* Dataset Audit details Table */}
-      <div className="bg-white border border-warmgray-100 rounded-2xl p-5 shadow-sm space-y-4">
-        <h3 className="text-xs font-bold text-warmgray-900 flex items-center gap-2">
-          <Database className="text-terracotta-500" size={15} />
+      <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-2xl shadow-black/10 space-y-4">
+        <h3 className="text-xs font-bold text-white flex items-center gap-2">
+          <Database className="text-indigo-400" size={15} />
           <span>Column Schema Health Audit</span>
         </h3>
-        <div className="overflow-x-auto border border-warmgray-100/60 rounded-xl max-h-[300px]">
-          <table className="min-w-full border-collapse text-left text-xs text-warmgray-850">
-            <thead className="bg-warmgray-50 sticky top-0 border-b border-warmgray-100 z-10 font-bold text-[9px] uppercase text-warmgray-500 tracking-wider">
+        <div className="overflow-x-auto border border-white/[0.06] rounded-xl max-h-[300px]">
+          <table className="min-w-full border-collapse text-left text-xs text-zinc-300">
+            <thead className="bg-[#0D0D0F] sticky top-0 border-b border-white/[0.06] z-10 font-bold text-[9px] uppercase text-zinc-500 tracking-wider">
               <tr>
                 <th className="px-4 py-3.5">Column Name</th>
                 <th className="px-4 py-3.5">Detected Type</th>
@@ -505,36 +505,36 @@ export default function DataCleaner({
                 <th className="px-4 py-3.5">Health Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-warmgray-100 bg-white font-semibold">
+            <tbody className="divide-y divide-white/[0.04] bg-[#111113] font-semibold">
               {columns.map((col) => {
                 const nullsCount = columnMissing[col] || 0;
                 const isHealthy = nullsCount === 0;
                 return (
-                  <tr key={col} className="hover:bg-warmgray-50/20 transition">
-                    <td className="px-4 py-3 font-bold text-warmgray-900">{col}</td>
-                    <td className="px-4 py-3 font-mono text-[10px] text-warmgray-550">
+                  <tr key={col} className="hover:bg-white/[0.02] transition">
+                    <td className="px-4 py-3 font-bold text-zinc-200">{col}</td>
+                    <td className="px-4 py-3 font-mono text-[10px] text-zinc-500">
                       <div className="flex items-center gap-2">
                         <span>{detectedTypes[col] || "text"}</span>
                         {(detectedTypes[col] || "text") === "text" && (col.toLowerCase().includes("sale") || col.toLowerCase().includes("price") || col.toLowerCase().includes("quantity")) && (
                           <button
                             onClick={() => handleConvertType(col, "numeric")}
                             disabled={cleaning || loading}
-                            className="text-[9px] font-bold text-terracotta-600 hover:text-terracotta-700 bg-terracotta-50 hover:bg-terracotta-100 px-1.5 py-0.5 rounded border border-terracotta-100/50 cursor-pointer transition animate-pulse"
+                            className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/20 cursor-pointer transition animate-pulse"
                           >
                             Convert to Numeric?
                           </button>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center text-warmgray-900">{nullsCount}</td>
+                    <td className="px-4 py-3 text-center text-zinc-200">{nullsCount}</td>
                     <td className="px-4 py-3">
                       {isHealthy ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 border border-emerald-100 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold bg-emerald-500/[0.06] px-2 py-0.5 border border-emerald-500/20 rounded-full">
                           <CheckCircle size={10} />
                           <span>100% Clean</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 border border-amber-100 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-bold bg-amber-500/[0.06] px-2 py-0.5 border border-amber-500/20 rounded-full">
                           <AlertTriangle size={10} />
                           <span>Needs Review</span>
                         </span>

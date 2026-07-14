@@ -1,59 +1,57 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @theme {
   --animate-spin-slow: spin 12s linear infinite;
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  
-  /* Forest Green Theme Palette (Map to Terracotta variable classes) */
-  --color-terracotta-50: #F4F7F4;
-  --color-terracotta-100: #E4ECE4;
-  --color-terracotta-200: #C2D5C2;
-  --color-terracotta-300: #9FBD9F;
-  --color-terracotta-400: #739C73;
-  --color-terracotta-500: #2D6A4F; /* Forest Green Primary */
-  --color-terracotta-600: #1B4332; /* Hover */
-  --color-terracotta-700: #081C15;
-  --color-terracotta-800: #05100B;
-  --color-terracotta-900: #020705;
 
-  /* Ivory & Warm Slate-Green Charcoal Palette (Map to WarmGray variable classes) */
-  --color-warmgray-50: #FFFFF6;  /* Main Ivory BG */
-  --color-warmgray-100: #FAF7EA; /* Ivory Borders */
-  --color-warmgray-200: #EFEBD9;
-  --color-warmgray-300: #DFD7C1;
-  --color-warmgray-400: #C5BC9E;
-  --color-warmgray-500: #A69C7E;
-  --color-warmgray-850: #2D3025; /* Dark Charcoal Muted Text */
-  --color-warmgray-900: #1F221A; /* Main Dark Charcoal Text */
-  --color-warmgray-950: #12140E; /* Warm Green-Tinged Off-Black / Mockups */
+  /* === DARK PREMIUM PALETTE === */
+  --color-terracotta-50: #0A0A0F;
+  --color-terracotta-100: #111118;
+  --color-terracotta-200: #1A1A24;
+  --color-terracotta-300: #5B5BFF;
+  --color-terracotta-400: #7B7BFF;
+  --color-terracotta-500: #6366F1;  /* Primary Indigo/Violet */
+  --color-terracotta-600: #4F46E5;
+  --color-terracotta-700: #3730A3;
+  --color-terracotta-800: #1E1B4B;
+  --color-terracotta-900: #0F0E2A;
 
-  /* Gold & Sand Accents */
-  --color-sand-50: #FFFFFB;
-  --color-sand-100: #FFFDF0;
-  --color-sand-200: #FAF6D0;
-  --color-sand-300: #EFE9A3;
-  --color-sand-400: #DFD874;
+  /* Dark neutral surface palette */
+  --color-warmgray-50: #09090B;   /* Almost black bg */
+  --color-warmgray-100: #111113;  /* Card surface */
+  --color-warmgray-200: #18181B;  /* Slightly lighter cards */
+  --color-warmgray-300: #27272A;  /* Borders */
+  --color-warmgray-400: #52525B;  /* Muted icons */
+  --color-warmgray-450: #71717A;  /* Muted text */
+  --color-warmgray-500: #A1A1AA;  /* Secondary text */
+  --color-warmgray-600: #D4D4D8;  /* Body text */
+  --color-warmgray-850: #E4E4E7;
+  --color-warmgray-900: #F4F4F5;  /* Heading text */
+  --color-warmgray-950: #FAFAFA;  /* Pure white-ish text */
+
+  /* Accent colors */
+  --color-sand-50: #0A0F0A;
+  --color-sand-100: #111811;
+  --color-sand-200: #22C55E;  /* Emerald green accents */
+  --color-sand-300: #16A34A;
+  --color-sand-400: #15803D;
 }
 
-/* Custom animations for premium AI workflow carousel and micro-interactions */
+/* === ANIMATIONS === */
 @keyframes marquee {
   0% { transform: translate3d(0, 0, 0); }
   100% { transform: translate3d(-50%, 0, 0); }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 12px rgba(45, 106, 79, 0.15); }
-  50% { box-shadow: 0 0 24px rgba(45, 106, 79, 0.4); }
+  0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.15); }
+  50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.4); }
 }
 
 @keyframes float-slow {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-7px) rotate(1deg); }
-}
-
-@keyframes float-particle {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(12px, -24px, 0); }
+  50% { transform: translateY(-8px) rotate(0.5deg); }
 }
 
 @keyframes fill-progress {
@@ -68,7 +66,7 @@
 
 @keyframes arrow-bounce {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(3.5px); }
+  50% { transform: translateY(4px); }
 }
 
 @keyframes height-grow {
@@ -82,11 +80,31 @@
   100% { background-position: 0% 50%; }
 }
 
-/* Utility classes for micro interactions */
+@keyframes fade-in {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes grid-fade {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.07; }
+}
+
+@keyframes border-glow {
+  0%, 100% { border-color: rgba(99,102,241,0.15); }
+  50% { border-color: rgba(99,102,241,0.5); }
+}
+
+/* === UTILITY CLASSES === */
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 30s linear infinite;
+  animation: marquee 35s linear infinite;
 }
 
 .animate-marquee:hover {
@@ -94,7 +112,7 @@
 }
 
 .animate-float-slow {
-  animation: float-slow 5s ease-in-out infinite;
+  animation: float-slow 6s ease-in-out infinite;
 }
 
 .animate-pulse-glow {
@@ -122,15 +140,79 @@
   animation: moving-border 5s linear infinite;
 }
 
-/* Custom global styles for smooth scrolling and clean font defaults */
+.animate-fade-in {
+  animation: fade-in 0.6s ease forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+  background-size: 200% auto;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Glass card style */
+.glass-card {
+  background: rgba(17, 17, 19, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #fff 0%, #A1A1AA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-purple {
+  background: linear-gradient(135deg, #818CF8 0%, #6366F1 50%, #A78BFA 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Noise texture overlay */
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Premium scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #09090B;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272A;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6366F1;
+}
+
+/* Global styles */
 html {
   scroll-behavior: smooth;
-  background-color: var(--color-warmgray-50);
+  background-color: #09090B;
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-color: var(--color-warmgray-50);
-  color: var(--color-warmgray-900);
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #09090B;
+  color: #F4F4F5;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline-offset: 2px;
 }

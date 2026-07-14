@@ -8,7 +8,7 @@ import {
   ChevronRight,
   FileText,
   ClipboardList,
-  Wand2
+  Wand2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -20,16 +20,16 @@ interface Props {
 
 const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
-  { id: "preview", name: "Data Table Preview", icon: Database },
+  { id: "preview", name: "Data Table", icon: Database },
   { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },
-  { id: "chat", name: "Ask AI Assistant", icon: MessageSquare },
-  { id: "reports", name: "Saved Reports", icon: FileText },
-  { id: "audit", name: "Audit Logs", icon: ClipboardList }
+  { id: "chat", name: "Ask AI", icon: MessageSquare },
+  { id: "reports", name: "Reports", icon: FileText },
+  { id: "audit", name: "Audit Logs", icon: ClipboardList },
 ];
 
 export default function DashboardSidebar({
   activeSection = "overview",
-  onSectionClick
+  onSectionClick,
 }: Props) {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
@@ -39,70 +39,55 @@ export default function DashboardSidebar({
       onSectionClick(id);
     } else {
       const element = document.getElementById(id);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (element) element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
   return (
-    <div 
-      className={`h-screen bg-warmgray-950 text-warmgray-300 border-r border-warmgray-900 flex flex-col justify-between sticky top-0 transition-all duration-300 ${
-        collapsed ? "w-20" : "w-64"
+    <div
+      className={`h-screen bg-[#0D0D0F] border-r border-white/[0.06] flex flex-col justify-between sticky top-0 transition-all duration-300 ${
+        collapsed ? "w-[68px]" : "w-60"
       }`}
     >
       <div>
-        {/* Header */}
-        <div className="p-6 border-b border-warmgray-900 flex items-center justify-between">
+        {/* Logo */}
+        <div className={`flex items-center border-b border-white/[0.06] ${collapsed ? "justify-center py-4 px-3" : "gap-3 px-5 py-4"}`}>
+          <div
+            onClick={() => navigate("/")}
+            className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-indigo-500/25 transition-all shrink-0"
+          >
+            <Brain size={16} className="text-white" />
+          </div>
           {!collapsed && (
-            <div 
-              onClick={() => navigate("/")}
-              className="flex items-center gap-3 cursor-pointer group/logo"
-            >
-              <div className="bg-gradient-to-br from-terracotta-500 to-terracotta-600 p-2 rounded-xl text-white group-hover/logo:scale-105 transition-transform duration-300">
-                <Brain size={20} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-black text-white tracking-tight group-hover/logo:text-terracotta-400 transition-colors">PromptSQL</span>
-                <span className="text-[9px] text-warmgray-500 font-bold uppercase">Analytics Hub</span>
-              </div>
-            </div>
-          )}
-          {collapsed && (
-            <div 
-              onClick={() => navigate("/")}
-              className="bg-gradient-to-br from-terracotta-500 to-terracotta-600 p-2 rounded-xl text-white mx-auto cursor-pointer hover:scale-105 transition-transform duration-300"
-            >
-              <Brain size={20} />
+            <div onClick={() => navigate("/")} className="cursor-pointer">
+              <div className="text-sm font-bold text-white hover:text-indigo-300 transition-colors">PromptSQL</div>
+              <div className="text-[9px] text-zinc-600 font-medium uppercase tracking-wider">Analytics Hub</div>
             </div>
           )}
         </div>
 
-        {/* Menu Items */}
-        <div className="p-4 space-y-2">
+        {/* Nav items */}
+        <div className="p-3 space-y-0.5 mt-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
-
             return (
               <button
                 key={item.id}
                 onClick={() => handleItemClick(item.id)}
-                title={item.name}
-                className={`flex items-center gap-3 w-full p-3.5 rounded-xl transition duration-200 cursor-pointer group ${
+                title={collapsed ? item.name : undefined}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer group ${
                   isActive
-                    ? "bg-terracotta-500 text-white font-bold shadow-md shadow-terracotta-500/10"
-                    : "hover:bg-warmgray-900 text-warmgray-400 hover:text-white"
-                }`}
+                    ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/20"
+                    : "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]"
+                } ${collapsed ? "justify-center" : ""}`}
               >
-                <Icon 
-                  size={20} 
-                  className={`${isActive ? "text-white" : "text-warmgray-500 group-hover:text-terracotta-400"}`} 
+                <Icon
+                  size={16}
+                  className={`shrink-0 ${isActive ? "text-indigo-400" : "text-zinc-600 group-hover:text-zinc-300"}`}
                 />
                 {!collapsed && (
-                  <span className="text-sm truncate">
-                    {item.name}
-                  </span>
+                  <span className="text-sm font-medium truncate">{item.name}</span>
                 )}
               </button>
             );
@@ -110,22 +95,24 @@ export default function DashboardSidebar({
         </div>
       </div>
 
-      {/* Footer controls */}
-      <div className="p-4 border-t border-warmgray-900 space-y-2">
+      {/* Bottom */}
+      <div className="p-3 border-t border-white/[0.06] space-y-0.5">
         <button
           onClick={() => navigate("/upload")}
-          className="flex items-center gap-3 w-full p-3.5 rounded-xl hover:bg-warmgray-900 text-warmgray-400 hover:text-white transition duration-200 cursor-pointer"
-          title="Upload new dataset"
+          title={collapsed ? "Upload new dataset" : undefined}
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] transition-all cursor-pointer ${
+            collapsed ? "justify-center" : ""
+          }`}
         >
-          <ArrowLeft size={20} className="text-warmgray-500" />
-          {!collapsed && <span className="text-sm font-semibold">Upload New</span>}
+          <ArrowLeft size={16} className="text-zinc-600 shrink-0" />
+          {!collapsed && <span className="text-sm font-medium">Upload New</span>}
         </button>
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full p-2.5 rounded-lg bg-warmgray-900/40 hover:bg-warmgray-900 text-warmgray-500 hover:text-warmgray-300 transition duration-200 cursor-pointer"
+          className="flex items-center justify-center w-full p-2.5 rounded-lg text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.04] transition-all cursor-pointer"
         >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
     </div>
