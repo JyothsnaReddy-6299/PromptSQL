@@ -14,14 +14,7 @@
 
   <br />
 
-  <video src="demo%20video.mp4" controls width="80%" style="border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 25px rgba(0,0,0,0.4);">
-    Your browser does not support the video tag. You can <a href="demo%20video.mp4">watch the demo video here</a>.
-  </video>
-  
   <br />
-  <br />
-
-  *Place your walkthrough recording named `demo video.mp4` in the project root folder to play it directly in the player above.*
 
 </div>
 

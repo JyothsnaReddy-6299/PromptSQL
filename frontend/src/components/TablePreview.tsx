@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { cleanUpdateCell } from "../services/api";
 
 interface Props {
   columns: string[];
@@ -10,6 +11,7 @@ interface Props {
   sortCol: string;
   sortDir: string;
   onSortChange: (col: string, dir: string) => void;
+  onRefresh?: () => void;
 }
 
 export default function TablePreview({
@@ -20,10 +22,13 @@ export default function TablePreview({
   onSearchChange,
   sortCol = "",
   sortDir = "ASC",
-  onSortChange
+  onSortChange,
+  onRefresh
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [editingCell, setEditingCell] = useState<{ globalRowIdx: number; colName: string } | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const handleHeaderClick = (colName: string) => {
     if (sortCol === colName) {
@@ -37,6 +42,30 @@ export default function TablePreview({
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedRecords = records.slice(startIndex, startIndex + itemsPerPage);
+
+  const saveEdit = async (globalRowIdx: number, colName: string) => {
+    if (!editingCell) return;
+    const originalRowData = records[globalRowIdx];
+    const originalValue = originalRowData[colName];
+    const trimmedVal = editValue.trim();
+
+    if (String(originalValue ?? "") === trimmedVal) {
+      setEditingCell(null);
+      return;
+    }
+
+    try {
+      setEditingCell(null);
+      const res = await cleanUpdateCell(colName, trimmedVal, originalRowData);
+      if (res.success) {
+        if (onRefresh) onRefresh();
+      } else {
+        alert(res.error || "Failed to update cell.");
+      }
+    } catch (e: any) {
+      alert(e.message || "Error updating cell.");
+    }
+  };
 
   const handleExportCSV = () => {
     if (records.length === 0) return;
@@ -147,19 +176,40 @@ export default function TablePreview({
               <tbody className="divide-y divide-warmgray-100 bg-white">
                 {paginatedRecords.map((row, rowIdx) => (
                   <tr key={rowIdx} className="hover:bg-warmgray-50/20 transition">
-                    {columns.map((col) => (
-                      <td
-                        key={col}
-                        className="px-3 py-2 border-r border-warmgray-100/30 last:border-0 font-semibold text-warmgray-900 max-w-xs truncate"
-                        title={row[col] !== null ? String(row[col]) : "NULL"}
-                      >
-                        {row[col] === null || row[col] === undefined ? (
-                          <span className="text-warmgray-400 font-mono text-[10px] italic">null</span>
-                        ) : (
-                          String(row[col])
-                        )}
-                      </td>
-                    ))}
+                    {columns.map((col) => {
+                      const globalIdx = startIndex + rowIdx;
+                      const isEditing = editingCell?.globalRowIdx === globalIdx && editingCell?.colName === col;
+                      return (
+                        <td
+                          key={col}
+                          onDoubleClick={() => {
+                            setEditingCell({ globalRowIdx: globalIdx, colName: col });
+                            setEditValue(row[col] === null || row[col] === undefined ? "" : String(row[col]));
+                          }}
+                          className={`px-3 py-2 border-r border-warmgray-100/30 last:border-0 font-semibold text-warmgray-900 max-w-xs truncate cursor-pointer hover:bg-warmgray-50/50 ${isEditing ? "p-1" : ""}`}
+                          title={row[col] !== null ? String(row[col]) : "Double click to edit cell"}
+                        >
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => saveEdit(globalIdx, col)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEdit(globalIdx, col);
+                                if (e.key === "Escape") setEditingCell(null);
+                              }}
+                              autoFocus
+                              className="w-full bg-white border border-terracotta-500 rounded px-1.5 py-0.5 text-xs text-warmgray-900 font-semibold focus:outline-none"
+                            />
+                          ) : row[col] === null || row[col] === undefined ? (
+                            <span className="text-warmgray-450 font-mono text-[9px] italic bg-warmgray-50 px-1 py-0.5 rounded border border-warmgray-100">null</span>
+                          ) : (
+                            String(row[col])
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

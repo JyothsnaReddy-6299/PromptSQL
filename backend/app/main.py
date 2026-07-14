@@ -13,6 +13,7 @@ from app.routes.history import router as history_router
 from app.routes.report import router as report_router
 from app.routes.modification import router as modification_router
 from app.routes.audit import router as audit_router
+from app.routes.cleaner import router as cleaner_router
 
 # Auto-initialize database tables in MySQL
 Base.metadata.create_all(bind=engine)
@@ -34,6 +35,7 @@ app.include_router(history_router, prefix="/api")
 app.include_router(report_router, prefix="/api")
 app.include_router(modification_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
+app.include_router(cleaner_router, prefix="/api")
 
 @app.get("/health")
 def health():

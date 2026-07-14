@@ -7,7 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  ClipboardList
+  ClipboardList,
+  Wand2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -20,6 +21,7 @@ interface Props {
 const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
   { id: "preview", name: "Data Table Preview", icon: Database },
+  { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },
   { id: "chat", name: "Ask AI Assistant", icon: MessageSquare },
   { id: "reports", name: "Saved Reports", icon: FileText },
   { id: "audit", name: "Audit Logs", icon: ClipboardList }

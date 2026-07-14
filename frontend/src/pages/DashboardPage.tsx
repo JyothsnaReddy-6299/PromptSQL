@@ -7,6 +7,7 @@ import ChatBox from "../components/ChatBox";
 import TablePreview from "../components/TablePreview";
 import ReportsManager from "../components/ReportsManager";
 import AuditManager from "../components/AuditManager";
+import DataCleaner from "../components/DataCleaner";
 import { getPreview } from "../services/api";
 
 export default function DashboardPage() {
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortCol, setSortCol] = useState("");
   const [sortDir, setSortDir] = useState("ASC");
+  const [columnMissing, setColumnMissing] = useState<Record<string, number>>({});
 
   const datasetMeta =
     location.state ||
@@ -30,7 +32,7 @@ export default function DashboardPage() {
   const rows = datasetMeta?.rows || 0;
   const columnsCount = datasetMeta?.columns || 0;
   const missing = datasetMeta?.missing_values || 0;
-  const detectedTypes = datasetMeta?.detected_types || {};
+  const [detectedTypes, setDetectedTypes] = useState<Record<string, string>>(datasetMeta?.detected_types || {});
 
   const size = datasetMeta?.size || `${((rows * columnsCount * 12) / 1024).toFixed(1)} KB`;
 
@@ -79,6 +81,19 @@ export default function DashboardPage() {
             if (typeof data.total_missing === "number") {
               setTotalMissing(data.total_missing);
             }
+            if (data.column_missing) {
+              setColumnMissing(data.column_missing);
+            }
+            if (data.detected_types) {
+              setDetectedTypes(data.detected_types);
+              const updatedMeta = { 
+                ...datasetMeta, 
+                detected_types: data.detected_types,
+                missing_values: data.total_missing ?? datasetMeta.missing_values,
+                rows: data.total_rows ?? datasetMeta.rows
+              };
+              sessionStorage.setItem("dataset", JSON.stringify(updatedMeta));
+            }
           } else {
             console.error("Preview load failure:", data.error);
           }
@@ -106,7 +121,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (activeSection === "reports" || activeSection === "audit") return;
+    if (activeSection === "reports" || activeSection === "audit" || activeSection === "cleaner") return;
 
     const sections = ["overview", "preview", "chat"];
     
@@ -179,6 +194,16 @@ export default function DashboardPage() {
           <div id="audit" className="scroll-mt-24">
             <AuditManager />
           </div>
+        ) : activeSection === "cleaner" ? (
+          <div id="cleaner" className="scroll-mt-24">
+            <DataCleaner 
+              columns={previewColumns}
+              detectedTypes={detectedTypes}
+              columnMissing={columnMissing}
+              onRefresh={() => setRefreshTrigger((p) => p + 1)}
+              loading={loadingPreview}
+            />
+          </div>
         ) : (
           <>
             {/* Overview Section */}
@@ -206,6 +231,7 @@ export default function DashboardPage() {
                   setSortCol(col);
                   setSortDir(dir);
                 }}
+                onRefresh={() => setRefreshTrigger((p) => p + 1)}
               />
             </div>
 

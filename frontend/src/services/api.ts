@@ -260,3 +260,106 @@ export async function deleteAuditLog(logId: number) {
   if (!response.ok) throw new Error("Failed deleting audit log");
   return response.json();
 }
+
+// -------------------------------------------------------------
+// DATA CLEANING API
+// -------------------------------------------------------------
+export async function cleanRemoveDuplicates() {
+  const response = await fetch(`${API_URL}/api/clean/remove-duplicates`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error("Failed removing duplicates");
+  return response.json();
+}
+
+export async function cleanImpute(columnName: string, strategy: string, customValue?: string) {
+  const response = await fetch(`${API_URL}/api/clean/impute`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      column_name: columnName,
+      strategy,
+      custom_value: customValue,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed imputing column values");
+  return response.json();
+}
+
+export async function cleanUpdateCell(columnName: string, newValue: string, rowData: Record<string, any>) {
+  const response = await fetch(`${API_URL}/api/clean/update-cell`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      column_name: columnName,
+      new_value: newValue,
+      row_data: rowData,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed updating cell value");
+  return response.json();
+}
+
+export async function cleanConvertType(columnName: string, targetType: string) {
+  const response = await fetch(`${API_URL}/api/clean/convert-type`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      column_name: columnName,
+      target_type: targetType,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed converting column type");
+  return response.json();
+}
+
+export async function cleanStandardizeText(columnName: string, operation: string) {
+  const response = await fetch(`${API_URL}/api/clean/standardize-text`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      column_name: columnName,
+      operation,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed standardizing text");
+  return response.json();
+}
+
+export async function cleanExtractNumbers(columnName: string) {
+  const response = await fetch(`${API_URL}/api/clean/extract-numbers`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      column_name: columnName,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed extracting numbers");
+  return response.json();
+}
+
+export async function cleanCapOutliers(columnName: string, lowerPercentile: number, upperPercentile: number) {
+  const response = await fetch(`${API_URL}/api/clean/cap-outliers`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      column_name: columnName,
+      lower_percentile: lowerPercentile,
+      upper_percentile: upperPercentile,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed capping outliers");
+  return response.json();
+}

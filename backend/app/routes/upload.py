@@ -65,25 +65,45 @@ def get_preview(
         col_info = inspector.get_columns(table_name)
         columns = [c["name"] for c in col_info]
         
+        # Build live detected types mapping from database column schemas
+        detected_types = {}
+        for col in col_info:
+            col_name = col["name"]
+            col_type = str(col["type"]).lower()
+            if "int" in col_type or "double" in col_type or "decimal" in col_type or "float" in col_type or "numeric" in col_type:
+                detected_types[col_name] = "numeric"
+            elif "date" in col_type or "timestamp" in col_type or "time" in col_type:
+                detected_types[col_name] = "date"
+            else:
+                detected_types[col_name] = "text"
+
         # Get dynamic total rows count
         count_query = f"SELECT COUNT(*) FROM `{table_name}`"
         with engine.connect() as conn:
             total_rows = conn.execute(text(count_query)).scalar() or 0
 
         # Get dynamic missing cells count across all columns (datatype-aware to avoid MySQL type-comparison errors)
+        col_missing = {}
         if col_info:
             sum_parts = []
+            col_sum_parts = []
             for col in col_info:
                 col_name = col["name"]
                 col_type = str(col["type"]).lower()
                 if "varchar" in col_type or "text" in col_type or "char" in col_type:
                     sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL OR `{col_name}` = '' THEN 1 ELSE 0 END)")
+                    col_sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL OR `{col_name}` = '' THEN 1 ELSE 0 END) AS `{col_name}`")
                 else:
                     sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL THEN 1 ELSE 0 END)")
+                    col_sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL THEN 1 ELSE 0 END) AS `{col_name}`")
             
             missing_query = f"SELECT ({' + '.join(sum_parts)}) FROM `{table_name}`"
+            missing_col_query = f"SELECT {', '.join(col_sum_parts)} FROM `{table_name}`"
             with engine.connect() as conn:
                 total_missing = conn.execute(text(missing_query)).scalar() or 0
+                row = conn.execute(text(missing_col_query)).first()
+                if row:
+                    col_missing = {k: int(v or 0) for k, v in dict(row._mapping).items()}
         else:
             total_missing = 0
 
@@ -116,7 +136,9 @@ def get_preview(
             "columns": columns,
             "records": sanitize_for_json(records),
             "total_rows": total_rows,
-            "total_missing": total_missing
+            "total_missing": total_missing,
+            "column_missing": col_missing,
+            "detected_types": detected_types
         }
     except Exception as e:
         return {
