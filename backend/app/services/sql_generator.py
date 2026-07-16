@@ -187,6 +187,8 @@ Do NOT use markdown.
 
 17. If the user request asks to 'display all details', 'show all columns', 'everything', 'all records', 'all information', or does not specify particular fields (implied select all), use `SELECT *` instead of listing all columns individually.
 
+18. When filtering strings or text columns using WHERE, always use `LIKE '%value%'` or `TRIM(column) = 'value'` to prevent matching errors due to hidden whitespace in the dataset.
+
 =========================
 QUESTION
 =========================

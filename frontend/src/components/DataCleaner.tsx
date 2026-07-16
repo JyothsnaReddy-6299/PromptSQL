@@ -24,6 +24,7 @@ interface Props {
   columns: string[];
   detectedTypes: Record<string, string>;
   columnMissing: Record<string, number>;
+  columnStats?: Record<string, any>;
   onRefresh: () => void;
   loading?: boolean;
 }
@@ -32,6 +33,7 @@ export default function DataCleaner({
   columns = [],
   detectedTypes = {},
   columnMissing = {},
+  columnStats = {},
   onRefresh,
   loading = false
 }: Props) {
@@ -503,12 +505,14 @@ export default function DataCleaner({
                 <th className="px-4 py-3.5">Detected Type</th>
                 <th className="px-4 py-3.5 text-center">Missing Cells</th>
                 <th className="px-4 py-3.5">Health Status</th>
+                <th className="px-4 py-3.5">Statistics</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04] bg-[#111113] font-semibold">
               {columns.map((col) => {
                 const nullsCount = columnMissing[col] || 0;
                 const isHealthy = nullsCount === 0;
+                const stats = columnStats?.[col];
                 return (
                   <tr key={col} className="hover:bg-white/[0.02] transition">
                     <td className="px-4 py-3 font-bold text-zinc-200">{col}</td>
@@ -538,6 +542,18 @@ export default function DataCleaner({
                           <AlertTriangle size={10} />
                           <span>Needs Review</span>
                         </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {stats ? (
+                        <div className="flex flex-wrap gap-2 text-[9px] font-mono text-zinc-400">
+                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Mean: {stats.mean?.toFixed(2)}</span>
+                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Med: {stats.median?.toFixed(2)}</span>
+                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Min: {stats.min?.toFixed(2)}</span>
+                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Max: {stats.max?.toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[9px] text-zinc-600 font-medium italic">N/A (Non-numeric)</span>
                       )}
                     </td>
                   </tr>

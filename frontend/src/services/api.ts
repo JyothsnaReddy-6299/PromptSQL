@@ -82,6 +82,36 @@ export async function getPreview(search?: string, sortCol?: string, sortDir?: st
 }
 
 // -------------------------------------------------------------
+// DATASET LIBRARY API
+// -------------------------------------------------------------
+export async function getDatasets() {
+  const response = await fetch(`${API_URL}/datasets`);
+  if (!response.ok) throw new Error("Failed fetching datasets");
+  return response.json();
+}
+
+export async function setActiveDataset(tableName: string) {
+  const response = await fetch(`${API_URL}/datasets/active`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ table_name: tableName }),
+  });
+  if (!response.ok) throw new Error("Failed setting active dataset");
+  return response.json();
+}
+
+export async function deleteDataset(tableName: string) {
+  const response = await fetch(`${API_URL}/datasets/${encodeURIComponent(tableName)}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed deleting dataset");
+  return response.json();
+}
+
+
+// -------------------------------------------------------------
 // QUERY HISTORY LOGS API
 // -------------------------------------------------------------
 export async function getHistory() {

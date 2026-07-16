@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Play
 } from "lucide-react";
-import axios from "axios";
+
 import { 
   getHistory, 
   deleteHistoryItem, 
@@ -29,7 +29,8 @@ import {
   downloadActiveExcel,
   downloadActiveCSV,
   askModification,
-  executeModification
+  executeModification,
+  askQuestion
 } from "../services/api";
 
 interface Message {
@@ -160,11 +161,7 @@ export default function ChatBox() {
       }
 
       // 2. If it is standard SELECT, proceed through the read-only ask router
-      const response = await axios.post("/ask", {
-        question: currentQuestion
-      });
-
-      const data = response.data;
+      const data = await askQuestion(currentQuestion);
 
       if (!data.success) {
         setMessages((prev) => [
@@ -358,17 +355,17 @@ export default function ChatBox() {
   };
 
   return (
-    <div id="chat" className="bg-white border border-warmgray-100 rounded-2xl p-4 shadow-sm flex flex-col h-[520px]">
-      <div className="border-b border-warmgray-100 pb-3 mb-3 flex items-center justify-between">
+    <div id="chat" className="bg-[#0D0D0F] border border-white/[0.06] rounded-2xl p-4 shadow-sm flex flex-col h-[520px]">
+      <div className="border-b border-white/[0.06] pb-3 mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="bg-terracotta-50 border border-terracotta-100 p-2 rounded-xl text-terracotta-600">
             <Brain size={18} className="animate-pulse text-terracotta-500" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-warmgray-900">
+            <h2 className="text-base font-bold text-zinc-100">
               AI Analytics Chat
             </h2>
-            <p className="text-warmgray-500 text-[10px] mt-0.5 font-semibold">
+            <p className="text-zinc-400 text-[10px] mt-0.5 font-semibold">
               Ask questions to query database, generate tables & charts
             </p>
           </div>
@@ -379,7 +376,7 @@ export default function ChatBox() {
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold cursor-pointer transition ${
             showHistory 
               ? "bg-terracotta-50 border-terracotta-200 text-terracotta-700" 
-              : "bg-white border-warmgray-150 hover:bg-warmgray-50 text-warmgray-600"
+              : "bg-[#0D0D0F] border-warmgray-150 hover:bg-[#111113] text-warmgray-600"
           }`}
         >
           <History size={12} />
@@ -405,10 +402,10 @@ export default function ChatBox() {
                 <div
                   className={`p-4 rounded-2xl text-xs leading-relaxed ${
                     msg.sender === "user"
-                      ? "bg-warmgray-950 text-white rounded-tr-sm"
+                      ? "bg-[#18181B] text-white rounded-tr-sm"
                       : msg.canceled
-                      ? "bg-warmgray-50 text-warmgray-400 border border-warmgray-150 border-dashed"
-                      : "bg-warmgray-50/80 text-warmgray-850 rounded-tl-sm border border-warmgray-100/50"
+                      ? "bg-[#111113] text-zinc-500 border border-warmgray-150 border-dashed"
+                      : "bg-[#111113]/80 text-warmgray-850 rounded-tl-sm border border-white/[0.06]/50"
                   }`}
                 >
                   <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
@@ -431,7 +428,7 @@ export default function ChatBox() {
 
                   {/* Success metrics */}
                   {!msg.requires_confirmation && msg.rows_affected !== undefined && (
-                    <div className="mt-3 pt-2.5 border-t border-warmgray-200/50 flex gap-4 text-[9.5px] font-bold text-warmgray-400">
+                    <div className="mt-3 pt-2.5 border-t border-white/[0.12]/50 flex gap-4 text-[9.5px] font-bold text-zinc-500">
                       <span>Rows affected: <strong className="text-warmgray-850">{msg.rows_affected}</strong></span>
                       <span>Execution time: <strong className="text-warmgray-850">{msg.execution_time_ms} ms</strong></span>
                     </div>
@@ -440,8 +437,8 @@ export default function ChatBox() {
 
                 {/* SQL Code Block Preview */}
                 {msg.sql && !msg.canceled && (
-                  <div className="bg-warmgray-950 rounded-xl border border-warmgray-900 overflow-hidden shadow-inner text-left font-mono text-[11px]">
-                    <div className="bg-warmgray-900 px-3.5 py-1.5 border-b border-warmgray-950 flex justify-between items-center text-warmgray-400">
+                  <div className="bg-[#18181B] rounded-xl border border-warmgray-900 overflow-hidden shadow-inner text-left font-mono text-[11px]">
+                    <div className="bg-warmgray-900 px-3.5 py-1.5 border-b border-warmgray-950 flex justify-between items-center text-zinc-500">
                       <span className="flex items-center gap-1 font-bold text-[9px] tracking-wide uppercase text-terracotta-400">
                         <Database size={10} /> SQL Statement Preview
                       </span>
@@ -461,7 +458,7 @@ export default function ChatBox() {
 
                 {/* DML/DDL Confirmation Dialog Buttons */}
                 {msg.requires_confirmation && (
-                  <div className="bg-warmgray-50 border border-warmgray-200/60 rounded-xl p-3 flex flex-col gap-2.5 text-left border-l-4 border-l-terracotta-500 shadow-sm">
+                  <div className="bg-[#111113] border border-white/[0.12]/60 rounded-xl p-3 flex flex-col gap-2.5 text-left border-l-4 border-l-terracotta-500 shadow-sm">
                     <p className="text-[10px] font-bold text-warmgray-800">
                       This operation modifies database data or structures. Explicit approval is required.
                     </p>
@@ -481,7 +478,7 @@ export default function ChatBox() {
                       <button
                         onClick={() => handleCancelModification(idx)}
                         disabled={msg.is_executing}
-                        className="bg-white border border-warmgray-250 hover:bg-warmgray-50 text-warmgray-600 px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                        className="bg-[#0D0D0F] border border-warmgray-250 hover:bg-[#111113] text-warmgray-600 px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer disabled:opacity-50"
                       >
                         Cancel
                       </button>
@@ -491,8 +488,8 @@ export default function ChatBox() {
 
                 {/* SQL statements actions bar */}
                 {msg.sql && !msg.canceled && (
-                  <div className="border border-warmgray-100/80 rounded-xl bg-white overflow-hidden shadow-sm text-left">
-                    <div className="bg-warmgray-50 border-b border-warmgray-100 px-3 py-2 flex items-center justify-between flex-wrap gap-2">
+                  <div className="border border-white/[0.06]/80 rounded-xl bg-[#0D0D0F] overflow-hidden shadow-sm text-left">
+                    <div className="bg-[#111113] border-b border-white/[0.06] px-3 py-2 flex items-center justify-between flex-wrap gap-2">
                       <div className="flex gap-1.5">
                         {msg.records && msg.records.length > 0 && (
                           <>
@@ -504,8 +501,8 @@ export default function ChatBox() {
                               }}
                               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
                                 msg.activeTab === "table"
-                                  ? "bg-white text-warmgray-900 border border-warmgray-150 shadow-sm"
-                                  : "text-warmgray-500 hover:text-warmgray-850"
+                                  ? "bg-[#0D0D0F] text-zinc-100 border border-warmgray-150 shadow-sm"
+                                  : "text-zinc-400 hover:text-warmgray-850"
                               }`}
                             >
                               <Table size={10} className="text-terracotta-500" /> Table View
@@ -519,8 +516,8 @@ export default function ChatBox() {
                               }}
                               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
                                 msg.activeTab === "chart"
-                                  ? "bg-white text-warmgray-900 border border-warmgray-150 shadow-sm"
-                                  : "text-warmgray-500 hover:text-warmgray-850"
+                                  ? "bg-[#0D0D0F] text-zinc-100 border border-warmgray-150 shadow-sm"
+                                  : "text-zinc-400 hover:text-warmgray-850"
                               }`}
                             >
                               <BarChart3 size={10} className="text-terracotta-500" /> Chart View
@@ -532,7 +529,7 @@ export default function ChatBox() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           onClick={() => handleExportPDF(msg)}
-                          className="flex items-center gap-1 text-warmgray-500 hover:text-warmgray-900 border border-warmgray-100 hover:bg-white px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
+                          className="flex items-center gap-1 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] hover:bg-[#0D0D0F] px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
                           title="Export PDF Report"
                         >
                           <Download size={9} className="text-terracotta-500" /> PDF
@@ -541,14 +538,14 @@ export default function ChatBox() {
                           <>
                             <button
                               onClick={() => handleExportExcel(msg.records!)}
-                              className="flex items-center gap-1 text-warmgray-500 hover:text-warmgray-900 border border-warmgray-100 hover:bg-white px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
+                              className="flex items-center gap-1 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] hover:bg-[#0D0D0F] px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
                               title="Export Excel"
                             >
                               <Download size={9} className="text-terracotta-500" /> Excel
                             </button>
                             <button
                               onClick={() => handleExportCSV(msg.records!)}
-                              className="flex items-center gap-1 text-warmgray-500 hover:text-warmgray-900 border border-warmgray-100 hover:bg-white px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
+                              className="flex items-center gap-1 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] hover:bg-[#0D0D0F] px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
                               title="Export CSV"
                             >
                               <Download size={9} className="text-terracotta-500" /> CSV
@@ -566,7 +563,7 @@ export default function ChatBox() {
                           className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[9px] font-bold cursor-pointer transition border ${
                             msg.reportSaved
                               ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                              : "bg-white border-warmgray-150 hover:bg-warmgray-50 text-warmgray-600 hover:text-terracotta-600"
+                              : "bg-[#0D0D0F] border-warmgray-150 hover:bg-[#111113] text-warmgray-600 hover:text-terracotta-600"
                           }`}
                         >
                           <FolderHeart size={9} className={msg.reportSaved ? "text-emerald-500" : "text-terracotta-500"} />
@@ -577,13 +574,13 @@ export default function ChatBox() {
 
                     {/* Inline Save Report */}
                     {saveReportIdx === idx && (
-                      <div className="bg-warmgray-50 border-b border-warmgray-100 p-2.5 flex items-center justify-between gap-2 text-[10px] font-bold">
+                      <div className="bg-[#111113] border-b border-white/[0.06] p-2.5 flex items-center justify-between gap-2 text-[10px] font-bold">
                         <input
                           type="text"
                           value={reportTitle}
                           onChange={(e) => setReportTitle(e.target.value)}
                           placeholder="Enter report title..."
-                          className="flex-1 bg-white border border-warmgray-200 rounded px-2 py-1 focus:outline-none focus:border-terracotta-400 font-bold"
+                          className="flex-1 bg-[#0D0D0F] border border-white/[0.12] rounded px-2 py-1 focus:outline-none focus:border-terracotta-400 font-bold"
                         />
                         <div className="flex gap-1">
                           <button
@@ -600,7 +597,7 @@ export default function ChatBox() {
                               setReportTitle("");
                             }}
                             disabled={savingReport}
-                            className="bg-white border border-warmgray-200 hover:bg-warmgray-100 px-2 py-1 rounded text-warmgray-600 cursor-pointer"
+                            className="bg-[#0D0D0F] border border-white/[0.12] hover:bg-white/[0.04] px-2 py-1 rounded text-warmgray-600 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -625,7 +622,7 @@ export default function ChatBox() {
 
               {/* User Avatar */}
               {msg.sender === "user" && (
-                <div className="w-8 h-8 bg-warmgray-100 text-warmgray-850 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border border-warmgray-200 shadow-inner select-none">
+                <div className="w-8 h-8 bg-white/[0.04] text-warmgray-850 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border border-white/[0.12] shadow-inner select-none">
                   U
                 </div>
               )}
@@ -637,9 +634,9 @@ export default function ChatBox() {
               <div className="w-8 h-8 bg-terracotta-500 text-white rounded-xl flex items-center justify-center shadow-md animate-pulse">
                 <Brain size={16} />
               </div>
-              <div className="bg-warmgray-50 rounded-2xl p-4 border border-warmgray-100/50 max-w-sm flex items-center gap-2">
+              <div className="bg-[#111113] rounded-2xl p-4 border border-white/[0.06]/50 max-w-sm flex items-center gap-2">
                 <div className="w-3.5 h-3.5 border-2 border-terracotta-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-warmgray-500 text-xs font-semibold">Generating query...</span>
+                <LoadingText />
               </div>
             </div>
           )}
@@ -648,9 +645,9 @@ export default function ChatBox() {
 
         {/* History sidebar drawer */}
         {showHistory && (
-          <div className="w-60 border-l border-warmgray-100 pl-3 flex flex-col h-full shrink-0 overflow-hidden animate-fade-in">
-            <div className="flex justify-between items-center pb-2 border-b border-warmgray-100 mb-2">
-              <span className="text-[10px] font-bold text-warmgray-900 flex items-center gap-1 uppercase tracking-wide">
+          <div className="w-60 border-l border-white/[0.06] pl-3 flex flex-col h-full shrink-0 overflow-hidden animate-fade-in">
+            <div className="flex justify-between items-center pb-2 border-b border-white/[0.06] mb-2">
+              <span className="text-[10px] font-bold text-zinc-100 flex items-center gap-1 uppercase tracking-wide">
                 <History size={12} className="text-terracotta-500" /> Query History
               </span>
               {historyList.length > 0 && (
@@ -668,9 +665,9 @@ export default function ChatBox() {
                 <Loader2 className="animate-spin text-terracotta-500" size={20} />
               </div>
             ) : historyList.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center text-warmgray-400 p-2">
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-zinc-500 p-2">
                 <History size={16} className="text-warmgray-300 mb-0.5" />
-                <span className="text-[9px] font-bold text-warmgray-500">No query logs yet</span>
+                <span className="text-[9px] font-bold text-zinc-400">No query logs yet</span>
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -678,10 +675,10 @@ export default function ChatBox() {
                   <div
                     key={item.id}
                     onClick={() => handleReopenHistory(item)}
-                    className="p-2 bg-warmgray-50 hover:bg-terracotta-50/20 border border-warmgray-100 hover:border-terracotta-200 rounded-lg cursor-pointer transition text-left relative group/item"
+                    className="p-2 bg-[#111113] hover:bg-terracotta-50/20 border border-white/[0.06] hover:border-terracotta-200 rounded-lg cursor-pointer transition text-left relative group/item"
                     title="Click to reopen query results instantly"
                   >
-                    <p className="text-[10px] font-bold text-warmgray-900 line-clamp-2 pr-4 leading-tight">
+                    <p className="text-[10px] font-bold text-zinc-100 line-clamp-2 pr-4 leading-tight">
                       {item.question}
                     </p>
                     <div className="flex justify-between items-center mt-1.5 text-[8.5px] text-warmgray-450 font-bold">
@@ -691,7 +688,7 @@ export default function ChatBox() {
 
                     <button
                       onClick={(e) => handleDeleteHistory(e, item.id)}
-                      className="absolute top-1 right-1 p-0.5 rounded hover:bg-red-50 text-warmgray-400 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition cursor-pointer"
+                      className="absolute top-1 right-1 p-0.5 rounded hover:bg-red-50 text-zinc-500 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition cursor-pointer"
                       title="Delete log"
                     >
                       <Trash2 size={10} />
@@ -710,7 +707,7 @@ export default function ChatBox() {
           e.preventDefault();
           askAI();
         }}
-        className="border border-warmgray-100 rounded-xl p-2 bg-warmgray-50/50 flex gap-2 items-center focus-within:border-terracotta-500 transition-colors"
+        className="border border-white/[0.06] rounded-xl p-2 bg-[#111113]/50 flex gap-2 items-center focus-within:border-terracotta-500 transition-colors"
       >
         <textarea
           value={question}
@@ -723,7 +720,7 @@ export default function ChatBox() {
           }}
           placeholder="Ask anything about your data..."
           rows={1}
-          className="flex-1 bg-transparent resize-none focus:outline-none pl-2.5 pr-2 py-1.5 text-xs text-warmgray-900 placeholder-warmgray-400 font-semibold"
+          className="flex-1 bg-transparent resize-none focus:outline-none pl-2.5 pr-2 py-1.5 text-xs text-zinc-100 placeholder-warmgray-400 font-semibold"
         />
 
         <button
@@ -758,7 +755,7 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
     <div className="p-3 space-y-2.5">
       {records.length > 5 && (
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-warmgray-400" size={12} />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500" size={12} />
           <input
             type="text"
             placeholder="Search query results..."
@@ -767,14 +764,14 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full bg-slate-50 border border-warmgray-100 rounded-md pl-7 pr-2 py-1 text-[10px] focus:outline-none focus:border-terracotta-400 focus:bg-white text-warmgray-900 font-semibold"
+            className="w-full bg-slate-50 border border-white/[0.06] rounded-md pl-7 pr-2 py-1 text-[10px] focus:outline-none focus:border-terracotta-400 focus:bg-[#0D0D0F] text-zinc-100 font-semibold"
           />
         </div>
       )}
 
-      <div className="overflow-x-auto border border-warmgray-100/50 rounded-lg">
+      <div className="overflow-x-auto border border-white/[0.06]/50 rounded-lg">
         <table className="min-w-full text-[10px] text-warmgray-850">
-          <thead className="bg-warmgray-50 border-b border-warmgray-100/40">
+          <thead className="bg-[#111113] border-b border-white/[0.06]/40">
             <tr>
               {columns.map(c => (
                 <th key={c} className="px-2.5 py-1.5 font-bold text-warmgray-905 text-left uppercase whitespace-nowrap text-[9px]">
@@ -783,11 +780,11 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-warmgray-50/50 bg-white">
+          <tbody className="divide-y divide-warmgray-50/50 bg-[#0D0D0F]">
             {paginated.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-warmgray-50/30">
+              <tr key={rIdx} className="hover:bg-[#111113]/30">
                 {columns.map(c => (
-                  <td key={c} className="px-2.5 py-1.5 text-warmgray-900 font-semibold truncate max-w-[150px]">
+                  <td key={c} className="px-2.5 py-1.5 text-zinc-100 font-semibold truncate max-w-[150px]">
                     {row[c] === null ? "null" : String(row[c])}
                   </td>
                 ))}
@@ -797,31 +794,49 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-[9px] text-warmgray-500 font-bold">
-        <span>Rows: {filtered.length} total</span>
-        {totalPages > 1 && (
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-              disabled={currentPage === 1}
-              className="p-0.5 border border-warmgray-200 rounded disabled:opacity-40"
-            >
-              <ChevronLeft size={10} />
-            </button>
-            <span className="flex items-center">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="p-0.5 border border-warmgray-200 rounded disabled:opacity-40"
-            >
-              <ChevronRight size={10} />
-            </button>
-          </div>
-        )}
+      <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold">
+        <span>Showing {start + 1} to {Math.min(start + itemsPerPage, filtered.length)} of {filtered.length} entries</span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="p-1 rounded hover:bg-white/[0.04] disabled:opacity-30 cursor-pointer"
+          >
+            <ChevronLeft size={12} />
+          </button>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="p-1 rounded hover:bg-white/[0.04] disabled:opacity-30 cursor-pointer"
+          >
+            <ChevronRight size={12} />
+          </button>
+        </div>
       </div>
     </div>
+  );
+}
+
+function LoadingText() {
+  const [textIndex, setTextIndex] = useState(0);
+  const steps = [
+    "Understanding dataset...",
+    "Generating SQL...",
+    "Running analysis...",
+    "Creating visualization..."
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTextIndex((prev) => (prev + 1) % steps.length);
+    }, 2000); // Change text every 2 seconds
+    return () => clearInterval(interval);
+  }, [steps.length]);
+
+  return (
+    <span className="text-zinc-400 text-xs font-semibold animate-pulse">
+      {steps[textIndex]}
+    </span>
   );
 }
 
@@ -888,13 +903,13 @@ function InnerChart({
     <div className="p-3 space-y-3">
       <div className="flex justify-between items-center text-[10px] font-bold">
         <span className="text-warmgray-850">
-          Visual: {valueKey} by {labelKey} {records.length > 10 && <span className="text-[9px] font-normal text-warmgray-400">(Top 10 shown)</span>}
+          Visual: {valueKey} by {labelKey} {records.length > 10 && <span className="text-[9px] font-normal text-zinc-500">(Top 10 shown)</span>}
         </span>
-        <div className="flex border border-warmgray-200 rounded-md overflow-hidden bg-warmgray-50 p-0.5">
+        <div className="flex border border-white/[0.12] rounded-md overflow-hidden bg-[#111113] p-0.5">
           <button
             onClick={() => onChangeType("bar")}
             className={`p-0.5 px-2 text-[9px] font-bold cursor-pointer ${
-              type === "bar" ? "bg-white text-warmgray-900 shadow-sm border border-warmgray-100" : "bg-transparent text-warmgray-500 hover:text-warmgray-800"
+              type === "bar" ? "bg-[#0D0D0F] text-zinc-100 shadow-sm border border-white/[0.06]" : "bg-transparent text-zinc-400 hover:text-warmgray-800"
             }`}
           >
             Bar
@@ -902,7 +917,7 @@ function InnerChart({
           <button
             onClick={() => onChangeType("line")}
             className={`p-0.5 px-2 text-[9px] font-bold cursor-pointer ${
-              type === "line" ? "bg-white text-warmgray-900 shadow-sm border border-warmgray-100" : "bg-transparent text-warmgray-500 hover:text-warmgray-800"
+              type === "line" ? "bg-[#0D0D0F] text-zinc-100 shadow-sm border border-white/[0.06]" : "bg-transparent text-zinc-400 hover:text-warmgray-800"
             }`}
           >
             Line
@@ -910,7 +925,7 @@ function InnerChart({
         </div>
       </div>
 
-      <div className="bg-warmgray-50 border border-warmgray-100 rounded-xl p-2.5 flex justify-center">
+      <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-2.5 flex justify-center">
         <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="max-w-[420px]">
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, gridIdx) => {
             const y = paddingTop + graphHeight - ratio * graphHeight;

@@ -129,6 +129,28 @@ def get_preview(
             res = conn.execute(text(sql_query), params)
             records = [dict(row._mapping) for row in res]
 
+        # Get column statistics for numeric columns
+        column_stats = {}
+        numeric_cols = [c for c, t in detected_types.items() if t == "numeric"]
+        if numeric_cols:
+            try:
+                import pandas as pd
+                cols_sql = ", ".join([f"`{c}`" for c in numeric_cols])
+                stats_query = f"SELECT {cols_sql} FROM `{table_name}`"
+                with engine.connect() as conn:
+                    df = pd.read_sql(stats_query, conn)
+                for col in numeric_cols:
+                    s = pd.to_numeric(df[col], errors='coerce').dropna()
+                    if not s.empty:
+                        column_stats[col] = {
+                            "min": float(s.min()),
+                            "max": float(s.max()),
+                            "mean": float(s.mean()),
+                            "median": float(s.median())
+                        }
+            except Exception as e:
+                print("Failed to calculate column stats:", e)
+
         from app.utils.json_helper import sanitize_for_json
         return {
             "success": True,
@@ -138,10 +160,67 @@ def get_preview(
             "total_rows": total_rows,
             "total_missing": total_missing,
             "column_missing": col_missing,
-            "detected_types": detected_types
+            "detected_types": detected_types,
+            "column_stats": column_stats
         }
     except Exception as e:
         return {
             "success": False,
             "error": str(e)
         }
+
+
+from pydantic import BaseModel
+
+class SetActiveDatasetRequest(BaseModel):
+    table_name: str
+
+@router.get("/datasets")
+def list_datasets(x_user_id: Optional[str] = Header(None)):
+    from app.database.connection import engine
+    from sqlalchemy import inspect
+    try:
+        inspector = inspect(engine)
+        all_tables = inspector.get_table_names()
+        # Filter tables slightly if needed, for now return all tables
+        # Filter out internal tables if any (like query_history, audit_logs)
+        datasets = [t for t in all_tables if t not in ["query_history", "audit_logs"]]
+        return {"success": True, "datasets": datasets}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@router.post("/datasets/active")
+def set_active_dataset(req: SetActiveDatasetRequest, x_user_id: Optional[str] = Header(None)):
+    from app.services.table_manager import set_current_table
+    try:
+        set_current_table(req.table_name)
+        return {"success": True, "table_name": req.table_name}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@router.delete("/datasets/{table_name}")
+def delete_dataset(table_name: str, x_user_id: Optional[str] = Header(None)):
+    from app.database.connection import engine
+    from sqlalchemy import text
+    from app.services.table_manager import get_current_table, set_current_table
+    from fastapi import HTTPException
+    
+    if table_name in ["query_history", "audit_logs"]:
+        raise HTTPException(status_code=400, detail="Cannot delete system tables")
+        
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        if table_name not in inspector.get_table_names():
+            raise HTTPException(status_code=404, detail="Dataset not found")
+            
+        with engine.begin() as conn:
+            conn.execute(text(f"DROP TABLE `{table_name}`"))
+            
+        # If this was the active table, clear active table
+        if get_current_table() == table_name:
+            set_current_table("")
+            
+        return {"success": True, "message": f"Dataset {table_name} deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

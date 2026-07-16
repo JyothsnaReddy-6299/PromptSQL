@@ -9,9 +9,13 @@ import {
   FileText,
   ClipboardList,
   Wand2,
+  FolderOpen,
+  Check,
+  Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getDatasets, setActiveDataset, deleteDataset } from "../services/api";
 
 interface Props {
   activeSection?: string;
@@ -33,6 +37,36 @@ export default function DashboardSidebar({
 }: Props) {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const [datasets, setDatasets] = useState<string[]>([]);
+  const [currentTable, setCurrentTable] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Load current table from session storage
+    try {
+      const stored = JSON.parse(sessionStorage.getItem("dataset") || "{}");
+      if (stored && stored.table_name) {
+        setCurrentTable(stored.table_name);
+      }
+    } catch (e) {}
+
+    // Fetch library
+    getDatasets().then((res) => {
+      if (res.success && res.datasets) {
+        setDatasets(res.datasets);
+      }
+    });
+
+    // Listen for dataset changes across tabs/components
+    const handleDatasetModified = () => {
+      getDatasets().then((res) => {
+        if (res.success && res.datasets) {
+          setDatasets(res.datasets);
+        }
+      });
+    };
+    window.addEventListener("dataset-modified", handleDatasetModified);
+    return () => window.removeEventListener("dataset-modified", handleDatasetModified);
+  }, []);
 
   const handleItemClick = (id: string) => {
     if (onSectionClick) {
@@ -43,13 +77,53 @@ export default function DashboardSidebar({
     }
   };
 
+  const handleDatasetSwitch = async (tableName: string) => {
+    try {
+      const res = await setActiveDataset(tableName);
+      if (res.success) {
+        setCurrentTable(tableName);
+        // Update session storage
+        const currentData = JSON.parse(sessionStorage.getItem("dataset") || "{}");
+        const displayName = tableName.split("_usr_")[0];
+        sessionStorage.setItem("dataset", JSON.stringify({ ...currentData, table_name: tableName, filename: displayName }));
+        
+        // Reload page to reflect new dataset or dispatch event
+        window.location.reload();
+      }
+    } catch (e) {
+      console.error("Failed to switch dataset:", e);
+    }
+  };
+
+  const handleDatasetDelete = async (tableName: string) => {
+    if (!confirm(`Are you sure you want to delete the dataset "${tableName.split("_usr_")[0]}"?`)) return;
+    try {
+      const res = await deleteDataset(tableName);
+      if (res.success) {
+        if (tableName === currentTable) {
+          sessionStorage.removeItem("dataset");
+          setCurrentTable(null);
+          navigate("/upload");
+        } else {
+          const datasetsRes = await getDatasets();
+          if (datasetsRes.success && datasetsRes.datasets) {
+            setDatasets(datasetsRes.datasets);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete dataset:", e);
+      alert("Failed to delete dataset: " + e);
+    }
+  };
+
   return (
     <div
       className={`h-screen bg-[#0D0D0F] border-r border-white/[0.06] flex flex-col justify-between sticky top-0 transition-all duration-300 ${
         collapsed ? "w-[68px]" : "w-60"
       }`}
     >
-      <div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {/* Logo */}
         <div className={`flex items-center border-b border-white/[0.06] ${collapsed ? "justify-center py-4 px-3" : "gap-3 px-5 py-4"}`}>
           <div
@@ -66,8 +140,57 @@ export default function DashboardSidebar({
           )}
         </div>
 
+        {/* Dataset Library */}
+        <div className={`px-3 pt-4 pb-2 ${collapsed ? "hidden" : "block"}`}>
+          <div className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider mb-2 px-2 flex items-center gap-1.5">
+            <FolderOpen size={10} /> Dataset Library
+          </div>
+          <div className="space-y-0.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+            {datasets.length === 0 && (
+              <div className="text-[10px] text-zinc-600 px-2 italic">No datasets found</div>
+            )}
+            {datasets.map((db) => {
+              const isCurrent = db === currentTable;
+              // format display name
+              const displayName = db.split("_usr_")[0];
+              return (
+                <div
+                  key={db}
+                  className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium transition-colors group ${
+                    isCurrent 
+                      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+                  }`}
+                  title={db}
+                >
+                  <button
+                    onClick={() => handleDatasetSwitch(db)}
+                    className="flex-1 text-left truncate pr-2 cursor-pointer font-medium"
+                  >
+                    {displayName}
+                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isCurrent && <Check size={11} className="text-indigo-400" />}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDatasetDelete(db);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 text-zinc-500 rounded transition cursor-pointer"
+                      title="Delete dataset"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {!collapsed && <div className="mx-4 my-2 border-t border-white/[0.06]"></div>}
+
         {/* Nav items */}
-        <div className="p-3 space-y-0.5 mt-1">
+        <div className="p-3 space-y-0.5">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
@@ -96,7 +219,7 @@ export default function DashboardSidebar({
       </div>
 
       {/* Bottom */}
-      <div className="p-3 border-t border-white/[0.06] space-y-0.5">
+      <div className="p-3 border-t border-white/[0.06] space-y-0.5 shrink-0">
         <button
           onClick={() => navigate("/upload")}
           title={collapsed ? "Upload new dataset" : undefined}

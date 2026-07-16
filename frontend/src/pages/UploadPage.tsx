@@ -1,17 +1,9 @@
-import { ArrowLeft, Upload, FileSpreadsheet, Sparkles, Check, Database, Loader2, X } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Sparkles, Database, Loader2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
 import axios from "axios";
 
-const LOADING_STEPS = [
-  "Reading dataset files...",
-  "Analyzing dataset schemas & structural formats...",
-  "Detecting database types & columns...",
-  "Running data cleaners & cleaning missing values...",
-  "Preparing SQL schema mapping...",
-  "Loading dataset into secure MySQL engine...",
-  "Generating final stats & summary stats...",
-];
+
 
 export default function UploadPage() {
   const navigate = useNavigate();
@@ -19,7 +11,6 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [progress, setProgress] = useState(0);
-  const [loadingStepIdx, setLoadingStepIdx] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,14 +56,6 @@ export default function UploadPage() {
     try {
       setUploading(true);
       setProgress(5);
-      setLoadingStepIdx(0);
-
-      const stepInterval = setInterval(() => {
-        setLoadingStepIdx((prev) => {
-          if (prev < LOADING_STEPS.length - 1) return prev + 1;
-          return prev;
-        });
-      }, 1500);
 
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
@@ -88,10 +71,8 @@ export default function UploadPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      clearInterval(stepInterval);
       clearInterval(progressInterval);
       setProgress(100);
-      setLoadingStepIdx(LOADING_STEPS.length - 1);
 
       setTimeout(() => {
         setUploading(false);
@@ -217,47 +198,27 @@ export default function UploadPage() {
 
           {/* Loading state */}
           {uploading ? (
-            <div className="mt-5 bg-[#0D0D0F] rounded-xl p-5 border border-white/[0.06] font-mono text-[11px]">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-indigo-400 flex items-center gap-2 font-medium">
-                  <Loader2 size={12} className="animate-spin" />
-                  Ingesting dataset...
-                </span>
-                <span className="text-zinc-600">{progress}%</span>
+            <div className="mt-5 bg-[#0D0D0F] rounded-xl p-6 border border-white/[0.06] flex flex-col items-center justify-center text-center">
+              <div className="relative mb-5">
+                <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full"></div>
+                <div className="relative bg-[#111113] border border-white/[0.08] w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Loader2 size={24} className="text-indigo-400 animate-spin" />
+                </div>
               </div>
+              <h3 className="text-white font-medium text-sm mb-1.5 animate-pulse">
+                Processing your dataset
+              </h3>
+              <p className="text-zinc-500 text-xs mb-5">
+                Detecting schemas, datatypes, and generating analytics
+              </p>
 
-              <div className="w-full bg-white/[0.05] rounded-full h-1 mb-4 overflow-hidden">
+              <div className="w-full bg-white/[0.04] rounded-full h-1.5 overflow-hidden">
                 <div
                   style={{ width: `${progress}%` }}
-                  className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-300"
-                />
-              </div>
-
-              <div className="space-y-2">
-                {LOADING_STEPS.map((step, idx) => {
-                  if (idx < loadingStepIdx) {
-                    return (
-                      <div key={idx} className="flex gap-2 items-center text-emerald-400">
-                        <Check size={11} />
-                        <span className="text-zinc-500">{step}</span>
-                      </div>
-                    );
-                  } else if (idx === loadingStepIdx) {
-                    return (
-                      <div key={idx} className="flex gap-2 items-center text-indigo-400 font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping shrink-0" />
-                        <span>{step}</span>
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div key={idx} className="flex gap-2 items-center text-zinc-700">
-                        <span className="w-1 h-1 rounded-full bg-zinc-800 shrink-0 ml-0.5" />
-                        <span>{step}</span>
-                      </div>
-                    );
-                  }
-                })}
+                  className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-300 relative"
+                >
+                  <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                </div>
               </div>
             </div>
           ) : (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import DashboardSidebar from "../components/DashboardSidebar";
 import DashboardNavbar from "../components/DashboardNavbar";
 import KPICards from "../components/KPICards";
@@ -11,7 +11,6 @@ import DataCleaner from "../components/DataCleaner";
 import { getPreview } from "../services/api";
 
 export default function DashboardPage() {
-  const location = useLocation();
   const navigate = useNavigate();
 
   const [activeSection, setActiveSection] = useState("overview");
@@ -23,10 +22,9 @@ export default function DashboardPage() {
   const [sortCol, setSortCol] = useState("");
   const [sortDir, setSortDir] = useState("ASC");
   const [columnMissing, setColumnMissing] = useState<Record<string, number>>({});
+  const [columnStats, setColumnStats] = useState<Record<string, any>>({});
 
-  const datasetMeta =
-    location.state ||
-    JSON.parse(sessionStorage.getItem("dataset") || "{}");
+  const datasetMeta = JSON.parse(sessionStorage.getItem("dataset") || "{}");
 
   const fileName = datasetMeta?.filename || "";
   const rows = datasetMeta?.rows || 0;
@@ -83,6 +81,9 @@ export default function DashboardPage() {
             }
             if (data.column_missing) {
               setColumnMissing(data.column_missing);
+            }
+            if (data.column_stats) {
+              setColumnStats(data.column_stats);
             }
             if (data.detected_types) {
               setDetectedTypes(data.detected_types);
@@ -201,6 +202,7 @@ export default function DashboardPage() {
               columns={previewColumns}
               detectedTypes={detectedTypes}
               columnMissing={columnMissing}
+              columnStats={columnStats}
               onRefresh={() => setRefreshTrigger((p) => p + 1)}
               loading={loadingPreview}
             />
