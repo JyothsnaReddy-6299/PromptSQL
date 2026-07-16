@@ -25,10 +25,10 @@ interface Props {
 const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
   { id: "preview", name: "Data Table", icon: Database },
-  { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },
   { id: "chat", name: "Ask AI", icon: MessageSquare },
   { id: "reports", name: "Reports", icon: FileText },
   { id: "audit", name: "Audit Logs", icon: ClipboardList },
+  { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },
 ];
 
 export default function DashboardSidebar({

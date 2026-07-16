@@ -393,3 +393,19 @@ export async function cleanCapOutliers(columnName: string, lowerPercentile: numb
   if (!response.ok) throw new Error("Failed capping outliers");
   return response.json();
 }
+
+export async function detectNumericTextColumns() {
+  const response = await fetch(`${API_URL}/api/clean/detect-numeric-text`);
+  if (!response.ok) throw new Error("Failed detecting numeric text columns");
+  return response.json();
+}
+
+export async function cleanExtractAndConvert(columnName: string) {
+  const response = await fetch(`${API_URL}/api/clean/extract-and-convert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ column_name: columnName }),
+  });
+  if (!response.ok) throw new Error("Failed extract and convert");
+  return response.json();
+}

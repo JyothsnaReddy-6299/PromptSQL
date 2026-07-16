@@ -40,8 +40,8 @@ export default function KPICards({
   detectedTypes = {},
 }: Props) {
   const typeList = Object.values(detectedTypes);
+  const numCols = typeList.filter((t) => t.toLowerCase() === "numeric" || t.toLowerCase() === "int" || t.toLowerCase() === "float" || t.toLowerCase() === "double" || t.toLowerCase() === "decimal").length;
   const textCols = typeList.filter((t) => t.toLowerCase() === "text" || t.toLowerCase() === "varchar").length;
-  const numCols = typeList.length - textCols;
 
   const cardData = [
     {

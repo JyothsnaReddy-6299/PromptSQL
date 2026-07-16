@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Sparkles, 
   Trash2, 
@@ -9,7 +9,8 @@ import {
   Database,
   Type,
   Scissors,
-  Activity
+  Activity,
+  Zap
 } from "lucide-react";
 import { 
   cleanRemoveDuplicates, 
@@ -17,7 +18,9 @@ import {
   cleanConvertType,
   cleanStandardizeText,
   cleanExtractNumbers,
-  cleanCapOutliers
+  cleanCapOutliers,
+  detectNumericTextColumns,
+  cleanExtractAndConvert
 } from "../services/api";
 
 interface Props {
@@ -40,6 +43,26 @@ export default function DataCleaner({
   const [cleaning, setCleaning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [selectedColumn, setSelectedColumn] = useState("");
+  const [suspiciousColumns, setSuspiciousColumns] = useState<Array<{ column: string; sample_values: string[]; numeric_ratio: number; name_hint: boolean }>>([]);
+  const [scanningTypes, setScanningTypes] = useState(false);
+
+  // Auto-scan for numeric-looking text columns when cleaner loads or after refresh
+  useEffect(() => {
+    const scan = async () => {
+      try {
+        setScanningTypes(true);
+        const res = await detectNumericTextColumns();
+        if (res.success) {
+          setSuspiciousColumns(res.suspicious_columns || []);
+        }
+      } catch (e) {
+        // Silent fail — scan is optional
+      } finally {
+        setScanningTypes(false);
+      }
+    };
+    scan();
+  }, [columns, loading]); // Re-scan when columns change (after cleaning)
 
   const handleConvertType = async (columnName: string, targetType: string) => {
     const confirmMsg = `The column "${columnName}" is currently stored in TEXT format. Would you like to convert it to ${targetType.toUpperCase()}? Any non-numeric text values in this column will be set to NULL.`;
@@ -50,22 +73,33 @@ export default function DataCleaner({
       setStatusMessage(null);
       const data = await cleanConvertType(columnName, targetType);
       if (data.success) {
-        setStatusMessage({
-          type: "success",
-          text: data.message
-        });
+        setStatusMessage({ type: "success", text: data.message });
         onRefresh();
       } else {
-        setStatusMessage({
-          type: "error",
-          text: data.error || "Failed to convert column datatype."
-        });
+        setStatusMessage({ type: "error", text: data.error || "Failed to convert column datatype." });
       }
     } catch (e: any) {
-      setStatusMessage({
-        type: "error",
-        text: e.message || "Failed to convert column datatype."
-      });
+      setStatusMessage({ type: "error", text: e.message || "Failed to convert column datatype." });
+    } finally {
+      setCleaning(false);
+    }
+  };
+
+  const handleExtractAndConvert = async (columnName: string) => {
+    const confirmMsg = `"${columnName}" contains numbers mixed with text (e.g. "1234 USD"). \n\nThis will:\n1. Strip all non-numeric characters (currencies, units, symbols)\n2. Convert the column datatype to NUMERIC\n\nProceed?`;
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      setCleaning(true);
+      setStatusMessage(null);
+      const data = await cleanExtractAndConvert(columnName);
+      if (data.success) {
+        setStatusMessage({ type: "success", text: data.message });
+        onRefresh(); // This triggers re-scan and re-render
+      } else {
+        setStatusMessage({ type: "error", text: data.error || "Failed to fix column." });
+      }
+    } catch (e: any) {
+      setStatusMessage({ type: "error", text: e.message || "Failed to fix column." });
     } finally {
       setCleaning(false);
     }
@@ -233,6 +267,42 @@ export default function DataCleaner({
             <AlertTriangle size={16} className="text-red-400 mt-0.5 shrink-0" />
           )}
           <div>{statusMessage.text}</div>
+        </div>
+      )}
+
+      {/* Smart Numeric Detection Banner */}
+      {!scanningTypes && suspiciousColumns.length > 0 && (
+        <div className="bg-amber-500/[0.06] border border-amber-500/30 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+              <Zap size={15} className="text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-amber-300">Smart Detection: Numeric Values in Text Columns</h3>
+              <p className="text-[10px] text-amber-500/80 mt-0.5">The following columns contain numeric-looking data stored as text. Fix them in one click to enable math, stats, and proper querying.</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {suspiciousColumns.map((item) => (
+              <div key={item.column} className="flex items-center justify-between bg-[#111113] border border-white/[0.06] rounded-xl px-4 py-2.5">
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-xs text-white">{item.column}</span>
+                  <span className="text-[9px] text-zinc-500 font-mono bg-white/[0.04] px-2 py-0.5 rounded">
+                    {item.sample_values.slice(0, 3).join(" · ")}
+                  </span>
+                  <span className="text-[9px] font-bold text-amber-400">{Math.round(item.numeric_ratio * 100)}% numeric</span>
+                </div>
+                <button
+                  onClick={() => handleExtractAndConvert(item.column)}
+                  disabled={cleaning}
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 px-3 py-1.5 rounded-lg transition cursor-pointer disabled:opacity-50"
+                >
+                  <Zap size={10} />
+                  Fix & Convert to Numeric
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -517,15 +587,32 @@ export default function DataCleaner({
                   <tr key={col} className="hover:bg-white/[0.02] transition">
                     <td className="px-4 py-3 font-bold text-zinc-200">{col}</td>
                     <td className="px-4 py-3 font-mono text-[10px] text-zinc-500">
-                      <div className="flex items-center gap-2">
-                        <span>{detectedTypes[col] || "text"}</span>
-                        {(detectedTypes[col] || "text") === "text" && (col.toLowerCase().includes("sale") || col.toLowerCase().includes("price") || col.toLowerCase().includes("quantity")) && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                          (detectedTypes[col] || "text") === "numeric"
+                            ? "text-sky-400 border-sky-500/20 bg-sky-500/10"
+                            : (detectedTypes[col] || "text") === "date"
+                            ? "text-violet-400 border-violet-500/20 bg-violet-500/10"
+                            : "text-zinc-400 border-white/[0.08] bg-white/[0.03]"
+                        }`}>{detectedTypes[col] || "text"}</span>
+                        {/* Show Fix button for columns detected as suspicious */}
+                        {suspiciousColumns.find(s => s.column === col) && (
+                          <button
+                            onClick={() => handleExtractAndConvert(col)}
+                            disabled={cleaning || loading}
+                            className="text-[9px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20 cursor-pointer transition flex items-center gap-1"
+                          >
+                            <Zap size={9} /> Fix → Numeric
+                          </button>
+                        )}
+                        {/* Show plain convert for confirmed text columns by name */}
+                        {!suspiciousColumns.find(s => s.column === col) && (detectedTypes[col] || "text") === "text" && (
                           <button
                             onClick={() => handleConvertType(col, "numeric")}
                             disabled={cleaning || loading}
-                            className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-1.5 py-0.5 rounded border border-indigo-500/20 cursor-pointer transition animate-pulse"
+                            className="text-[9px] font-bold text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 px-1.5 py-0.5 rounded border border-white/[0.08] hover:border-indigo-500/20 cursor-pointer transition"
                           >
-                            Convert to Numeric?
+                            → Numeric
                           </button>
                         )}
                       </div>
