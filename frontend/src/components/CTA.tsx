@@ -35,7 +35,7 @@ export default function CTA() {
               </h2>
 
               <p className="text-zinc-400 text-lg leading-relaxed mb-10">
-                Upload your first dataset and get instant SQL-powered insights, charts, and AI summaries — completely free to start.
+                Upload your first dataset and get instant SQL-powered insights and AI summaries — completely free to start.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">

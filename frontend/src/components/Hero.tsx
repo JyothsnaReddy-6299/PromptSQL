@@ -78,7 +78,7 @@ export default function Hero() {
 
         {/* Subtitle */}
         <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed mb-10 font-normal">
-          Upload any dataset and interrogate it with plain English. PromptSQL maps your schema, generates optimized SQL, and delivers instant visual insights — no query writing needed.
+          Upload any dataset and interrogate it with plain English. PromptSQL maps your schema and generates optimized SQL — no query writing needed.
         </p>
 
         {/* CTA buttons */}
@@ -88,7 +88,7 @@ export default function Hero() {
             className="group relative w-full sm:w-auto bg-white hover:bg-zinc-50 text-zinc-900 font-semibold px-7 py-3.5 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer shadow-lg shadow-black/20"
           >
             <Sparkles size={15} className="text-indigo-600" />
-            <span>Start Querying Free</span>
+            <span>Start Querying </span>
             <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>

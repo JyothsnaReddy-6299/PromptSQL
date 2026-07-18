@@ -8,11 +8,41 @@
   [![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
   [![Groq Llama 3](https://img.shields.io/badge/Groq_Llama_3-f55a2a?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
 
-  *An enterprise-grade **Natural Language to SQL (NL-to-SQL) analytics console** that bridges the gap between raw datasets and business insights. Upload any CSV or Excel file, and chat with your database directly using natural language. The system automatically creates isolated tables, translates your questions into optimized SQL, executes them safely alongside AI-interpreted summaries.*
+  *An **Natural Language to SQL (NL-to-SQL) analytics console** that bridges the gap between raw datasets and business insights. Upload any CSV or Excel file, and chat with your database directly using natural language. The system automatically creates isolated tables, translates your questions into optimized SQL, executes them safely alongside AI-interpreted summaries.*
 
   ---
 
   <br />
+
+<!-- Start of the gallery table -->
+<table border="0">
+  
+  <!-- ROW 1 (First Two Images) -->
+  <tr>
+    <td align="center">
+      <img src="images/home.png" alt="Description of Image 1" width="400" />
+      <br>
+    </td>
+    <td align="center">
+      <img src="images/dashboard.png" alt="Description of Image 2" width="400" />
+      <br>
+    </td>
+  </tr>
+
+  <!-- ROW 2 (Last Two Images) -->
+  <tr>
+    <td align="center">
+      <img src="images/chat.png" alt="Description of Image 3" width="400" />
+      <br>
+    </td>
+    <td align="center">
+      <img src="images/ai cleaner.png" alt="Description of Image 4" width="400" />
+      <br>
+    </td>
+  </tr>
+
+</table>
+<!-- End of the gallery table -->
 
   <br />
 
@@ -40,7 +70,7 @@ This will:
 
 ## ⚙️ Environment Configuration
 
-Create a `.env` file in the `/backend` directory. Provide your MySQL credentials and Groq API Key as shown below:
+Create a `.env` file in the `/backend` directory. Provide your MySQL credentials, Groq API Key, and a JWT Secret signature key as shown below:
 
 ```ini
 MYSQL_USER=root
@@ -49,17 +79,22 @@ MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_DATABASE=promptsql_db
 GROQ_API_KEY=gsk_your_actual_groq_api_key
+JWT_SECRET=your_super_secret_jwt_sign_key
 ```
 
 ---
 
 ## 🚀 Key Features
 
-* **📁 Ingestion & Auto-Cleaning**: Supports CSV and Excel, scans datatypes (Dates, Floats, Strings), and normalizes column headers safely.
+* **🔑 Secure User Auth**: Multi-tenant Login & Signup system protecting accounts with hashed passwords via **Bcrypt** and sessions secured by stateless **JWT Tokens**.
+* **📁 Ingestion & Auto-Cleaning**: Supports CSV and Excel, parses datatypes (Dates, Floats, Strings), and normalizes column headers safely.
+* **🔍 Smart ID Detection**: Recognizes numeric codes (such as Salesman IDs, Customer IDs, Zip codes) and marks them as text, preventing meaningless math computations (mean/median) on ID fields.
 * **💬 Conversational NL-to-SQL**: Translates questions (e.g. *"Show me the top 5 brands by sales in 2025"*) into native SQL queries with a self-healing error correction loop.
-* **🔒 Multi-User Session Isolation**: Isolates concurrent browser sessions completely using local storage IDs. Multiple users upload data and query tables independently without database conflicts.
 * **🛡️ Natural Modifications with Impact Simulation**: Safely run INSERTS, UPDATES, or DELETES. The backend runs a dry-run estimation first, warns you of the row impact count, and requires manual confirmation before writing.
-* **📄 Exporters**: Export raw query datasets directly to CSV, Excel, HTML, or formatted PDF layouts.
+* **⚡ Natively Fast In-Database Operations**: Grid loading, search queries, and column statistics (Min, Max, Avg, Median) are computed directly in MySQL, resolving memory overload and loading pages in milliseconds.
+* **✏️ Interactive Cell Editing**: Manually modify any single table cell value by double-clicking it directly inside the UI explorer grid.
+* **📄 Exporters**: Export raw query datasets directly to CSV, Excel, or custom formatted **PDF Reports** complete with natural language AI summaries.
+* **🪄 AI Data Cleaning & Preprocessing Suite**: An automated utility designed to handle data deduplication, text standardization, and outlier capping. It repairs datasets effortlessly by isolating unique records, extracting clean numbers, and intelligently imputing missing values using custom constraints or statistical strategies.
 
 ---
 
@@ -95,7 +130,7 @@ The development frontend server will boot up at **`http://localhost:5173`**.
 
 | Stage | Security Layer | Action |
 | :--- | :--- | :--- |
-| **1. Keyword Scan** | Intent & SQL Validator | Rejects suspicious sub-queries, shell injection characters, or queries targeting core session tracking tables (`query_history`, `audit_logs`, `saved_reports`). |
+| **1. Keyword Scan** | Intent & SQL Validator | Rejects suspicious sub-queries, shell injection characters, or queries targeting core system tables (`query_history`, `audit_logs`, `saved_reports`, `users`). |
 | **2. Simulation** | Impact Estimator | Generates a virtual dry-run targeting `SELECT COUNT(*)` on active tables to determine exactly how many entries match the criteria. |
 | **3. Verification** | AI Explainer & UI Alert | Generates a descriptive warning explaining exactly how many rows will be altered or deleted. |
 | **4. Auditing** | Audit Logs & Transactions | Logs the query, user approving action, status, and outcome. Runs everything transactionally so it rolls back automatically on execution failures. |

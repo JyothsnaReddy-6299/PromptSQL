@@ -20,16 +20,16 @@ const features = [
   },
   {
     icon: <BarChart3 size={20} />,
-    title: "Interactive Dashboards",
-    desc: "Automatically generate bar, line, scatter, and pie charts from your query results. No config required.",
-    badge: "Analytics",
+    title: "Editable Preview Table",
+    desc: "Edit your table by a double click on any data which you want to update or add ",
+    badge: "Edit",
     color: "from-sky-500 to-indigo-500",
     glow: "shadow-sky-500/20",
   },
   {
     icon: <FileText size={20} />,
     title: "AI-Generated Reports",
-    desc: "Export polished PDF and Excel reports with natural-language summaries, tables, and embedded charts.",
+    desc: "Export polished PDF and Excel reports with natural-language summaries and tables.",
     badge: "Export",
     color: "from-emerald-500 to-teal-500",
     glow: "shadow-emerald-500/20",
@@ -55,7 +55,7 @@ const features = [
 const HOW_IT_WORKS = [
   { step: "01", title: "Upload your dataset", desc: "Drop a CSV, XLS, or XLSX file. We load it into a secure MySQL session automatically." },
   { step: "02", title: "Ask in plain English", desc: "Type your question — 'Show sales by region' or 'Find top 10 customers' — and hit enter." },
-  { step: "03", title: "Get instant results", desc: "SQL is generated, executed, and visualized as charts, tables, and AI summaries in under a second." },
+  { step: "03", title: "Get instant results", desc: "SQL is generated, executed, and visualized as tables and AI summaries in under a second." },
 ];
 
 export default function Features() {
