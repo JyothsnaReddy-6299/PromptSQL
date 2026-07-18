@@ -7,6 +7,8 @@ from typing import List, Optional
 from app.database.connection import SessionLocal
 from app.models.audit_log import AuditLog
 
+from app.services.auth_service import get_current_user_id
+
 router = APIRouter(prefix="/audit", tags=["Audit"])
 
 
@@ -35,13 +37,12 @@ class AuditLogSchema(BaseModel):
 
 @router.get("", response_model=List[AuditLogSchema])
 def get_audit_logs(
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """
     Returns audit history logs ordered by timestamp desc.
     """
-    user_id = x_user_id or "default_user"
     return (
         db.query(AuditLog)
         .filter(AuditLog.user_id == user_id)
@@ -53,10 +54,9 @@ def get_audit_logs(
 @router.delete("/{log_id}")
 def delete_audit_log(
     log_id: int,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     log = db.query(AuditLog).filter(AuditLog.id == log_id, AuditLog.user_id == user_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Audit log not found")

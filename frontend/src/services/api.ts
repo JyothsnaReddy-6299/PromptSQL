@@ -1,12 +1,16 @@
 const API_URL = "";
 
-// Custom fetch wrapper to automatically inject user session headers
+// Custom fetch wrapper to automatically inject user session and JWT authorization headers
 const originalFetch = window.fetch;
 const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const headers = { ...(init?.headers as Record<string, string> || {}) };
   const userId = localStorage.getItem("promptsql_user_id");
   if (userId) {
     headers["X-User-ID"] = userId;
+  }
+  const token = localStorage.getItem("promptsql_token");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
   try {
     const dataset = JSON.parse(sessionStorage.getItem("dataset") || "{}");
@@ -21,6 +25,8 @@ const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Resp
     headers,
   });
 };
+
+
 
 // Helper to trigger blob file downloads in the browser
 async function triggerBlobDownload(response: Response, defaultFilename: string) {
@@ -408,4 +414,26 @@ export async function cleanExtractAndConvert(columnName: string) {
   });
   if (!response.ok) throw new Error("Failed extract and convert");
   return response.json();
+}
+
+export async function login(username: string, password: string) {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Login failed");
+  return data;
+}
+
+export async function signup(username: string, password: string) {
+  const response = await fetch(`${API_URL}/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Signup failed");
+  return data;
 }

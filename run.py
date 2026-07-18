@@ -47,7 +47,7 @@ def main():
         f'"{venv_python}" -m pip install '
         "groq python-dotenv openpyxl pymysql "
         "sqlalchemy fastapi uvicorn python-multipart "
-        "cryptography pandas"
+        "cryptography pandas pyjwt bcrypt"
     )
     if not run_command(pip_cmd):
         sys.exit(1)

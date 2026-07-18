@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowRight, Sparkles, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import WorkflowMarquee from "./WorkflowMarquee";
 
 function Typewriter({ text, delay = 0, speed = 55 }: { text: string; delay?: number; speed?: number }) {
   const [displayed, setDisplayed] = useState("");
@@ -93,13 +94,18 @@ export default function Hero() {
         </div>
 
         {/* Stats row */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 mb-16">
           {STATS.map((stat, i) => (
             <div key={i} className="text-center">
               <div className="text-2xl font-bold text-white">{stat.value}</div>
               <div className="text-xs text-zinc-500 mt-0.5">{stat.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* Workflow Marquee */}
+        <div className="w-full max-w-5xl mx-auto border border-white/[0.06] rounded-3xl overflow-hidden bg-black/20 shadow-inner mt-4">
+          <WorkflowMarquee />
         </div>
       </div>
 

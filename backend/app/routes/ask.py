@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import re
@@ -12,6 +12,7 @@ from app.services.sql_executor import execute_sql
 from app.services.result_interpreter import interpret_result
 from app.services.aggregate_summary import generate_aggregate_summary
 from app.services.summary_generator import generate_summary
+from app.services.auth_service import get_current_user_id
 
 router = APIRouter()
 
@@ -26,8 +27,8 @@ MAX_RETRIES = 2
 @router.post("/ask")
 def ask_question(
     payload: AskRequest,
-    x_user_id: Optional[str] = Header(None),
-    x_table_name: Optional[str] = Header(None)
+    x_table_name: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id)
 ):
 
     try:
@@ -43,6 +44,12 @@ def ask_question(
                 "success": False,
                 "error": "Please upload a dataset first."
             }
+
+        # Security check: verify user owns the dataset
+        if "_usr_" in table_name:
+            owner_id = "usr_" + table_name.split("_usr_")[-1]
+            if owner_id != user_id:
+                raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
 
         print("\n==============================")
         print("Current Table :", table_name)
@@ -162,7 +169,7 @@ def ask_question(
             import json
             db_session = SessionLocal()
             db_history = QueryHistory(
-                user_id=x_user_id or "default_user",
+                user_id=user_id,
                 table_name=table_name,
                 question=payload.question,
                 generated_sql=sql_query,

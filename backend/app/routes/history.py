@@ -8,6 +8,8 @@ import json
 from app.database.connection import SessionLocal
 from app.models.history import QueryHistory
 
+from app.services.auth_service import get_current_user_id
+
 router = APIRouter(prefix="/history", tags=["History"])
 
 
@@ -46,10 +48,9 @@ class HistorySchema(BaseModel):
 
 @router.get("", response_model=List[HistorySchema])
 def get_history(
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     return (
         db.query(QueryHistory)
         .filter(QueryHistory.user_id == user_id)
@@ -61,11 +62,11 @@ def get_history(
 @router.post("", response_model=HistorySchema)
 def create_history_item(
     payload: HistoryCreateSchema,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     db_item = QueryHistory(
-        user_id=x_user_id or payload.user_id or "default_user",
+        user_id=user_id,
         table_name=payload.table_name,
         question=payload.question,
         generated_sql=payload.generated_sql,
@@ -82,10 +83,9 @@ def create_history_item(
 @router.delete("/{id}")
 def delete_history_item(
     id: int,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     item = (
         db.query(QueryHistory)
         .filter(QueryHistory.id == id, QueryHistory.user_id == user_id)
@@ -100,10 +100,9 @@ def delete_history_item(
 
 @router.delete("")
 def clear_history(
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     db.query(QueryHistory).filter(QueryHistory.user_id == user_id).delete()
     db.commit()
     return {"success": True, "message": "Cleared all history"}

@@ -159,6 +159,8 @@ def generate_confirmation_message(intent: str, table_name: str, rows_affected: i
     """
     Generates a professional confirmation message based on result without LLM calls.
     """
+    friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
+    
     if rows_affected == 0 and intent in ["UPDATE", "DELETE"]:
         sql_lower = sql.lower()
         where_idx = sql_lower.find("where")
@@ -170,13 +172,13 @@ def generate_confirmation_message(intent: str, table_name: str, rows_affected: i
         return "0 records affected. No matching records found."
         
     if intent == "INSERT":
-        return f"1 record inserted into {table_name} successfully."
+        return f"1 record inserted into {friendly_name} successfully."
     if intent == "UPDATE":
-        return f"{rows_affected} records updated in {table_name} successfully."
+        return f"{rows_affected} records updated in {friendly_name} successfully."
     if intent == "DELETE":
-        return f"{rows_affected} records deleted from {table_name} successfully."
+        return f"{rows_affected} records deleted from {friendly_name} successfully."
     if intent == "TRUNCATE":
-        return f"Table {table_name} truncated successfully."
+        return f"Table {friendly_name} truncated successfully."
     if intent == "DROP":
-        return f"Table {table_name} dropped successfully."
-    return f"Database operation {intent} executed successfully on {table_name}."
+        return f"Table {friendly_name} dropped successfully."
+    return f"Database operation {intent} executed successfully on {friendly_name}."

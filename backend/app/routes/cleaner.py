@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
+from datetime import datetime
+import pandas as pd
+import re
 
-from app.database.connection import SessionLocal
+from app.database.connection import SessionLocal, engine
 from app.models.audit_log import AuditLog
+from app.services.auth_service import get_current_user_id
+from app.services.table_manager import get_current_table
+from sqlalchemy import text
 
 router = APIRouter(prefix="/clean", tags=["Data Cleaner"])
 
@@ -17,6 +23,24 @@ def get_db():
         db.close()
 
 
+def get_secure_active_table(user_id: str) -> str:
+    """Helper to retrieve and verify ownership of the active dataset table."""
+    table_name = get_current_table()
+    if not table_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active dataset table selected."
+        )
+    if "_usr_" in table_name:
+        owner_id = "usr_" + table_name.split("_usr_")[-1]
+        if owner_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You do not own this dataset."
+            )
+    return table_name
+
+
 class ImputeRequest(BaseModel):
     column_name: str
     strategy: str
@@ -24,15 +48,8 @@ class ImputeRequest(BaseModel):
 
 
 @router.post("/remove-duplicates")
-def remove_duplicates(db: Session = Depends(get_db)):
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset table selected."}
+def remove_duplicates(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
 
     try:
         # Get count before
@@ -56,7 +73,7 @@ def remove_duplicates(db: Session = Depends(get_db)):
 
         # Save to Audit Log
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="CLEAN",
             table_name=table_name,
@@ -78,15 +95,8 @@ def remove_duplicates(db: Session = Depends(get_db)):
 
 
 @router.post("/impute")
-def impute_column(req: ImputeRequest, db: Session = Depends(get_db)):
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset table selected."}
+def impute_column(req: ImputeRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
 
     col = req.column_name
     strategy = req.strategy.lower()
@@ -100,43 +110,29 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db)):
             with engine.begin() as conn:
                 res = conn.execute(text(sql_executed))
                 rows_affected = res.rowcount or 0
+
         else:
+            # Impute value strategies (mean, median, mode, custom)
+            query = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL AND `{col}` != ''"
+            with engine.connect() as conn:
+                df = pd.read_sql(query, conn)
+
             if strategy == "mean":
-                q = f"SELECT AVG(CAST(`{col}` AS DECIMAL(15,4))) FROM `{table_name}` WHERE `{col}` IS NOT NULL AND `{col}` != ''"
-                with engine.connect() as conn:
-                    val = conn.execute(text(q)).scalar()
-                    if val is not None:
-                        val = float(val)
-                    else:
-                        val = 0
+                series = pd.to_numeric(df[col], errors='coerce').dropna()
+                val = float(series.mean()) if not series.empty else 0.0
+
             elif strategy == "median":
-                q = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL AND `{col}` != ''"
-                with engine.connect() as conn:
-                    vals = []
-                    for row in conn.execute(text(q)):
-                        try:
-                            vals.append(float(row[0]))
-                        except:
-                            pass
-                if vals:
-                    vals.sort()
-                    n = len(vals)
-                    if n % 2 == 1:
-                        val = vals[n // 2]
-                    else:
-                        val = (vals[n // 2 - 1] + vals[n // 2]) / 2.0
-                else:
-                    val = 0
+                series = pd.to_numeric(df[col], errors='coerce').dropna()
+                val = float(series.median()) if not series.empty else 0.0
+
             elif strategy == "mode":
-                q = f"SELECT `{col}`, COUNT(*) as cnt FROM `{table_name}` WHERE `{col}` IS NOT NULL AND `{col}` != '' GROUP BY `{col}` ORDER BY cnt DESC LIMIT 1"
-                with engine.connect() as conn:
-                    row = conn.execute(text(q)).first()
-                    val = row[0] if row else ""
+                series = df[col].dropna()
+                val = str(series.mode()[0]) if not series.empty else ""
+
             elif strategy == "custom":
                 val = req.custom_value or ""
-            else:
-                return {"success": False, "error": f"Unsupported imputation strategy: {req.strategy}"}
 
+            # Update rows where it is NULL
             sql_executed = f"UPDATE `{table_name}` SET `{col}` = :val WHERE `{col}` IS NULL OR `{col}` = ''"
             with engine.begin() as conn:
                 res = conn.execute(text(sql_executed), {"val": val})
@@ -144,7 +140,7 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db)):
 
         # Save to Audit Log
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="CLEAN",
             table_name=table_name,
@@ -172,15 +168,8 @@ class UpdateCellRequest(BaseModel):
 
 
 @router.post("/update-cell")
-def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db)):
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset table selected."}
+def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
 
     col = req.column_name
     new_val = req.new_value
@@ -191,7 +180,6 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db)):
     params = {"new_val": new_val}
 
     for k, v in row_data.items():
-        # Represent NULL values correctly in SQL
         if v is None or v == "":
             where_parts.append(f"`{k}` IS NULL")
         else:
@@ -208,7 +196,7 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db)):
 
         # Save to Audit Log
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="UPDATE",
             table_name=table_name,
@@ -234,22 +222,14 @@ class ConvertTypeRequest(BaseModel):
 
 
 @router.post("/convert-type")
-def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db)):
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset table selected."}
+def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
 
     col = req.column_name
     target = req.target_type.lower()
 
     try:
         if target == "numeric":
-            # 1. Nullify any non-numeric strings to prevent casting warnings/failures
             clean_query = f"""
                 UPDATE `{table_name}`
                 SET `{col}` = NULL
@@ -268,7 +248,6 @@ def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db)):
                 conn.execute(text(alter_query))
 
         elif target == "date":
-            # Standardise to YYYY-MM-DD or standard datetime string convert
             clean_query = f"""
                 UPDATE `{table_name}`
                 SET `{col}` = STR_TO_DATE(TRIM(`{col}`), '%Y-%m-%d')
@@ -283,7 +262,7 @@ def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db)):
 
         # Save to Audit Log
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="ALTER",
             table_name=table_name,
@@ -306,16 +285,10 @@ class StandardizeTextRequest(BaseModel):
     column_name: str
     operation: str  # "trim", "upper", "lower"
 
-@router.post("/standardize-text")
-def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db)):
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
 
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset table selected."}
+@router.post("/standardize-text")
+def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
 
     col = req.column_name
     op = req.operation.lower()
@@ -338,7 +311,7 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db))
 
         # Save to Audit Log
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="CLEAN",
             table_name=table_name,
@@ -361,21 +334,12 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db))
 class ExtractNumbersRequest(BaseModel):
     column_name: str
 
+
 @router.post("/extract-numbers")
-def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db)):
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset table selected."}
-
+def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
     col = req.column_name
 
-    # In MySQL 8.0, we can use REGEXP_REPLACE to remove all non-numeric and non-decimal point characters
-    # Regex: `[^0-9.-]` matches anything that is NOT a digit, dot, or minus sign.
     update_query = f"UPDATE `{table_name}` SET `{col}` = REGEXP_REPLACE(`{col}`, '[^0-9.-]', '') WHERE `{col}` IS NOT NULL AND `{col}` != ''"
 
     try:
@@ -385,7 +349,7 @@ def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db)):
 
         # Save to Audit Log
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="CLEAN",
             table_name=table_name,
@@ -410,39 +374,25 @@ class CapOutliersRequest(BaseModel):
     lower_percentile: float = 0.05
     upper_percentile: float = 0.95
 
+
 @router.post("/cap-outliers")
-def cap_outliers(req: CapOutliersRequest, db: Session = Depends(get_db)):
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
-    import pandas as pd
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset table selected."}
-
+def cap_outliers(req: CapOutliersRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
     col = req.column_name
 
     try:
-        # We will load the column data, calculate the percentiles using pandas, and then run an UPDATE query
         query = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL"
-        
         with engine.connect() as conn:
             df = pd.read_sql(query, conn)
             
-        # Convert to numeric, dropping non-convertibles just for statistical calculation
         numeric_series = pd.to_numeric(df[col], errors='coerce').dropna()
-        
         if len(numeric_series) == 0:
             return {"success": False, "error": "No valid numeric data found to calculate percentiles."}
 
         lower_val = float(numeric_series.quantile(req.lower_percentile))
         upper_val = float(numeric_series.quantile(req.upper_percentile))
         
-        # Update values less than lower threshold
         sql_lower = f"UPDATE `{table_name}` SET `{col}` = :lower_val WHERE `{col}` < :lower_val AND `{col}` IS NOT NULL"
-        # Update values greater than upper threshold
         sql_upper = f"UPDATE `{table_name}` SET `{col}` = :upper_val WHERE `{col}` > :upper_val AND `{col}` IS NOT NULL"
 
         with engine.begin() as conn:
@@ -455,7 +405,7 @@ def cap_outliers(req: CapOutliersRequest, db: Session = Depends(get_db)):
             rows_affected = rows_lower + rows_upper
 
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="CLEAN",
             table_name=table_name,
@@ -478,22 +428,13 @@ def cap_outliers(req: CapOutliersRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/detect-numeric-text")
-def detect_numeric_text_columns():
-    """Scan text columns and detect which ones contain numeric-like values (e.g. '1234 USD', '$450.00')."""
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text, inspect
-    import re
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset."}
+def detect_numeric_text_columns(user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
 
     try:
         inspector = inspect(engine)
         col_info = inspector.get_columns(table_name)
 
-        # Get only text/varchar columns
         text_columns = [
             c["name"] for c in col_info
             if "varchar" in str(c["type"]).lower() or "text" in str(c["type"]).lower() or "char" in str(c["type"]).lower()
@@ -503,7 +444,6 @@ def detect_numeric_text_columns():
         numeric_pattern = re.compile(r'^[\s$£€₹]?[\d,]+\.?\d*[\s]?[a-zA-Z%]*$')
 
         for col in text_columns:
-            # Sample up to 20 non-null values
             sample_q = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL AND `{col}` != '' LIMIT 20"
             with engine.connect() as conn:
                 rows = [r[0] for r in conn.execute(text(sample_q))]
@@ -511,12 +451,10 @@ def detect_numeric_text_columns():
             if not rows:
                 continue
 
-            # Count how many match a numeric-like pattern
             numeric_like = sum(1 for v in rows if numeric_pattern.match(str(v).strip()))
             ratio = numeric_like / len(rows)
 
-            if ratio >= 0.7:  # 70%+ values look numeric
-                # Check if column name hints at numeric (salary, price, amount, cost, total, qty, revenue etc.)
+            if ratio >= 0.7:
                 col_lower = col.lower()
                 name_hints = any(kw in col_lower for kw in [
                     "salary", "price", "amount", "cost", "total", "revenue", "qty", "quantity",
@@ -537,28 +475,20 @@ def detect_numeric_text_columns():
 class ExtractAndConvertRequest(BaseModel):
     column_name: str
 
+
 @router.post("/extract-and-convert")
-def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get_db)):
-    """Extract numbers from a text column AND immediately convert the column datatype to DOUBLE."""
-    from app.services.table_manager import get_current_table
-    from app.database.connection import engine
-    from sqlalchemy import text
-    from datetime import datetime
-
-    table_name = get_current_table()
-    if not table_name:
-        return {"success": False, "error": "No active dataset."}
-
+def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+    table_name = get_secure_active_table(user_id)
     col = req.column_name
 
     try:
         with engine.begin() as conn:
-            # Step 1: Extract only the numeric part (remove currency symbols, units, text)
+            # Step 1: Extract only numeric parts
             conn.execute(text(
                 f"UPDATE `{table_name}` SET `{col}` = REGEXP_REPLACE(`{col}`, '[^0-9.-]', '') "
                 f"WHERE `{col}` IS NOT NULL AND `{col}` != ''"
             ))
-            # Step 2: Nullify anything that still can't be cast to a number
+            # Step 2: Nullify non-numeric text residue
             conn.execute(text(
                 f"UPDATE `{table_name}` SET `{col}` = NULL "
                 f"WHERE `{col}` IS NOT NULL AND `{col}` NOT REGEXP '^[+-]?[0-9]*\\.?[0-9]+$'"
@@ -567,7 +497,7 @@ def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get
             conn.execute(text(f"ALTER TABLE `{table_name}` MODIFY `{col}` DOUBLE NULL"))
 
         audit_log = AuditLog(
-            user_id="default_user",
+            user_id=user_id,
             timestamp=datetime.utcnow(),
             operation="ALTER",
             table_name=table_name,
@@ -584,4 +514,3 @@ def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
-

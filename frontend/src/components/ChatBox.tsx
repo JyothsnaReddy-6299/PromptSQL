@@ -7,7 +7,6 @@ import {
   Database, 
   Download, 
   Table, 
-  BarChart3, 
   ChevronLeft,
   ChevronRight,
   Search,
@@ -492,37 +491,20 @@ export default function ChatBox() {
                     <div className="bg-[#111113] border-b border-white/[0.06] px-3 py-2 flex items-center justify-between flex-wrap gap-2">
                       <div className="flex gap-1.5">
                         {msg.records && msg.records.length > 0 && (
-                          <>
-                            <button
-                              onClick={() => {
-                                const updated = [...messages];
-                                updated[idx].activeTab = "table";
-                                setMessages(updated);
-                              }}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
-                                msg.activeTab === "table"
-                                  ? "bg-[#0D0D0F] text-zinc-100 border border-warmgray-150 shadow-sm"
-                                  : "text-zinc-400 hover:text-warmgray-850"
-                              }`}
-                            >
-                              <Table size={10} className="text-terracotta-500" /> Table View
-                            </button>
-                            
-                            <button
-                              onClick={() => {
-                                const updated = [...messages];
-                                updated[idx].activeTab = "chart";
-                                setMessages(updated);
-                              }}
-                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
-                                msg.activeTab === "chart"
-                                  ? "bg-[#0D0D0F] text-zinc-100 border border-warmgray-150 shadow-sm"
-                                  : "text-zinc-400 hover:text-warmgray-850"
-                              }`}
-                            >
-                              <BarChart3 size={10} className="text-terracotta-500" /> Chart View
-                            </button>
-                          </>
+                          <button
+                            onClick={() => {
+                              const updated = [...messages];
+                              updated[idx].activeTab = "table";
+                              setMessages(updated);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
+                              msg.activeTab === "table"
+                                ? "bg-[#0D0D0F] text-zinc-100 border border-white/[0.08] shadow-sm"
+                                : "text-zinc-400 hover:text-white"
+                            }`}
+                          >
+                            <Table size={10} className="text-terracotta-500" /> Table View
+                          </button>
                         )}
                       </div>
 
@@ -785,7 +767,7 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
               <tr key={rIdx} className="hover:bg-[#111113]/30">
                 {columns.map(c => (
                   <td key={c} className="px-2.5 py-1.5 text-zinc-100 font-semibold truncate max-w-[150px]">
-                    {row[c] === null ? "null" : String(row[c])}
+                    {row[c] === null ? "null" : formatDateValue(row[c])}
                   </td>
                 ))}
               </tr>
@@ -1045,4 +1027,16 @@ function InnerChart({
       </div>
     </div>
   );
+}
+
+export function formatDateValue(val: any): string {
+  if (val === null || val === undefined) return "";
+  const s = String(val);
+  // Matches "YYYY-MM-DD[T]HH:MM:SS" or similar
+  if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2})?/.test(s)) {
+    if (s.includes("00:00:00") || s.includes("T00:00:00")) {
+      return s.split(/[T ]/)[0]; // returns "YYYY-MM-DD"
+    }
+  }
+  return s;
 }

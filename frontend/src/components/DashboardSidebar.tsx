@@ -12,6 +12,7 @@ import {
   FolderOpen,
   Check,
   Trash2,
+  LogOut,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -39,6 +40,14 @@ export default function DashboardSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [datasets, setDatasets] = useState<string[]>([]);
   const [currentTable, setCurrentTable] = useState<string | null>(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem("promptsql_token");
+    localStorage.removeItem("promptsql_user_id");
+    localStorage.removeItem("promptsql_username");
+    sessionStorage.clear();
+    navigate("/login");
+  };
 
   useEffect(() => {
     // Load current table from session storage
@@ -229,6 +238,17 @@ export default function DashboardSidebar({
         >
           <ArrowLeft size={16} className="text-zinc-600 shrink-0" />
           {!collapsed && <span className="text-sm font-medium">Upload New</span>}
+        </button>
+
+        <button
+          onClick={handleLogout}
+          title={collapsed ? "Logout" : undefined}
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-500/80 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer ${
+            collapsed ? "justify-center" : ""
+          }`}
+        >
+          <LogOut size={16} className="text-red-500/70 shrink-0" />
+          {!collapsed && <span className="text-sm font-medium">Logout</span>}
         </button>
 
         <button

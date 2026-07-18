@@ -189,6 +189,8 @@ Do NOT use markdown.
 
 18. When filtering strings or text columns using WHERE, always use `LIKE '%value%'` or `TRIM(column) = 'value'` to prevent matching errors due to hidden whitespace in the dataset.
 
+19. NEVER perform mathematical aggregate operations (like SUM, AVG, MIN, MAX) on columns representing identifiers or codes (e.g., column names containing 'id', 'code', 'zip', 'phone', 'ssn', 'pin', 'card', 'account', 'serial', 'number', 'mobile'). If the user requests calculations on these fields, return INVALID_QUERY or count them using COUNT instead.
+
 =========================
 QUESTION
 =========================

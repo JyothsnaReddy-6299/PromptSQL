@@ -11,6 +11,8 @@ from app.database.connection import SessionLocal
 from app.models.report import SavedReport
 from app.services.export_service import generate_pdf, generate_excel, generate_csv
 
+from app.services.auth_service import get_current_user_id
+
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
@@ -56,10 +58,9 @@ class ReportDetailSchema(ReportListSchema):
 
 @router.get("", response_model=List[ReportListSchema])
 def get_reports(
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     return (
         db.query(SavedReport)
         .filter(SavedReport.user_id == user_id)
@@ -71,10 +72,9 @@ def get_reports(
 @router.get("/{id}", response_model=ReportDetailSchema)
 def get_report_detail(
     id: int,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)
@@ -104,11 +104,11 @@ def get_report_detail(
 @router.post("", response_model=ReportListSchema)
 def create_report(
     payload: ReportCreateSchema,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     db_item = SavedReport(
-        user_id=x_user_id or payload.user_id or "default_user",
+        user_id=user_id,
         title=payload.title,
         table_name=payload.table_name,
         question=payload.question,
@@ -126,10 +126,9 @@ def create_report(
 def rename_report(
     id: int,
     payload: ReportRenameSchema,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)
@@ -146,10 +145,9 @@ def rename_report(
 @router.delete("/{id}")
 def delete_report(
     id: int,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)
@@ -166,10 +164,9 @@ def delete_report(
 def export_saved_report(
     id: int,
     format: str,
-    x_user_id: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    user_id = x_user_id or "default_user"
     report = (
         db.query(SavedReport)
         .filter(SavedReport.id == id, SavedReport.user_id == user_id)

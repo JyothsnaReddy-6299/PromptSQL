@@ -1,8 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header
+from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends
 import os
 from typing import Optional
 
 from app.services.upload_service import upload_dataset
+from app.services.auth_service import get_current_user_id
 
 router = APIRouter()
 
@@ -11,7 +12,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...), x_user_id: Optional[str] = Header(None)):
+async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
 
     try:
 
@@ -26,7 +27,7 @@ async def upload_file(file: UploadFile = File(...), x_user_id: Optional[str] = H
         result = upload_dataset(
             filepath=filepath,
             filename=file.filename,
-            user_id=x_user_id or "default_user"
+            user_id=user_id
         )
 
         return result
@@ -47,7 +48,8 @@ def get_preview(
     search: Optional[str] = None,
     sort_col: Optional[str] = None,
     sort_dir: Optional[str] = "ASC",
-    x_table_name: Optional[str] = Header(None)
+    x_table_name: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id)
 ):
     from app.services.table_manager import get_current_table
     from app.database.connection import engine
@@ -60,17 +62,26 @@ def get_preview(
             "error": "No dataset uploaded yet."
         }
 
+    # Security check: verify user owns the dataset
+    if "_usr_" in table_name:
+        owner_id = "usr_" + table_name.split("_usr_")[-1]
+        if owner_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
+
     try:
         inspector = inspect(engine)
         col_info = inspector.get_columns(table_name)
         columns = [c["name"] for c in col_info]
         
         # Build live detected types mapping from database column schemas
+        from app.services.datatype_detector import is_identifier_column_name
         detected_types = {}
         for col in col_info:
             col_name = col["name"]
             col_type = str(col["type"]).lower()
-            if "int" in col_type or "double" in col_type or "decimal" in col_type or "float" in col_type or "numeric" in col_type:
+            if is_identifier_column_name(col_name):
+                detected_types[col_name] = "text"
+            elif "int" in col_type or "double" in col_type or "decimal" in col_type or "float" in col_type or "numeric" in col_type:
                 detected_types[col_name] = "numeric"
             elif "date" in col_type or "timestamp" in col_type or "time" in col_type:
                 detected_types[col_name] = "date"
@@ -84,28 +95,23 @@ def get_preview(
 
         # Get dynamic missing cells count across all columns (datatype-aware to avoid MySQL type-comparison errors)
         col_missing = {}
+        total_missing = 0
         if col_info:
-            sum_parts = []
             col_sum_parts = []
             for col in col_info:
                 col_name = col["name"]
                 col_type = str(col["type"]).lower()
                 if "varchar" in col_type or "text" in col_type or "char" in col_type:
-                    sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL OR `{col_name}` = '' THEN 1 ELSE 0 END)")
                     col_sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL OR `{col_name}` = '' THEN 1 ELSE 0 END) AS `{col_name}`")
                 else:
-                    sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL THEN 1 ELSE 0 END)")
                     col_sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL THEN 1 ELSE 0 END) AS `{col_name}`")
             
-            missing_query = f"SELECT ({' + '.join(sum_parts)}) FROM `{table_name}`"
             missing_col_query = f"SELECT {', '.join(col_sum_parts)} FROM `{table_name}`"
             with engine.connect() as conn:
-                total_missing = conn.execute(text(missing_query)).scalar() or 0
                 row = conn.execute(text(missing_col_query)).first()
                 if row:
                     col_missing = {k: int(v or 0) for k, v in dict(row._mapping).items()}
-        else:
-            total_missing = 0
+                    total_missing = sum(col_missing.values())
 
         # Build preview query with server-side column search and sorting
         if search and columns:
@@ -129,27 +135,48 @@ def get_preview(
             res = conn.execute(text(sql_query), params)
             records = [dict(row._mapping) for row in res]
 
-        # Get column statistics for numeric columns
+        # Get column statistics for numeric columns (computed efficiently in SQL to prevent loading the entire dataset in Python memory)
         column_stats = {}
         numeric_cols = [c for c, t in detected_types.items() if t == "numeric"]
         if numeric_cols:
             try:
-                import pandas as pd
-                cols_sql = ", ".join([f"`{c}`" for c in numeric_cols])
-                stats_query = f"SELECT {cols_sql} FROM `{table_name}`"
                 with engine.connect() as conn:
-                    df = pd.read_sql(stats_query, conn)
-                for col in numeric_cols:
-                    s = pd.to_numeric(df[col], errors='coerce').dropna()
-                    if not s.empty:
-                        column_stats[col] = {
-                            "min": float(s.min()),
-                            "max": float(s.max()),
-                            "mean": float(s.mean()),
-                            "median": float(s.median())
-                        }
+                    # 1. Get min, max, mean in a single optimized query
+                    stats_select = []
+                    for col in numeric_cols:
+                        stats_select.append(f"MIN(`{col}`) AS `{col}_min`")
+                        stats_select.append(f"MAX(`{col}`) AS `{col}_max`")
+                        stats_select.append(f"AVG(`{col}`) AS `{col}_mean`")
+                    
+                    stats_sql = f"SELECT {', '.join(stats_select)} FROM `{table_name}`"
+                    stats_res = conn.execute(text(stats_sql)).first()
+                    
+                    if stats_res:
+                        stats_map = dict(stats_res._mapping)
+                        for col in numeric_cols:
+                            c_min = stats_map.get(f"{col}_min")
+                            c_max = stats_map.get(f"{col}_max")
+                            c_mean = stats_map.get(f"{col}_mean")
+                            
+                            # 2. Get median using ordered offset
+                            # Count non-null rows first
+                            count_sql = f"SELECT COUNT(*) FROM `{table_name}` WHERE `{col}` IS NOT NULL"
+                            col_count = conn.execute(text(count_sql)).scalar() or 0
+                            
+                            median_val = 0.0
+                            if col_count > 0:
+                                offset = max(0, (col_count - 1) // 2)
+                                median_sql = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL ORDER BY `{col}` LIMIT 1 OFFSET {offset}"
+                                median_val = conn.execute(text(median_sql)).scalar() or 0.0
+                            
+                            column_stats[col] = {
+                                "min": float(c_min) if c_min is not None else 0.0,
+                                "max": float(c_max) if c_max is not None else 0.0,
+                                "mean": float(c_mean) if c_mean is not None else 0.0,
+                                "median": float(median_val)
+                            }
             except Exception as e:
-                print("Failed to calculate column stats:", e)
+                print("Failed to calculate column stats in SQL:", e)
 
         from app.utils.json_helper import sanitize_for_json
         return {
@@ -176,39 +203,52 @@ class SetActiveDatasetRequest(BaseModel):
     table_name: str
 
 @router.get("/datasets")
-def list_datasets(x_user_id: Optional[str] = Header(None)):
+def list_datasets(user_id: str = Depends(get_current_user_id)):
     from app.database.connection import engine
     from sqlalchemy import inspect
     try:
         inspector = inspect(engine)
         all_tables = inspector.get_table_names()
-        # Filter tables slightly if needed, for now return all tables
-        # Filter out internal tables if any (like query_history, audit_logs)
-        datasets = [t for t in all_tables if t not in ["query_history", "audit_logs"]]
+        # Filter tables belonging only to this specific user (e.g. table_usr_usr_1)
+        suffix = f"_{user_id}"
+        datasets = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
         return {"success": True, "datasets": datasets}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 @router.post("/datasets/active")
-def set_active_dataset(req: SetActiveDatasetRequest, x_user_id: Optional[str] = Header(None)):
+def set_active_dataset(req: SetActiveDatasetRequest, user_id: str = Depends(get_current_user_id)):
     from app.services.table_manager import set_current_table
     try:
+        # Verify ownership
+        if "_usr_" in req.table_name:
+            owner_id = "usr_" + req.table_name.split("_usr_")[-1]
+            if owner_id != user_id:
+                raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
         set_current_table(req.table_name)
         return {"success": True, "table_name": req.table_name}
+    except HTTPException:
+        raise
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 @router.delete("/datasets/{table_name}")
-def delete_dataset(table_name: str, x_user_id: Optional[str] = Header(None)):
+def delete_dataset(table_name: str, user_id: str = Depends(get_current_user_id)):
     from app.database.connection import engine
     from sqlalchemy import text
     from app.services.table_manager import get_current_table, set_current_table
     from fastapi import HTTPException
     
-    if table_name in ["query_history", "audit_logs"]:
+    if table_name in ["query_history", "audit_logs", "users"]:
         raise HTTPException(status_code=400, detail="Cannot delete system tables")
         
     try:
+        # Verify ownership
+        if "_usr_" in table_name:
+            owner_id = "usr_" + table_name.split("_usr_")[-1]
+            if owner_id != user_id:
+                raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
+                
         from sqlalchemy import inspect
         inspector = inspect(engine)
         if table_name not in inspector.get_table_names():
@@ -221,6 +261,9 @@ def delete_dataset(table_name: str, x_user_id: Optional[str] = Header(None)):
         if get_current_table() == table_name:
             set_current_table("")
             
-        return {"success": True, "message": f"Dataset {table_name} deleted successfully"}
+        friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
+        return {"success": True, "message": f"Dataset {friendly_name} deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

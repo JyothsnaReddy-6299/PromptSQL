@@ -9,3 +9,5 @@ python-dotenv
 openpyxl
 python-multipart
 cryptography
+pyjwt
+bcrypt

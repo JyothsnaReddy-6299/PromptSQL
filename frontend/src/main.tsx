@@ -4,18 +4,15 @@ import axios from 'axios'
 import './index.css'
 import App from './App.tsx'
 
-// Generate persistent unique anonymous user ID if it doesn't exist
-let userId = localStorage.getItem("promptsql_user_id");
-if (!userId) {
-  userId = "usr_" + Math.random().toString(36).substring(2, 11) + Math.random().toString(36).substring(2, 11);
-  localStorage.setItem("promptsql_user_id", userId);
-}
-
-// Configure axios interceptor to inject user and table identifiers automatically
+// Configure axios interceptor to inject user, table, and JWT auth token automatically
 axios.interceptors.request.use((config) => {
   const currentUserId = localStorage.getItem("promptsql_user_id");
   if (currentUserId) {
     config.headers["X-User-ID"] = currentUserId;
+  }
+  const token = localStorage.getItem("promptsql_token");
+  if (token) {
+    config.headers["Authorization"] = `Bearer ${token}`;
   }
   try {
     const dataset = JSON.parse(sessionStorage.getItem("dataset") || "{}");

@@ -1,17 +1,42 @@
 import { useState, useEffect } from "react";
-import { Brain, Menu, X } from "lucide-react";
+import { Brain, Menu, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  
+  // Authentication states
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
+
+    // Retrieve authentication status
+    const token = localStorage.getItem("promptsql_token");
+    const storedUsername = localStorage.getItem("promptsql_username") || "";
+    if (token) {
+      setIsAuthenticated(true);
+      setUsername(storedUsername);
+    }
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("promptsql_token");
+    localStorage.removeItem("promptsql_user_id");
+    localStorage.removeItem("promptsql_username");
+    sessionStorage.clear();
+    setIsAuthenticated(false);
+    setUsername("");
+    setDropdownOpen(false);
+    navigate("/");
+  };
 
   return (
     <nav
@@ -54,14 +79,51 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* CTA */}
+        {/* Auth CTA & Profile Avatar */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/upload")}
-            className="relative group bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-4 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer shadow-sm"
-          >
-            <span className="relative z-10">Get Started</span>
-          </button>
+          {isAuthenticated ? (
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center border border-white/10 hover:border-violet-500/50 shadow-md shadow-violet-600/10 cursor-pointer transition-all active:scale-95"
+                title="Profile Menu"
+              >
+                {username ? username.charAt(0).toUpperCase() : "U"}
+              </button>
+              
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2.5 w-48 bg-[#0D0D11]/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl py-1.5 z-50 text-left">
+                  <div className="px-4 py-2 border-b border-white/[0.04] text-xs text-zinc-400">
+                    Signed in as <span className="font-semibold text-white block truncate">{username}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate("/upload");
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                  >
+                    Go to Workspace
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer border-t border-white/[0.04] mt-1.5 pt-2 flex items-center gap-2"
+                  >
+                    <LogOut size={14} />
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="relative group bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-5 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer shadow-sm"
+            >
+              <span className="relative z-10">Sign In</span>
+            </button>
+          )}
+
           <button
             className="md:hidden text-zinc-400 hover:text-white"
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -87,12 +149,43 @@ export default function Navbar() {
               {item.name}
             </a>
           ))}
-          <button
-            onClick={() => navigate("/upload")}
-            className="w-full mt-2 bg-white text-zinc-900 font-semibold px-4 py-2.5 rounded-lg text-sm cursor-pointer"
-          >
-            Get Started Free
-          </button>
+          
+          {isAuthenticated ? (
+            <div className="mt-3 border-t border-white/[0.06] pt-3 space-y-2">
+              <div className="px-4 text-xs text-zinc-500">
+                Signed in as <span className="text-zinc-300 font-semibold">{username}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate("/upload");
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-zinc-300 hover:text-white hover:bg-white/[0.05] rounded-lg transition"
+              >
+                Go to Workspace
+              </button>
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  handleLogout();
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition flex items-center gap-2"
+              >
+                <LogOut size={14} />
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setMobileOpen(false);
+                navigate("/login");
+              }}
+              className="w-full mt-2 bg-white text-zinc-900 font-semibold px-4 py-2.5 rounded-lg text-sm cursor-pointer"
+            >
+              Sign In
+            </button>
+          )}
         </div>
       )}
     </nav>

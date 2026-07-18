@@ -205,7 +205,7 @@ export default function TablePreview({
                           ) : row[col] === null || row[col] === undefined ? (
                             <span className="text-zinc-500 font-mono text-[9px] italic bg-white/[0.02] px-1.5 py-0.5 rounded border border-white/[0.06]">null</span>
                           ) : (
-                            String(row[col])
+                            formatDateValue(row[col])
                           )}
                         </td>
                       );
@@ -267,4 +267,15 @@ export default function TablePreview({
       )}
     </div>
   );
+}
+
+function formatDateValue(val: any): string {
+  if (val === null || val === undefined) return "";
+  const s = String(val);
+  if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2})?/.test(s)) {
+    if (s.includes("00:00:00") || s.includes("T00:00:00")) {
+      return s.split(/[T ]/)[0];
+    }
+  }
+  return s;
 }

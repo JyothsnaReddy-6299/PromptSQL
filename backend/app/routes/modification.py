@@ -14,6 +14,8 @@ from app.services.impact_estimator import estimate_affected_rows
 from app.services.impact_explainer import explain_impact
 from app.services.modification_executor import execute_modification
 
+from app.services.auth_service import get_current_user_id
+
 router = APIRouter(prefix="/modification", tags=["Modification"])
 
 
@@ -39,7 +41,8 @@ class ModificationExecuteRequest(BaseModel):
 @router.post("/ask")
 def ask_modification(
     payload: ModificationAskRequest,
-    x_table_name: Optional[str] = Header(None)
+    x_table_name: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Checks intent, generates SQL, validates safety checks, and returns a preview impact description.
@@ -47,6 +50,12 @@ def ask_modification(
     table_name = x_table_name or get_current_table()
     if not table_name:
         raise HTTPException(status_code=400, detail="Please upload a dataset first.")
+
+    # Security check: verify user owns the dataset
+    if "_usr_" in table_name:
+        owner_id = "usr_" + table_name.split("_usr_")[-1]
+        if owner_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
 
     # 1. Detect user query intent (DML / DDL / SELECT)
     intent = detect_intent(payload.question)
@@ -99,12 +108,16 @@ def ask_modification(
 def execute_modification_query(
     payload: ModificationExecuteRequest,
     db: Session = Depends(get_db),
-    x_user_id: Optional[str] = Header(None)
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Executes a validated query transactionally and saves audit log entry in database.
     """
-    user_id = x_user_id or "default_user"
+    # Security check: verify user owns the dataset
+    if "_usr_" in payload.table_name:
+        owner_id = "usr_" + payload.table_name.split("_usr_")[-1]
+        if owner_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
 
     friendly_name = payload.table_name.split("_usr_")[0] if "_usr_" in payload.table_name else payload.table_name
     physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", payload.table_name, payload.sql)

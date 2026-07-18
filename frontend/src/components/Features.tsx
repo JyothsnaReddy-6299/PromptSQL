@@ -89,8 +89,8 @@ export default function Features() {
             {features.map((feature, index) => (
               <ScrollFloat key={index} delay={index * 80}>
                 <div className="group relative bg-[#111113] border border-white/[0.06] rounded-2xl p-6 hover:border-white/[0.12] transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
-                  {/* Hover glow */}
-                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br ${feature.color} opacity-[0.03] rounded-2xl`} />
+                  {/* Hover glow  to chage the hover colour opacity and cards opactity change opacity-0 group-hover:opacity-[10] */}
+                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-[0.3] transition-opacity duration-500 bg-gradient-to-br ${feature.color} rounded-2xl`} />
 
                   <div className="relative z-10">
                     <div className="flex items-start justify-between mb-4">

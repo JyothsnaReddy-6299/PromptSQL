@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from io import BytesIO
 
 from app.services.export_service import generate_pdf, generate_excel, generate_csv
+from app.services.auth_service import get_current_user_id
 
 router = APIRouter(prefix="/export", tags=["Export"])
 
@@ -20,7 +21,7 @@ class ExportDataRequest(BaseModel):
 
 
 @router.post("/pdf")
-def export_pdf(payload: ExportPDFRequest):
+def export_pdf(payload: ExportPDFRequest, user_id: str = Depends(get_current_user_id)):
     try:
         pdf_bytes = generate_pdf(
             question=payload.question,
@@ -40,7 +41,7 @@ def export_pdf(payload: ExportPDFRequest):
 
 
 @router.post("/excel")
-def export_excel(payload: ExportDataRequest):
+def export_excel(payload: ExportDataRequest, user_id: str = Depends(get_current_user_id)):
     try:
         excel_bytes = generate_excel(payload.records)
         return StreamingResponse(
@@ -55,7 +56,7 @@ def export_excel(payload: ExportDataRequest):
 
 
 @router.post("/csv")
-def export_csv(payload: ExportDataRequest):
+def export_csv(payload: ExportDataRequest, user_id: str = Depends(get_current_user_id)):
     try:
         csv_bytes = generate_csv(payload.records)
         return StreamingResponse(

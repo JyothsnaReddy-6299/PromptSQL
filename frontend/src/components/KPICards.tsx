@@ -42,6 +42,7 @@ export default function KPICards({
   const typeList = Object.values(detectedTypes);
   const numCols = typeList.filter((t) => t.toLowerCase() === "numeric" || t.toLowerCase() === "int" || t.toLowerCase() === "float" || t.toLowerCase() === "double" || t.toLowerCase() === "decimal").length;
   const textCols = typeList.filter((t) => t.toLowerCase() === "text" || t.toLowerCase() === "varchar").length;
+  const dateCols = typeList.filter((t) => t.toLowerCase() === "date" || t.toLowerCase() === "datetime" || t.toLowerCase() === "timestamp").length;
 
   const cardData = [
     {
@@ -58,7 +59,7 @@ export default function KPICards({
     {
       title: "Schema Columns",
       value: <CountUp end={columns} />,
-      desc: `${numCols} numeric · ${textCols} text`,
+      desc: `${numCols} numeric · ${textCols} text` + (dateCols > 0 ? ` · ${dateCols} date` : ""),
       icon: <Grid size={16} />,
       iconColor: "text-violet-400",
       iconBg: "bg-violet-500/10 border-violet-500/20",
