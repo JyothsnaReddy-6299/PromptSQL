@@ -107,7 +107,7 @@ export default function KPICards({
             </div>
           </div>
 
-          <h2 className="text-3xl font-bold text-white tracking-tight leading-none mb-3">
+          <h2 className="text-3xl font-bold text-[#241C20] tracking-tight leading-none mb-3">
             {card.value}
           </h2>
 

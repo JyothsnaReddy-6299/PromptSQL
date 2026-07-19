@@ -42,29 +42,29 @@ export default function Navbar() {
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-[#09090B]/90 backdrop-blur-xl border-b border-white/[0.06] shadow-2xl shadow-black/20"
+          ? "bg-[#FFFDFC]/95 backdrop-blur-xl border-b border-[#E8DED3] shadow-sm shadow-[#5A2F59]/5"
           : "bg-transparent"
       }`}
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
+      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4 relative">
         {/* Logo */}
         <div
           onClick={() => navigate("/")}
-          className="flex items-center gap-2.5 cursor-pointer group"
+          className="flex items-center gap-2.5 cursor-pointer group z-10"
         >
           <div className="relative">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-shadow duration-300">
-              <Brain size={16} className="text-white" />
+            <div className="w-8 h-8 bg-[#5A2F59] rounded-lg flex items-center justify-center shadow-md shadow-[#5A2F59]/20 group-hover:shadow-[#5A2F59]/35 transition-shadow duration-300">
+              <Brain size={16} className="text-[#BDA37A]" />
             </div>
-            <div className="absolute -inset-0.5 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg blur opacity-0 group-hover:opacity-30 transition-opacity duration-300 -z-10" />
+            <div className="absolute -inset-0.5 bg-[#5A2F59] rounded-lg blur opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10" />
           </div>
-          <span className="text-lg font-bold text-white tracking-tight group-hover:text-indigo-300 transition-colors duration-200">
+          <span className="text-lg font-bold text-[#241C20] tracking-tight group-hover:text-[#5A2F59] transition-colors duration-200">
             PromptSQL
           </span>
         </div>
 
         {/* Nav Links */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
           {[
             { name: "Features", href: "#features" },
             { name: "How it works", href: "#how-it-works" }
@@ -72,7 +72,7 @@ export default function Navbar() {
             <a
               key={item.name}
               href={item.href}
-              className="px-4 py-2 text-sm text-zinc-400 hover:text-white rounded-lg hover:bg-white/[0.05] transition-all duration-200 cursor-pointer"
+              className="px-4 py-2 text-sm text-[#6F6A67] hover:text-[#241C20] rounded-lg hover:bg-[#5A2F59]/6 transition-all duration-200 cursor-pointer"
             >
               {item.name}
             </a>
@@ -80,34 +80,34 @@ export default function Navbar() {
         </div>
 
         {/* Auth CTA & Profile Avatar */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 z-10">
           {isAuthenticated ? (
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="w-9 h-9 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center border border-white/10 hover:border-violet-500/50 shadow-md shadow-violet-600/10 cursor-pointer transition-all active:scale-95"
+                className="w-9 h-9 rounded-full bg-[#5A2F59] text-[#FFFDFC] font-bold text-sm flex items-center justify-center border-2 border-[#BDA37A]/40 hover:border-[#BDA37A]/70 shadow-md shadow-[#5A2F59]/20 cursor-pointer transition-all active:scale-95"
                 title="Profile Menu"
               >
                 {username ? username.charAt(0).toUpperCase() : "U"}
               </button>
               
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2.5 w-48 bg-[#0D0D11]/95 backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl py-1.5 z-50 text-left">
-                  <div className="px-4 py-2 border-b border-white/[0.04] text-xs text-zinc-400">
-                    Signed in as <span className="font-semibold text-white block truncate">{username}</span>
+                <div className="absolute right-0 mt-2.5 w-48 bg-[#FFFDFC] backdrop-blur-xl border border-[#E8DED3] rounded-xl shadow-xl shadow-[#5A2F59]/8 py-1.5 z-50 text-left">
+                  <div className="px-4 py-2 border-b border-[#E8DED3] text-xs text-[#6F6A67]">
+                    Signed in as <span className="font-semibold text-[#241C20] block truncate">{username}</span>
                   </div>
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
                       navigate("/upload");
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+                    className="w-full text-left px-4 py-2 text-sm text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/6 transition-colors cursor-pointer"
                   >
                     Go to Workspace
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer border-t border-white/[0.04] mt-1.5 pt-2 flex items-center gap-2"
+                    className="w-full text-left px-4 py-2 text-sm text-[#D95D39] hover:text-[#C04A28] hover:bg-[#D95D39]/8 transition-colors cursor-pointer border-t border-[#E8DED3] mt-1.5 pt-2 flex items-center gap-2"
                   >
                     <LogOut size={14} />
                     Logout
@@ -118,14 +118,14 @@ export default function Navbar() {
           ) : (
             <button
               onClick={() => navigate("/login")}
-              className="relative group bg-white text-zinc-900 hover:bg-zinc-100 font-semibold px-5 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer shadow-sm"
+              className="relative group bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] font-semibold px-5 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer shadow-sm shadow-[#5A2F59]/20"
             >
               <span className="relative z-10">Sign In</span>
             </button>
           )}
 
           <button
-            className="md:hidden text-zinc-400 hover:text-white"
+            className="md:hidden text-[#6F6A67] hover:text-[#241C20]"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -135,7 +135,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden bg-[#111113]/95 backdrop-blur-xl border-b border-white/[0.06] px-6 pb-4 space-y-1">
+        <div className="md:hidden bg-[#FFFDFC]/95 backdrop-blur-xl border-b border-[#E8DED3] px-6 pb-4 space-y-1">
           {[
             { name: "Features", href: "#features" },
             { name: "How it works", href: "#how-it-works" }
@@ -143,7 +143,7 @@ export default function Navbar() {
             <a
               key={item.name}
               href={item.href}
-              className="block px-4 py-3 text-sm text-zinc-400 hover:text-white hover:bg-white/[0.05] rounded-lg transition"
+              className="block px-4 py-3 text-sm text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/6 rounded-lg transition"
               onClick={() => setMobileOpen(false)}
             >
               {item.name}
@@ -151,16 +151,16 @@ export default function Navbar() {
           ))}
           
           {isAuthenticated ? (
-            <div className="mt-3 border-t border-white/[0.06] pt-3 space-y-2">
-              <div className="px-4 text-xs text-zinc-500">
-                Signed in as <span className="text-zinc-300 font-semibold">{username}</span>
+            <div className="mt-3 border-t border-[#E8DED3] pt-3 space-y-2">
+              <div className="px-4 text-xs text-[#6F6A67]">
+                Signed in as <span className="text-[#241C20] font-semibold">{username}</span>
               </div>
               <button
                 onClick={() => {
                   setMobileOpen(false);
                   navigate("/upload");
                 }}
-                className="w-full text-left px-4 py-2.5 text-sm text-zinc-300 hover:text-white hover:bg-white/[0.05] rounded-lg transition"
+                className="w-full text-left px-4 py-2.5 text-sm text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/6 rounded-lg transition"
               >
                 Go to Workspace
               </button>
@@ -169,7 +169,7 @@ export default function Navbar() {
                   setMobileOpen(false);
                   handleLogout();
                 }}
-                className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition flex items-center gap-2"
+                className="w-full text-left px-4 py-2.5 text-sm text-[#D95D39] hover:bg-[#D95D39]/8 rounded-lg transition flex items-center gap-2"
               >
                 <LogOut size={14} />
                 Logout
@@ -181,7 +181,7 @@ export default function Navbar() {
                 setMobileOpen(false);
                 navigate("/login");
               }}
-              className="w-full mt-2 bg-white text-zinc-900 font-semibold px-4 py-2.5 rounded-lg text-sm cursor-pointer"
+              className="w-full mt-2 bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] font-semibold px-4 py-2.5 rounded-lg text-sm cursor-pointer"
             >
               Sign In
             </button>

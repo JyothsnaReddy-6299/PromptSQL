@@ -173,7 +173,7 @@ export default function TablePreview({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04] bg-[#111113]">
+              <tbody className="divide-y divide-[#E8DED3] bg-[#FFFDFC] border-t border-[#E8DED3]">
                 {paginatedRecords.map((row, rowIdx) => (
                   <tr key={rowIdx} className="hover:bg-white/[0.02] transition">
                     {columns.map((col) => {

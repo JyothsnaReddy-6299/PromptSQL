@@ -91,12 +91,9 @@ export default function DashboardSidebar({
       const res = await setActiveDataset(tableName);
       if (res.success) {
         setCurrentTable(tableName);
-        // Update session storage
         const currentData = JSON.parse(sessionStorage.getItem("dataset") || "{}");
         const displayName = tableName.split("_usr_")[0];
         sessionStorage.setItem("dataset", JSON.stringify({ ...currentData, table_name: tableName, filename: displayName }));
-        
-        // Reload page to reflect new dataset or dispatch event
         window.location.reload();
       }
     } catch (e) {
@@ -128,47 +125,46 @@ export default function DashboardSidebar({
 
   return (
     <div
-      className={`h-screen bg-[#0D0D0F] border-r border-white/[0.06] flex flex-col justify-between sticky top-0 transition-all duration-300 ${
+      className={`h-screen bg-[#34182F] border-r border-[#5A2F59]/30 flex flex-col justify-between sticky top-0 transition-all duration-300 sidebar-scrollbar ${
         collapsed ? "w-[68px]" : "w-60"
       }`}
     >
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {/* Logo */}
-        <div className={`flex items-center border-b border-white/[0.06] ${collapsed ? "justify-center py-4 px-3" : "gap-3 px-5 py-4"}`}>
+        <div className={`flex items-center border-b border-[#5A2F59]/30 ${collapsed ? "justify-center py-4 px-3" : "gap-3 px-5 py-4"}`}>
           <div
             onClick={() => navigate("/")}
-            className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-indigo-500/25 transition-all shrink-0"
+            className="w-8 h-8 bg-[#5A2F59] rounded-lg flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-[#5A2F59]/40 transition-all shrink-0 border border-[#BDA37A]/20"
           >
-            <Brain size={16} className="text-white" />
+            <Brain size={16} className="text-[#BDA37A]" />
           </div>
           {!collapsed && (
             <div onClick={() => navigate("/")} className="cursor-pointer">
-              <div className="text-sm font-bold text-white hover:text-indigo-300 transition-colors">PromptSQL</div>
-              <div className="text-[9px] text-zinc-600 font-medium uppercase tracking-wider">Analytics Hub</div>
+              <div className="text-sm font-bold text-white hover:text-[#BDA37A] transition-colors">PromptSQL</div>
+              <div className="text-[9px] text-[#BDA37A]/75 font-semibold uppercase tracking-wider">Analytics Hub</div>
             </div>
           )}
         </div>
 
         {/* Dataset Library */}
         <div className={`px-3 pt-4 pb-2 ${collapsed ? "hidden" : "block"}`}>
-          <div className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider mb-2 px-2 flex items-center gap-1.5">
-            <FolderOpen size={10} /> Dataset Library
+          <div className="text-[9px] text-[#BDA37A] font-extrabold uppercase tracking-wider mb-2 px-2 flex items-center gap-1.5">
+            <FolderOpen size={10} className="text-[#BDA37A]" /> Dataset Library
           </div>
           <div className="space-y-0.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
             {datasets.length === 0 && (
-              <div className="text-[10px] text-zinc-600 px-2 italic">No datasets found</div>
+              <div className="text-[10px] text-white/50 px-2 italic">No datasets found</div>
             )}
             {datasets.map((db) => {
               const isCurrent = db === currentTable;
-              // format display name
               const displayName = db.split("_usr_")[0];
               return (
                 <div
                   key={db}
                   className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium transition-colors group ${
-                    isCurrent 
-                      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+                    isCurrent
+                      ? "bg-[#BDA37A]/20 text-white border border-[#BDA37A]/30"
+                      : "text-white/70 hover:text-white hover:bg-white/5"
                   }`}
                   title={db}
                 >
@@ -179,13 +175,13 @@ export default function DashboardSidebar({
                     {displayName}
                   </button>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {isCurrent && <Check size={11} className="text-indigo-400" />}
+                    {isCurrent && <Check size={11} className="text-white" />}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDatasetDelete(db);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-400 text-zinc-500 rounded transition cursor-pointer"
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-[#D95D39] text-white/50 rounded transition cursor-pointer"
                       title="Delete dataset"
                     >
                       <Trash2 size={11} />
@@ -196,7 +192,7 @@ export default function DashboardSidebar({
             })}
           </div>
         </div>
-        {!collapsed && <div className="mx-4 my-2 border-t border-white/[0.06]"></div>}
+        {!collapsed && <div className="mx-4 my-2 border-t border-[#5A2F59]/30"></div>}
 
         {/* Nav items */}
         <div className="p-3 space-y-0.5">
@@ -210,13 +206,13 @@ export default function DashboardSidebar({
                 title={collapsed ? item.name : undefined}
                 className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-all duration-200 cursor-pointer group ${
                   isActive
-                    ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/20"
-                    : "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]"
+                    ? "bg-[#5A2F59] text-white border border-[#BDA37A]/20"
+                    : "text-white/70 hover:text-white hover:bg-white/5"
                 } ${collapsed ? "justify-center" : ""}`}
               >
                 <Icon
                   size={16}
-                  className={`shrink-0 ${isActive ? "text-indigo-400" : "text-zinc-600 group-hover:text-zinc-300"}`}
+                  className={`shrink-0 ${isActive ? "text-white" : "text-white/50 group-hover:text-white"}`}
                 />
                 {!collapsed && (
                   <span className="text-sm font-medium truncate">{item.name}</span>
@@ -227,35 +223,34 @@ export default function DashboardSidebar({
         </div>
       </div>
 
-      {/* Bottom */}
-      <div className="p-3 border-t border-white/[0.06] space-y-0.5 shrink-0">
+      <div className="p-2 border-t border-[#5A2F59]/30 space-y-0.5 shrink-0">
         <button
           onClick={() => navigate("/upload")}
           title={collapsed ? "Upload new dataset" : undefined}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] transition-all cursor-pointer ${
+          className={`flex items-center gap-3 w-full px-3 py-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-all cursor-pointer ${
             collapsed ? "justify-center" : ""
           }`}
         >
-          <ArrowLeft size={16} className="text-zinc-600 shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Upload New</span>}
+          <ArrowLeft size={15} className="text-white/50 group-hover:text-white shrink-0" />
+          {!collapsed && <span className="text-xs font-medium">Upload New</span>}
         </button>
 
         <button
           onClick={handleLogout}
           title={collapsed ? "Logout" : undefined}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-500/80 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer ${
+          className={`flex items-center gap-3 w-full px-3 py-1.5 rounded-lg text-white/70 hover:text-[#D95D39] hover:bg-[#D95D39]/10 transition-all cursor-pointer ${
             collapsed ? "justify-center" : ""
           }`}
         >
-          <LogOut size={16} className="text-red-500/70 shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Logout</span>}
+          <LogOut size={15} className="text-white/50 group-hover:text-[#D95D39] shrink-0" />
+          {!collapsed && <span className="text-xs font-medium">Logout</span>}
         </button>
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full p-2.5 rounded-lg text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.04] transition-all cursor-pointer"
+          className="flex items-center justify-center w-full p-1.5 rounded-lg text-[#BDA37A]/40 hover:text-[#BDA37A] hover:bg-white/5 transition-all cursor-pointer"
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
         </button>
       </div>
     </div>

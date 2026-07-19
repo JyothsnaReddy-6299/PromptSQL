@@ -20,10 +20,18 @@ const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Resp
   } catch (e) {
     // Ignore parsing errors
   }
-  return originalFetch(input, {
+  const response = await originalFetch(input, {
     ...init,
     headers,
   });
+  if (response.status === 401) {
+    localStorage.removeItem("promptsql_token");
+    localStorage.removeItem("promptsql_user_id");
+    localStorage.removeItem("promptsql_username");
+    sessionStorage.clear();
+    window.location.href = "/login";
+  }
+  return response;
 };
 
 

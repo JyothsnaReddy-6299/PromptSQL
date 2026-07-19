@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useState, useRef } from "react";
 import axios from "axios";
 
-
-
 export default function UploadPage() {
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -90,17 +88,18 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#09090B] flex items-center justify-center p-4">
-      {/* Background glow */}
+    <div className="relative min-h-screen overflow-hidden bg-[#F7F2EC] flex items-center justify-center p-4">
+      {/* Warm background glow */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-indigo-600/[0.08] rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-[#5A2F59]/6 rounded-full blur-[100px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#BDA37A]/8 rounded-full blur-[80px]" />
       </div>
 
-      {/* Grid pattern */}
+      {/* Subtle warm grid */}
       <div
-        className="absolute inset-0 opacity-[0.02] pointer-events-none"
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(rgba(90,47,89,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(90,47,89,0.2) 1px, transparent 1px)`,
           backgroundSize: "80px 80px",
         }}
       />
@@ -109,23 +108,23 @@ export default function UploadPage() {
         {/* Back link */}
         <button
           onClick={() => navigate("/")}
-          className="group inline-flex gap-1.5 items-center mb-8 text-zinc-500 hover:text-white transition-colors font-medium text-sm cursor-pointer"
+          className="group inline-flex gap-1.5 items-center mb-8 text-[#6F6A67] hover:text-[#5A2F59] transition-colors font-medium text-sm cursor-pointer"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
           <span>Back to home</span>
         </button>
 
-        <div className="bg-[#111113] border border-white/[0.07] rounded-2xl p-7 shadow-2xl shadow-black/40">
+        <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-7 shadow-xl shadow-[#5A2F59]/5">
           {/* Header */}
           <div className="mb-7">
-            <div className="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full text-indigo-400 text-[11px] font-medium mb-4">
+            <div className="inline-flex items-center gap-1.5 bg-[#5A2F59]/8 border border-[#5A2F59]/20 px-3 py-1 rounded-full text-[#5A2F59] text-[11px] font-medium mb-4">
               <Sparkles size={10} className="animate-spin-slow" />
               <span>Dataset Agnostic Engine</span>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl font-bold text-[#241C20] tracking-tight">
               Upload your dataset
             </h1>
-            <p className="text-zinc-500 mt-1.5 text-sm leading-relaxed">
+            <p className="text-[#6F6A67] mt-1.5 text-sm leading-relaxed">
               Load any structured CSV, XLS, or XLSX file to start querying with AI.
             </p>
           </div>
@@ -139,10 +138,10 @@ export default function UploadPage() {
             onClick={() => !selectedFile && fileInputRef.current?.click()}
             className={`relative rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-300 ${
               dragActive
-                ? "border-indigo-500/60 bg-indigo-500/[0.04]"
+                ? "border-[#5A2F59]/60 bg-[#5A2F59]/5"
                 : selectedFile
-                ? "border-emerald-500/40 bg-emerald-500/[0.04] cursor-default"
-                : "border-white/[0.1] hover:border-white/[0.2] bg-white/[0.02] hover:bg-white/[0.04]"
+                ? "border-[#3E8E5B]/40 bg-[#3E8E5B]/4 cursor-default"
+                : "border-[#E8DED3] hover:border-[#5A2F59]/40 bg-[#F7F2EC] hover:bg-[#5A2F59]/3"
             }`}
           >
             <input
@@ -156,16 +155,16 @@ export default function UploadPage() {
 
             {selectedFile ? (
               <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
-                  <FileSpreadsheet size={22} className="text-emerald-400" />
+                <div className="w-12 h-12 bg-[#3E8E5B]/10 border border-[#3E8E5B]/25 rounded-xl flex items-center justify-center">
+                  <FileSpreadsheet size={22} className="text-[#3E8E5B]" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">{selectedFile.name}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-sm font-semibold text-[#241C20]">{selectedFile.name}</p>
+                  <p className="text-xs text-[#6F6A67] mt-0.5">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setUploadStatus(""); }}
-                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-white bg-white/[0.05] hover:bg-white/[0.08] px-3 py-1.5 rounded-lg transition-all border border-white/[0.06] cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-[#6F6A67] hover:text-[#241C20] bg-[#F7F2EC] hover:bg-[#E8DED3] px-3 py-1.5 rounded-lg transition-all border border-[#E8DED3] cursor-pointer"
                 >
                   <X size={11} />
                   Remove file
@@ -173,14 +172,14 @@ export default function UploadPage() {
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 bg-white/[0.04] border border-white/[0.08] rounded-xl flex items-center justify-center">
-                  <Upload size={20} className="text-zinc-400" />
+                <div className="w-12 h-12 bg-[#5A2F59]/10 border border-[#5A2F59]/20 rounded-xl flex items-center justify-center">
+                  <Upload size={20} className="text-[#5A2F59]" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-sm font-semibold text-[#241C20]">
                     {dragActive ? "Drop your file here" : "Drag & drop your dataset"}
                   </p>
-                  <p className="text-xs text-zinc-500 mt-1">or click to browse — CSV, XLS, XLSX</p>
+                  <p className="text-xs text-[#6F6A67] mt-1">or click to browse — CSV, XLS, XLSX</p>
                 </div>
               </div>
             )}
@@ -188,36 +187,36 @@ export default function UploadPage() {
 
           {/* Error/status */}
           {uploadStatus && !uploadStatus.includes("successful") && (
-            <div className="mt-4 p-3.5 rounded-xl border border-red-500/20 bg-red-500/[0.06] flex gap-2.5 items-start">
-              <div className="w-4 h-4 rounded-full bg-red-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-red-400 text-[10px] font-bold">!</span>
+            <div className="mt-4 p-3.5 rounded-xl border border-[#D95D39]/20 bg-[#D95D39]/6 flex gap-2.5 items-start">
+              <div className="w-4 h-4 rounded-full bg-[#D95D39]/20 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-[#D95D39] text-[10px] font-bold">!</span>
               </div>
-              <span className="text-xs text-red-400 leading-relaxed">{uploadStatus}</span>
+              <span className="text-xs text-[#D95D39] leading-relaxed">{uploadStatus}</span>
             </div>
           )}
 
           {/* Loading state */}
           {uploading ? (
-            <div className="mt-5 bg-[#0D0D0F] rounded-xl p-6 border border-white/[0.06] flex flex-col items-center justify-center text-center">
+            <div className="mt-5 bg-[#F7F2EC] rounded-xl p-6 border border-[#E8DED3] flex flex-col items-center justify-center text-center">
               <div className="relative mb-5">
-                <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full"></div>
-                <div className="relative bg-[#111113] border border-white/[0.08] w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl">
-                  <Loader2 size={24} className="text-indigo-400 animate-spin" />
+                <div className="absolute inset-0 bg-[#5A2F59]/15 blur-xl rounded-full"></div>
+                <div className="relative bg-[#FFFDFC] border border-[#E8DED3] w-14 h-14 rounded-2xl flex items-center justify-center shadow-md">
+                  <Loader2 size={24} className="text-[#5A2F59] animate-spin" />
                 </div>
               </div>
-              <h3 className="text-white font-medium text-sm mb-1.5 animate-pulse">
+              <h3 className="text-[#241C20] font-medium text-sm mb-1.5 animate-pulse">
                 Processing your dataset
               </h3>
-              <p className="text-zinc-500 text-xs mb-5">
+              <p className="text-[#6F6A67] text-xs mb-5">
                 Detecting schemas, datatypes, and generating analytics
               </p>
 
-              <div className="w-full bg-white/[0.04] rounded-full h-1.5 overflow-hidden">
+              <div className="w-full bg-[#E8DED3] rounded-full h-1.5 overflow-hidden">
                 <div
                   style={{ width: `${progress}%` }}
-                  className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full transition-all duration-300 relative"
+                  className="bg-[#5A2F59] h-full rounded-full transition-all duration-300 relative"
                 >
-                  <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                  <div className="absolute inset-0 bg-[#BDA37A]/30 animate-pulse"></div>
                 </div>
               </div>
             </div>
@@ -225,7 +224,7 @@ export default function UploadPage() {
             selectedFile && (
               <button
                 onClick={handleUpload}
-                className="mt-5 w-full bg-white hover:bg-zinc-50 text-zinc-900 py-3.5 rounded-xl font-semibold hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-lg shadow-black/20 cursor-pointer flex justify-center items-center gap-2 text-sm"
+                className="mt-5 w-full bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] py-3.5 rounded-xl font-semibold hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-md shadow-[#5A2F59]/20 cursor-pointer flex justify-center items-center gap-2 text-sm"
               >
                 <Database size={15} />
                 <span>Process & Ingest Data</span>
@@ -237,7 +236,7 @@ export default function UploadPage() {
           {!selectedFile && !uploading && (
             <div className="mt-5 flex items-center justify-center gap-4">
               {[".CSV", ".XLS", ".XLSX"].map((fmt) => (
-                <span key={fmt} className="text-[10px] text-zinc-600 bg-white/[0.03] border border-white/[0.06] px-2.5 py-1 rounded-md font-mono">
+                <span key={fmt} className="text-[10px] text-[#6F6A67] bg-[#F7F2EC] border border-[#E8DED3] px-2.5 py-1 rounded-md font-mono">
                   {fmt}
                 </span>
               ))}

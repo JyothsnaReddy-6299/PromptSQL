@@ -309,18 +309,18 @@ export default function DataCleaner({
       {/* Cleaner Workspace grid */}
       <div className="grid md:grid-cols-3 gap-6">
         {/* De-duplication Card */}
-        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-white flex items-center gap-2">
-            <Trash2 className="text-indigo-400" size={15} />
+        <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
+            <Trash2 className="text-[#5A2F59]" size={15} />
             <span>Deduplicate Dataset</span>
           </h3>
-          <p className="text-[10px] text-zinc-400 leading-relaxed font-medium">
+          <p className="text-[10px] text-[#6F6A67] leading-relaxed font-medium">
             Copies all distinct rows into a temporary storage workspace, flushes the original table, and repopulates the clean records.
           </p>
           <button
             onClick={handleRemoveDuplicates}
             disabled={cleaning || loading}
-            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-sm hover:shadow active:scale-98 cursor-pointer disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-sm hover:shadow active:scale-98 cursor-pointer disabled:opacity-50"
           >
             {cleaning ? (
               <Loader2 size={13} className="animate-spin" />

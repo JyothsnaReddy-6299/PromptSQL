@@ -401,13 +401,13 @@ export default function ChatBox() {
                 <div
                   className={`p-4 rounded-2xl text-xs leading-relaxed ${
                     msg.sender === "user"
-                      ? "bg-[#18181B] text-white rounded-tr-sm"
+                      ? "bg-[#FFFDFC] text-[#241C20] border border-[#E8DED3] rounded-tr-sm shadow-sm"
                       : msg.canceled
                       ? "bg-[#111113] text-zinc-500 border border-warmgray-150 border-dashed"
                       : "bg-[#111113]/80 text-warmgray-850 rounded-tl-sm border border-white/[0.06]/50"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
+                  <p className="whitespace-pre-wrap font-medium text-left">{msg.text}</p>
 
                   {/* Warning tags */}
                   {msg.warning && msg.requires_confirmation && (
@@ -604,7 +604,7 @@ export default function ChatBox() {
 
               {/* User Avatar */}
               {msg.sender === "user" && (
-                <div className="w-8 h-8 bg-white/[0.04] text-warmgray-850 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border border-white/[0.12] shadow-inner select-none">
+                <div className="w-8 h-8 bg-[#FFFDFC] text-[#241C20] rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border border-[#E8DED3] shadow-sm select-none">
                   U
                 </div>
               )}

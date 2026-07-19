@@ -25,6 +25,21 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto-redirect to login page if session is expired (401 Unauthorized)
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem("promptsql_token");
+      localStorage.removeItem("promptsql_user_id");
+      localStorage.removeItem("promptsql_username");
+      sessionStorage.clear();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

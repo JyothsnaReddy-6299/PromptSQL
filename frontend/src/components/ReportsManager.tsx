@@ -276,12 +276,12 @@ export default function ReportsManager() {
       {/* Details View Modal overlay */}
       {selectedReportId !== null && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-[#111113] border border-white/[0.08] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
+        <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
             {/* Header */}
-            <div className="bg-[#18181B]/80 border-b border-white/[0.06] px-5 py-3.5 flex justify-between items-center">
+            <div className="bg-[#F7F2EC] border-b border-[#E8DED3] px-5 py-3.5 flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <FileText className="text-terracotta-500" size={18} />
-                <h3 className="text-sm font-bold text-white">
+                <FileText className="text-[#5A2F59]" size={18} />
+                <h3 className="text-sm font-bold text-[#241C20]">
                   {loadingDetail ? "Loading Report..." : reportDetail?.title}
                 </h3>
               </div>
@@ -290,7 +290,7 @@ export default function ReportsManager() {
                   setSelectedReportId(null);
                   setReportDetail(null);
                 }}
-                className="p-1 hover:bg-white/[0.04] rounded-lg text-zinc-400 hover:text-white cursor-pointer transition"
+                className="p-1 hover:bg-[#5A2F59]/8 rounded-lg text-[#6F6A67] hover:text-[#241C20] cursor-pointer transition"
               >
                 <X size={16} />
               </button>
@@ -304,14 +304,14 @@ export default function ReportsManager() {
             ) : reportDetail ? (
               <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left text-xs">
                 {/* Meta details */}
-                <div className="grid grid-cols-2 gap-3 bg-[#09090B] border border-white/[0.06] rounded-xl p-3 font-semibold text-[10px] text-zinc-400">
+                <div className="grid grid-cols-2 gap-3 bg-[#F7F2EC] border border-[#E8DED3] rounded-xl p-3 font-semibold text-[10px] text-[#6F6A67]">
                   <div>
-                    <span className="text-zinc-500 block uppercase tracking-wider">Source Table</span>
-                    <span className="text-white text-xs font-bold">{reportDetail.table_name.split("_usr_")[0]}</span>
+                    <span className="text-[#B0A79E] block uppercase tracking-wider">Source Table</span>
+                    <span className="text-[#241C20] text-xs font-bold">{reportDetail.table_name.split("_usr_")[0]}</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block uppercase tracking-wider">Saved On</span>
-                    <span className="text-white text-xs font-bold">
+                    <span className="text-[#B0A79E] block uppercase tracking-wider">Saved On</span>
+                    <span className="text-[#241C20] text-xs font-bold">
                       {new Date(reportDetail.timestamp).toLocaleString()}
                     </span>
                   </div>
@@ -319,37 +319,37 @@ export default function ReportsManager() {
 
                 {/* Question */}
                 <div>
-                  <h4 className="font-bold text-white mb-1.5 uppercase text-[9px] tracking-wide text-terracotta-500">
+                  <h4 className="font-bold text-[#241C20] mb-1.5 uppercase text-[9px] tracking-wide text-[#5A2F59]">
                     Query Question
                   </h4>
-                  <div className="p-3 bg-[#09090B] border border-white/[0.06] rounded-xl text-zinc-200 font-bold leading-relaxed">
+                  <div className="p-3 bg-[#F7F2EC] border border-[#E8DED3] rounded-xl text-[#241C20] font-bold leading-relaxed">
                     {reportDetail.question}
                   </div>
                 </div>
 
                 {/* SQL Code */}
                 <div>
-                  <h4 className="font-bold text-white mb-1.5 uppercase text-[9px] tracking-wide text-terracotta-500">
+                  <h4 className="font-bold text-[#241C20] mb-1.5 uppercase text-[9px] tracking-wide text-[#5A2F59]">
                     Generated SQL
                   </h4>
-                  <pre className="p-3 bg-[#09090B] text-indigo-400 rounded-xl font-mono text-[10.5px] overflow-x-auto whitespace-pre border border-white/[0.06]">
+                  <pre className="p-3 bg-[#34182F] text-[#BDA37A] rounded-xl font-mono text-[10.5px] overflow-x-auto whitespace-pre border border-[#5A2F59]/30">
                     <code>{reportDetail.generated_sql}</code>
                   </pre>
                 </div>
 
                 {/* Summary */}
                 <div>
-                  <h4 className="font-bold text-white mb-1.5 uppercase text-[9px] tracking-wide text-terracotta-500">
+                  <h4 className="font-bold text-[#241C20] mb-1.5 uppercase text-[9px] tracking-wide text-[#5A2F59]">
                     AI Summary Explanation
                   </h4>
-                  <div className="p-3 bg-[#09090B] border border-white/[0.06] rounded-xl text-zinc-200 font-semibold leading-relaxed whitespace-pre-wrap">
+                  <div className="p-3 bg-[#F7F2EC] border border-[#E8DED3] rounded-xl text-[#241C20] font-semibold leading-relaxed whitespace-pre-wrap">
                     {reportDetail.summary}
                   </div>
                 </div>
 
                 {/* Saved Records Grid inside modal */}
                 <div>
-                  <h4 className="font-bold text-white mb-1.5 uppercase text-[9px] tracking-wide text-terracotta-500">
+                  <h4 className="font-bold text-[#241C20] mb-1.5 uppercase text-[9px] tracking-wide text-[#5A2F59]">
                     Saved Result Data ({reportDetail.records?.length || 0} rows)
                   </h4>
                   
@@ -366,28 +366,28 @@ export default function ReportsManager() {
 
             {/* Footer containing quick export options */}
             {!loadingDetail && reportDetail && (
-              <div className="bg-[#18181B] border-t border-white/[0.06] px-5 py-3 flex flex-wrap justify-between items-center gap-3">
-                <span className="text-[10px] font-bold text-zinc-400">
+              <div className="bg-[#F7F2EC] border-t border-[#E8DED3] px-5 py-3 flex flex-wrap justify-between items-center gap-3">
+                <span className="text-[10px] font-bold text-[#6F6A67]">
                   Quick Export File
                 </span>
                 <div className="flex gap-2 text-[10px] font-bold">
                   <button
                     onClick={() => handleExport(reportDetail.id, "pdf", reportDetail.title)}
-                    className="flex items-center gap-1.5 border border-white/[0.08] hover:border-indigo-500/30 hover:bg-white/[0.04] bg-[#09090B] px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white transition cursor-pointer"
+                    className="flex items-center gap-1.5 border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/5 bg-[#FFFDFC] px-3 py-1.5 rounded-lg text-[#6F6A67] hover:text-[#241C20] transition cursor-pointer"
                   >
-                    <FileDown size={12} className="text-terracotta-500" /> PDF Report
+                    <FileDown size={12} className="text-[#5A2F59]" /> PDF Report
                   </button>
                   <button
                     onClick={() => handleExport(reportDetail.id, "excel", reportDetail.title)}
-                    className="flex items-center gap-1.5 border border-white/[0.08] hover:border-indigo-500/30 hover:bg-white/[0.04] bg-[#09090B] px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white transition cursor-pointer"
+                    className="flex items-center gap-1.5 border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/5 bg-[#FFFDFC] px-3 py-1.5 rounded-lg text-[#6F6A67] hover:text-[#241C20] transition cursor-pointer"
                   >
-                    <FileDown size={12} className="text-terracotta-500" /> Excel Sheet
+                    <FileDown size={12} className="text-[#5A2F59]" /> Excel Sheet
                   </button>
                   <button
                     onClick={() => handleExport(reportDetail.id, "csv", reportDetail.title)}
-                    className="flex items-center gap-1.5 border border-white/[0.08] hover:border-indigo-500/30 hover:bg-white/[0.04] bg-[#09090B] px-3 py-1.5 rounded-lg text-zinc-300 hover:text-white transition cursor-pointer"
+                    className="flex items-center gap-1.5 border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/5 bg-[#FFFDFC] px-3 py-1.5 rounded-lg text-[#6F6A67] hover:text-[#241C20] transition cursor-pointer"
                   >
-                    <FileDown size={12} className="text-terracotta-500" /> CSV Data
+                    <FileDown size={12} className="text-[#5A2F59]" /> CSV Data
                   </button>
                 </div>
               </div>
@@ -410,23 +410,23 @@ function DetailRecordsTable({ records }: { records: Record<string, any>[] }) {
   const paginated = records.slice(start, start + itemsPerPage);
 
   return (
-    <div className="space-y-2 border border-white/[0.06] rounded-xl p-3 bg-[#09090B]">
-      <div className="overflow-x-auto border border-white/[0.06] rounded-lg">
-        <table className="min-w-full text-[10px] text-zinc-300">
-          <thead className="bg-[#18181B] border-b border-white/[0.06]">
+    <div className="space-y-2 border border-[#E8DED3] rounded-xl p-3 bg-[#F7F2EC]">
+      <div className="overflow-x-auto border border-[#E8DED3] rounded-lg">
+        <table className="min-w-full text-[10px] text-[#241C20]">
+          <thead className="bg-[#FFFDFC] border-b border-[#E8DED3]">
             <tr>
               {columns.map(col => (
-                <th key={col} className="px-2.5 py-1.5 font-bold text-zinc-300 text-left uppercase whitespace-nowrap text-[9px]">
+                <th key={col} className="px-2.5 py-1.5 font-bold text-[#6F6A67] text-left uppercase whitespace-nowrap text-[9px]">
                   {col}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.04] bg-[#111113]">
+          <tbody className="divide-y divide-[#E8DED3] bg-[#FFFDFC]">
             {paginated.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-white/[0.02] transition">
+              <tr key={rIdx} className="hover:bg-[#5A2F59]/3 transition">
                 {columns.map(col => (
-                  <td key={col} className="px-2.5 py-1.5 text-zinc-200 font-semibold truncate max-w-[120px]">
+                  <td key={col} className="px-2.5 py-1.5 text-[#241C20] font-semibold truncate max-w-[120px]">
                     {row[col] === null ? "null" : formatDateValue(row[col])}
                   </td>
                 ))}
@@ -436,14 +436,14 @@ function DetailRecordsTable({ records }: { records: Record<string, any>[] }) {
         </table>
       </div>
 
-      <div className="flex justify-between items-center text-[9px] text-zinc-400 font-bold pt-1">
+      <div className="flex justify-between items-center text-[9px] text-[#6F6A67] font-bold pt-1">
         <span>Showing {start + 1}-{Math.min(start + itemsPerPage, records.length)} of {records.length}</span>
         {totalPages > 1 && (
           <div className="flex gap-1">
             <button
               onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="p-0.5 border border-white/[0.08] rounded hover:bg-white/[0.04] text-zinc-400 hover:text-white disabled:opacity-40"
+              className="p-0.5 border border-[#E8DED3] rounded hover:bg-[#5A2F59]/8 text-[#6F6A67] hover:text-[#241C20] disabled:opacity-40"
             >
               &lt;
             </button>
@@ -453,7 +453,7 @@ function DetailRecordsTable({ records }: { records: Record<string, any>[] }) {
             <button
               onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="p-0.5 border border-white/[0.08] rounded hover:bg-white/[0.04] text-zinc-400 hover:text-white disabled:opacity-40"
+              className="p-0.5 border border-[#E8DED3] rounded hover:bg-[#5A2F59]/8 text-[#6F6A67] hover:text-[#241C20] disabled:opacity-40"
             >
               &gt;
             </button>
