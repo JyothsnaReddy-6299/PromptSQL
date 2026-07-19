@@ -24,7 +24,8 @@ const fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Resp
     ...init,
     headers,
   });
-  if (response.status === 401) {
+  const requestUrl = typeof input === "string" ? input : (input as any).url || "";
+  if (response.status === 401 && !requestUrl.includes("/auth/login")) {
     localStorage.removeItem("promptsql_token");
     localStorage.removeItem("promptsql_user_id");
     localStorage.removeItem("promptsql_username");

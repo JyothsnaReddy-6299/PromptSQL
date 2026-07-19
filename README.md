@@ -73,6 +73,13 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 * **Driver:** PyMySQL
 * **ORM:** SQLAlchemy (Handles schema generation, session orchestration, and query execution safely)
 
+## 📋 Prerequisites
+
+Before running the application, make sure you have the following installed on your system:
+* **Python 3.8+** (with `pip` and `venv` support)
+* **Node.js** (v18.0 or higher)
+* **MySQL Server** (Running locally on port `3306` or hosted)
+
 ---
 
 ## ⚡ Quick Start (1-Click Run)
