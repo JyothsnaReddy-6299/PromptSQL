@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { cleanUpdateCell } from "../services/api";
+import { Search, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
+import { cleanUpdateCell, downloadRawCSV, downloadRawExcel } from "../services/api";
 
 interface Props {
   columns: string[];
@@ -29,6 +29,8 @@ export default function TablePreview({
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [editingCell, setEditingCell] = useState<{ globalRowIdx: number; colName: string } | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const handleHeaderClick = (colName: string) => {
     if (sortCol === colName) {
@@ -67,41 +69,37 @@ export default function TablePreview({
     }
   };
 
-  const handleExportCSV = () => {
-    if (records.length === 0) return;
-    
-    const headers = columns.join(",");
-    const rows = records.map((row) =>
-      columns
-        .map((col) => {
-          const val = row[col];
-          const valStr = val === null || val === undefined ? "" : String(val);
-          if (valStr.includes(",") || valStr.includes('"') || valStr.includes("\n")) {
-            return `"${valStr.replace(/"/g, '""')}"`;
-          }
-          return valStr;
-        })
-        .join(",")
-    );
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "raw_dataset_preview.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportCSV = async () => {
+    try {
+      setExportingCSV(true);
+      await downloadRawCSV();
+    } catch (e: any) {
+      alert("CSV export failed: " + (e.message || e));
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true);
+      await downloadRawExcel();
+    } catch (e: any) {
+      alert("Excel export failed: " + (e.message || e));
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+
   return (
-    <div id="preview" className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-2xl shadow-black/10">
+    <div id="preview" className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm shadow-[#5A2F59]/5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
+          <h2 className="text-base font-bold text-[#241C20] flex items-center gap-2">
             Dataset Explorer
           </h2>
-          <p className="text-zinc-550 text-[10px] font-medium mt-0.5">
+          <p className="text-[#6F6A67] text-[10px] font-medium mt-0.5">
             Showing first {records.length} records in active MySQL table
           </p>
         </div>
@@ -110,7 +108,7 @@ export default function TablePreview({
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search bar */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={13} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0A79E]" size={13} />
             <input
               type="text"
               placeholder="Search records..."
@@ -119,17 +117,34 @@ export default function TablePreview({
                 onSearchChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-white/[0.03] border border-white/[0.08] rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 w-full sm:w-52 focus:bg-[#18181B] transition-all text-white font-medium placeholder-zinc-650"
+              className="bg-[#F7F2EC] border border-[#E8DED3] rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] w-full sm:w-52 focus:bg-[#FFFDFC] transition-all text-[#241C20] font-medium placeholder-[#B0A79E]"
             />
           </div>
 
           <button
             onClick={handleExportCSV}
-            disabled={records.length === 0}
-            className="flex items-center gap-1.5 border border-white/[0.08] hover:border-indigo-500/30 hover:bg-indigo-500/10 px-3.5 py-1.5 rounded-xl text-zinc-300 font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
+            disabled={records.length === 0 || exportingCSV || exportingExcel}
+            className="flex items-center gap-1.5 border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/5 px-3.5 py-1.5 rounded-xl text-[#6F6A67] hover:text-[#241C20] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
           >
-            <Download size={12} className="text-indigo-400" />
+            {exportingCSV ? (
+              <Loader2 size={12} className="text-[#5A2F59] animate-spin" />
+            ) : (
+              <Download size={12} className="text-[#5A2F59]" />
+            )}
             <span>Export CSV</span>
+          </button>
+
+          <button
+            onClick={handleExportExcel}
+            disabled={records.length === 0 || exportingCSV || exportingExcel}
+            className="flex items-center gap-1.5 border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/5 px-3.5 py-1.5 rounded-xl text-[#6F6A67] hover:text-[#241C20] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
+          >
+            {exportingExcel ? (
+              <Loader2 size={12} className="text-[#5A2F59] animate-spin" />
+            ) : (
+              <Download size={12} className="text-[#5A2F59]" />
+            )}
+            <span>Export Excel</span>
           </button>
         </div>
       </div>

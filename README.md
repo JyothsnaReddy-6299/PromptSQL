@@ -50,6 +50,31 @@
 
 ---
 
+## 🛠️ Complete Tech Stack
+
+PromptSQL is built using a modern, scalable, and type-safe architecture.
+
+**Frontend (Client-Side)**
+* **Core:** React 19 (with TypeScript)
+* **Build Tool:** Vite (for fast HMR and optimized production builds)
+* **Styling:** Tailwind CSS
+* **Routing:** React Router DOM
+
+**Backend (Server-Side)**
+* **Framework:** FastAPI (High-performance async Python framework)
+* **Server:** Uvicorn (ASGI server)
+* **Data Processing:** Pandas (for high-speed statistical calculations and file parsing)
+* **Validation & Types:** Pydantic
+* **Authentication:** Stateless JWT (JSON Web Tokens) with Bcrypt password hashing
+* **AI Integration:** Groq API (Powered by Llama 3 for lightning-fast NL2SQL inference)
+
+**Database & ORM**
+* **Engine:** MySQL
+* **Driver:** PyMySQL
+* **ORM:** SQLAlchemy (Handles schema generation, session orchestration, and query execution safely)
+
+---
+
 ## ⚡ Quick Start (1-Click Run)
 
 PromptSQL contains a root-level orchestrator script `run.py` which automates virtual environment creation, dependencies installation (for both backend and frontend), frontend assets compilation, and launches the server.
@@ -95,6 +120,16 @@ JWT_SECRET=your_super_secret_jwt_sign_key
 * **✏️ Interactive Cell Editing**: Manually modify any single table cell value by double-clicking it directly inside the UI explorer grid.
 * **📄 Exporters**: Export raw query datasets directly to CSV, Excel, or custom formatted **PDF Reports** complete with natural language AI summaries.
 * **🪄 AI Data Cleaning & Preprocessing Suite**: An automated utility designed to handle data deduplication, text standardization, and outlier capping. It repairs datasets effortlessly by isolating unique records, extracting clean numbers, and intelligently imputing missing values using custom constraints or statistical strategies.
+
+---
+
+## 🔮 Future Improvements (Roadmap)
+
+While PromptSQL is highly functional, here are the planned features for future releases to make it an even more powerful workspace:
+
+* 📊 **Auto-Generated Visualizations:** Integrating libraries like `Recharts` or `Chart.js` to automatically generate Bar, Line, and Pie charts directly from the AI-generated SQL results without manual configuration.
+* 🔗 **Multi-Table Joins & Schema Mapping:** Upgrading the prompt engine to support multiple uploaded tables simultaneously, allowing users to ask complex questions that require `JOIN` operations across related datasets.
+* 🔐 **Role-Based Access Control (RBAC):** Introducing granular team permissions (e.g., "Viewer", "Editor", "Admin") so specific users can query data but are restricted from executing DML/DDL modification queries.
 
 ---
 

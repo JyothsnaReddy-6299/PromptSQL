@@ -445,3 +445,13 @@ export async function signup(username: string, password: string) {
   if (!response.ok) throw new Error(data.detail || "Signup failed");
   return data;
 }
+
+export async function downloadRawCSV() {
+  const response = await fetch(`${API_URL}/api/export/raw/csv`);
+  await triggerBlobDownload(response, "dataset.csv");
+}
+
+export async function downloadRawExcel() {
+  const response = await fetch(`${API_URL}/api/export/raw/excel`);
+  await triggerBlobDownload(response, "dataset.xlsx");
+}
