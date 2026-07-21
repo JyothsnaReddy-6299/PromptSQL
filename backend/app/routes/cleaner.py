@@ -161,6 +161,43 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), user_id: st
         return {"success": False, "error": str(e)}
 
 
+@router.get("/locate-missing")
+def locate_missing(column_name: str, user_id: str = Depends(get_current_user_id)):
+    from sqlalchemy import inspect
+    table_name = get_secure_active_table(user_id)
+    if not column_name:
+        raise HTTPException(status_code=400, detail="Column name is required.")
+
+    try:
+        inspector = inspect(engine)
+        col_info = inspector.get_columns(table_name)
+        columns = [c["name"] for c in col_info]
+
+        if column_name not in columns:
+            raise HTTPException(status_code=400, detail=f"Column '{column_name}' does not exist.")
+
+        # Query total null count
+        count_q = f"SELECT COUNT(*) FROM `{table_name}` WHERE `{column_name}` IS NULL OR `{column_name}` = ''"
+        with engine.connect() as conn:
+            total_missing = conn.execute(text(count_q)).scalar() or 0
+
+        # Query sample rows where this column is missing
+        sample_q = f"SELECT * FROM `{table_name}` WHERE `{column_name}` IS NULL OR `{column_name}` = '' LIMIT 20"
+        with engine.connect() as conn:
+            res = conn.execute(text(sample_q))
+            rows = [dict(r._mapping) for r in res]
+
+        return {
+            "success": True,
+            "column_name": column_name,
+            "total_missing": total_missing,
+            "columns": columns,
+            "rows": rows
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 class UpdateCellRequest(BaseModel):
     column_name: str
     new_value: str

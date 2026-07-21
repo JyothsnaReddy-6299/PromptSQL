@@ -100,7 +100,7 @@ export default function TablePreview({
             Dataset Explorer
           </h2>
           <p className="text-[#6F6A67] text-[10px] font-medium mt-0.5">
-            Showing first {records.length} records in active MySQL table
+            Showing first {records.length} records. Search <strong>"null"</strong> or <strong>"ORDER_ID:null"</strong> to isolate missing rows!
           </p>
         </div>
 
@@ -111,13 +111,13 @@ export default function TablePreview({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0A79E]" size={13} />
             <input
               type="text"
-              placeholder="Search records..."
+              placeholder='Search text or "null" / "col:null"...'
               value={searchTerm}
               onChange={(e) => {
                 onSearchChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-[#F7F2EC] border border-[#E8DED3] rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] w-full sm:w-52 focus:bg-[#FFFDFC] transition-all text-[#241C20] font-medium placeholder-[#B0A79E]"
+              className="bg-[#F7F2EC] border border-[#E8DED3] rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] w-full sm:w-60 focus:bg-[#FFFDFC] transition-all text-[#241C20] font-medium placeholder-[#B0A79E]"
             />
           </div>
 

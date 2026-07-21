@@ -48,6 +48,8 @@ def get_preview(
     search: Optional[str] = None,
     sort_col: Optional[str] = None,
     sort_dir: Optional[str] = "ASC",
+    page: int = 1,
+    limit: int = 100,
     x_table_name: Optional[str] = Header(None),
     user_id: str = Depends(get_current_user_id)
 ):
@@ -113,24 +115,58 @@ def get_preview(
                     col_missing = {k: int(v or 0) for k, v in dict(row._mapping).items()}
                     total_missing = sum(col_missing.values())
 
-        # Build preview query with server-side column search and sorting
-        if search and columns:
-            conditions = [f"`{col}` LIKE :search" for col in columns]
-            where_clause = " OR ".join(conditions)
-            if sort_col and sort_col in columns:
-                dir_keyword = "DESC" if sort_dir.upper() == "DESC" else "ASC"
-                sql_query = f"SELECT * FROM `{table_name}` WHERE {where_clause} ORDER BY `{sort_col}` {dir_keyword} LIMIT 100"
-            else:
-                sql_query = f"SELECT * FROM `{table_name}` WHERE {where_clause} LIMIT 100"
-            params = {"search": f"%{search}%"}
-        else:
-            if sort_col and sort_col in columns:
-                dir_keyword = "DESC" if sort_dir.upper() == "DESC" else "ASC"
-                sql_query = f"SELECT * FROM `{table_name}` ORDER BY `{sort_col}` {dir_keyword} LIMIT 100"
-            else:
-                sql_query = f"SELECT * FROM `{table_name}` LIMIT 100"
-            params = {}
+        # Pagination & Filtering logic
+        page_num = max(1, page)
+        page_limit = max(1, min(500, limit))
+        offset = (page_num - 1) * page_limit
 
+        where_clause = ""
+        params = {}
+
+        if search and columns:
+            search_clean = search.strip()
+            search_lower = search_clean.lower()
+
+            if search_lower in ["null", "empty", "is null", "missing"]:
+                # Match rows where ANY column is NULL or empty
+                conditions = [f"(`{col}` IS NULL OR `{col}` = '') font" if False else f"(`{col}` IS NULL OR `{col}` = '')" for col in columns]
+                where_clause = " WHERE (" + " OR ".join(conditions) + ")"
+            elif ":" in search_clean:
+                # Column-specific search e.g. "ORDER_ID:null" or "ORDER_ID:123"
+                parts = search_clean.split(":", 1)
+                col_target = parts[0].strip()
+                val_target = parts[1].strip()
+                if col_target in columns:
+                    if val_target.lower() in ["null", "empty", "is null"]:
+                        where_clause = f" WHERE (`{col_target}` IS NULL OR `{col_target}` = '')"
+                    else:
+                        where_clause = f" WHERE `{col_target}` LIKE :col_val"
+                        params["col_val"] = f"%{val_target}%"
+                else:
+                    conditions = [f"`{col}` LIKE :search" for col in columns]
+                    where_clause = " WHERE (" + " OR ".join(conditions) + ")"
+                    params["search"] = f"%{search_clean}%"
+            else:
+                conditions = [f"`{col}` LIKE :search" for col in columns]
+                where_clause = " WHERE (" + " OR ".join(conditions) + ")"
+                params["search"] = f"%{search_clean}%"
+
+        # Sorting
+        order_clause = ""
+        if sort_col and sort_col in columns:
+            dir_keyword = "DESC" if sort_dir.upper() == "DESC" else "ASC"
+            order_clause = f" ORDER BY `{sort_col}` {dir_keyword}"
+
+        # Count total filtered rows matching search
+        if where_clause:
+            filtered_count_query = f"SELECT COUNT(*) FROM `{table_name}`{where_clause}"
+            with engine.connect() as conn:
+                display_total_rows = conn.execute(text(filtered_count_query), params).scalar() or 0
+        else:
+            display_total_rows = total_rows
+
+        # Execute paginated query
+        sql_query = f"SELECT * FROM `{table_name}`{where_clause}{order_clause} LIMIT {page_limit} OFFSET {offset}"
         with engine.connect() as conn:
             res = conn.execute(text(sql_query), params)
             records = [dict(row._mapping) for row in res]
@@ -185,6 +221,9 @@ def get_preview(
             "columns": columns,
             "records": sanitize_for_json(records),
             "total_rows": total_rows,
+            "display_total_rows": display_total_rows,
+            "page": page_num,
+            "limit": page_limit,
             "total_missing": total_missing,
             "column_missing": col_missing,
             "detected_types": detected_types,

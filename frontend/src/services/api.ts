@@ -85,12 +85,14 @@ export async function askQuestion(question: string) {
   return response.json();
 }
 
-export async function getPreview(search?: string, sortCol?: string, sortDir?: string) {
+export async function getPreview(search?: string, sortCol?: string, sortDir?: string, page: number = 1, limit: number = 100) {
   let url = `${API_URL}/preview?`;
   const params = [];
   if (search) params.push(`search=${encodeURIComponent(search)}`);
   if (sortCol) params.push(`sort_col=${encodeURIComponent(sortCol)}`);
   if (sortDir) params.push(`sort_dir=${encodeURIComponent(sortDir)}`);
+  if (page) params.push(`page=${page}`);
+  if (limit) params.push(`limit=${limit}`);
   url += params.join("&");
   const response = await fetch(url);
   return response.json();
@@ -422,6 +424,12 @@ export async function cleanExtractAndConvert(columnName: string) {
     body: JSON.stringify({ column_name: columnName }),
   });
   if (!response.ok) throw new Error("Failed extract and convert");
+  return response.json();
+}
+
+export async function locateMissingCells(columnName: string) {
+  const response = await fetch(`${API_URL}/api/clean/locate-missing?column_name=${encodeURIComponent(columnName)}`);
+  if (!response.ok) throw new Error("Failed to locate missing cells");
   return response.json();
 }
 

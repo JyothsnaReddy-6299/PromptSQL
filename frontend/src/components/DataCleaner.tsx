@@ -10,7 +10,8 @@ import {
   Type,
   Scissors,
   Activity,
-  Zap
+  Zap,
+  MapPin
 } from "lucide-react";
 import { 
   cleanRemoveDuplicates, 
@@ -20,7 +21,8 @@ import {
   cleanExtractNumbers,
   cleanCapOutliers,
   detectNumericTextColumns,
-  cleanExtractAndConvert
+  cleanExtractAndConvert,
+  locateMissingCells
 } from "../services/api";
 
 interface Props {
@@ -45,6 +47,8 @@ export default function DataCleaner({
   const [selectedColumn, setSelectedColumn] = useState("");
   const [suspiciousColumns, setSuspiciousColumns] = useState<Array<{ column: string; sample_values: string[]; numeric_ratio: number; name_hint: boolean }>>([]);
   const [scanningTypes, setScanningTypes] = useState(false);
+  const [locatedMissing, setLocatedMissing] = useState<{ column_name: string; total_missing: number; columns: string[]; rows: any[] } | null>(null);
+  const [locatingMissing, setLocatingMissing] = useState(false);
 
   // Auto-scan for numeric-looking text columns when cleaner loads or after refresh
   useEffect(() => {
@@ -63,6 +67,28 @@ export default function DataCleaner({
     };
     scan();
   }, [columns, loading]); // Re-scan when columns change (after cleaning)
+
+  // Fetch sample null/empty rows when a column with missing values is selected
+  useEffect(() => {
+    if (!selectedColumn || (columnMissing[selectedColumn] || 0) === 0) {
+      setLocatedMissing(null);
+      return;
+    }
+    const fetchLocate = async () => {
+      try {
+        setLocatingMissing(true);
+        const res = await locateMissingCells(selectedColumn);
+        if (res.success) {
+          setLocatedMissing(res);
+        }
+      } catch (e) {
+        setLocatedMissing(null);
+      } finally {
+        setLocatingMissing(false);
+      }
+    };
+    fetchLocate();
+  }, [selectedColumn, columnMissing]);
 
   const handleConvertType = async (columnName: string, targetType: string) => {
     const confirmMsg = `The column "${columnName}" is currently stored in TEXT format. Would you like to convert it to ${targetType.toUpperCase()}? Any non-numeric text values in this column will be set to NULL.`;
@@ -332,19 +358,19 @@ export default function DataCleaner({
         </div>
 
         {/* Column Imputation Card */}
-        <div className="md:col-span-2 bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-white flex items-center gap-2">
-            <Sparkles className="text-indigo-400" size={15} />
+        <div className="md:col-span-2 bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
+            <Sparkles className="text-[#5A2F59]" size={15} />
             <span>Missing Cells Imputer (Repair Nulls)</span>
           </h3>
-          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
+          <p className="text-[10px] text-[#6F6A67] leading-relaxed font-medium">
             Detects empty string and NULL cells in a selected column, calculating replacements based on statistical means, medians, modes, or custom constants.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4">
             {/* Column select */}
             <div className="space-y-1">
-              <label className="text-[9px] uppercase tracking-wider font-extrabold text-zinc-500 block">Select Column</label>
+              <label className="text-[9px] uppercase tracking-wider font-extrabold text-[#6F6A67] block">Select Column</label>
               <select
                 value={selectedColumn}
                 onChange={(e) => {
@@ -356,7 +382,7 @@ export default function DataCleaner({
                     setStrategy("mean");
                   }
                 }}
-                className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
+                className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer"
               >
                 <option value="">-- Choose Column --</option>
                 {columns.map((col) => (
@@ -369,12 +395,12 @@ export default function DataCleaner({
 
             {/* Imputation Strategy */}
             <div className="space-y-1">
-              <label className="text-[9px] uppercase tracking-wider font-extrabold text-zinc-500 block">Cleaning Strategy</label>
+              <label className="text-[9px] uppercase tracking-wider font-extrabold text-[#6F6A67] block">Cleaning Strategy</label>
               <select
                 value={strategy}
                 onChange={(e) => setStrategy(e.target.value)}
                 disabled={!selectedColumn}
-                className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer disabled:opacity-50"
+                className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer disabled:opacity-50"
               >
                 {selectedColumn && isNumericType(selectedColumn) && (
                   <>
@@ -392,23 +418,23 @@ export default function DataCleaner({
           {/* Custom value input */}
           {strategy === "custom" && (
             <div className="space-y-1 animate-fade-in">
-              <label className="text-[9px] uppercase tracking-wider font-extrabold text-zinc-500 block">Custom Replacement Value</label>
+              <label className="text-[9px] uppercase tracking-wider font-extrabold text-[#6F6A67] block">Custom Replacement Value</label>
               <input
                 type="text"
                 placeholder="Enter custom replacement text or number..."
                 value={customValue}
                 onChange={(e) => setCustomValue(e.target.value)}
-                className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-medium"
+                className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-medium"
               />
             </div>
           )}
 
           {/* Numeric/Sales Columns Warning */}
           {selectedColumn && (isNumericType(selectedColumn) || selectedColumn.toLowerCase().includes("sale") || selectedColumn.toLowerCase().includes("price") || selectedColumn.toLowerCase().includes("quantity")) && (strategy === "custom" || strategy === "mode" || strategy === "mean" || strategy === "median") && (
-            <div className="bg-amber-500/[0.06] border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-2.5 text-[10px] text-amber-300 font-semibold animate-fade-in">
-              <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+            <div className="bg-amber-500/[0.06] border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-2.5 text-[10px] text-amber-700 font-semibold animate-fade-in text-left">
+              <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-amber-400 block mb-0.5">⚠️ Data Integrity Suggestion</span>
+                <span className="font-bold text-amber-700 block mb-0.5">⚠️ Data Integrity Suggestion</span>
                 You are applying a uniform value (or column statistic) to a transaction metric ({selectedColumn}). 
                 Because sales and quantities differ per transaction, overwriting all empty cells with the same constant might skew your data.
                 To input different, unique values for each cell, use the <strong>Data Table Preview</strong> tab and double-click individual cells to edit them row-by-row.
@@ -416,15 +442,87 @@ export default function DataCleaner({
             </div>
           )}
 
+          {/* Located Missing Rows Inspector Panel */}
+          {selectedColumn && (columnMissing[selectedColumn] || 0) > 0 && (
+            <div className="bg-[#F7F2EC] border border-[#E8DED3] rounded-xl p-4 space-y-3 animate-fade-in text-left">
+              <div className="flex justify-between items-center text-xs font-bold text-[#241C20]">
+                <span className="flex items-center gap-1.5 text-[#5A2F59]">
+                  <MapPin size={14} className="text-[#5A2F59]" />
+                  Exact Locations: Found {columnMissing[selectedColumn]} missing entries in "{selectedColumn}"
+                </span>
+                {locatingMissing && <Loader2 size={13} className="animate-spin text-[#5A2F59]" />}
+              </div>
+
+              {locatedMissing && locatedMissing.rows && locatedMissing.rows.length > 0 ? (
+                <div className="overflow-x-auto border border-[#E8DED3] rounded-lg max-h-48 bg-[#FFFDFC]">
+                  <table className="min-w-full text-[10px] text-[#241C20]">
+                    <thead className="bg-[#F7F2EC] border-b border-[#E8DED3] sticky top-0">
+                      <tr>
+                        <th className="px-2.5 py-1.5 font-bold text-[#6F6A67] text-left uppercase whitespace-nowrap text-[9px] border-r border-[#E8DED3]">
+                          # Entry
+                        </th>
+                        {locatedMissing.columns.map((col) => (
+                          <th
+                            key={col}
+                            className={`px-2.5 py-1.5 font-bold text-left uppercase whitespace-nowrap text-[9px] border-r border-[#E8DED3] ${
+                              col === selectedColumn ? "bg-[#5A2F59]/10 text-[#5A2F59]" : "text-[#6F6A67]"
+                            }`}
+                          >
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E8DED3]">
+                      {locatedMissing.rows.map((row, rIdx) => (
+                        <tr key={rIdx} className="hover:bg-[#5A2F59]/5 transition">
+                          <td className="px-2.5 py-1.5 font-mono text-[9px] font-bold text-[#6F6A67] border-r border-[#E8DED3] bg-[#F7F2EC]">
+                            Row #{rIdx + 1}
+                          </td>
+                          {locatedMissing.columns.map((col) => {
+                            const val = row[col];
+                            const isNullCell = col === selectedColumn && (val === null || val === "" || val === undefined);
+                            return (
+                              <td
+                                key={col}
+                                className={`px-2.5 py-1.5 font-medium truncate max-w-[140px] border-r border-[#E8DED3] ${
+                                  isNullCell ? "bg-[#D95D39]/8" : ""
+                                }`}
+                              >
+                                {isNullCell ? (
+                                  <span className="text-[#D95D39] font-mono text-[9px] font-bold bg-[#D95D39]/10 px-1.5 py-0.5 rounded border border-[#D95D39]/20">
+                                    NULL (Missing)
+                                  </span>
+                                ) : val === null || val === undefined ? (
+                                  <span className="text-[#6F6A67]/60 italic font-mono text-[9px]">null</span>
+                                ) : (
+                                  String(val)
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-[10px] text-[#6F6A67] italic">
+                  {locatingMissing ? "Locating missing cell records..." : "No null records found."}
+                </p>
+              )}
+            </div>
+          )}
+
           <button
             onClick={handleImpute}
             disabled={cleaning || loading || !selectedColumn}
-            className="flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2.5 px-6 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50 block ml-auto"
+            className="flex items-center justify-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-white font-bold text-xs py-2.5 px-6 rounded-xl transition shadow-md hover:shadow-lg active:scale-98 cursor-pointer disabled:opacity-40 disabled:bg-[#5A2F59]/50 block ml-auto"
           >
             {cleaning ? (
               <Loader2 size={13} className="animate-spin" />
             ) : (
-              <Sparkles size={13} className="text-indigo-400" />
+              <Sparkles size={13} className="text-[#BDA37A]" />
             )}
             <span>Apply Repair</span>
           </button>
@@ -433,19 +531,19 @@ export default function DataCleaner({
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Text Standardization Card */}
-        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-white flex items-center gap-2">
-            <Type className="text-indigo-400" size={15} />
+        <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
+            <Type className="text-[#5A2F59]" size={15} />
             <span>Text Standardization</span>
           </h3>
-          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
+          <p className="text-[10px] text-[#6F6A67] leading-relaxed font-medium">
             Clean messy strings by trimming whitespace or standardizing to upper/lower casing.
           </p>
           <div className="space-y-2">
             <select
               value={standardizeCol}
               onChange={(e) => setStandardizeCol(e.target.value)}
-              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
+              className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer"
             >
               <option value="">-- Choose Column --</option>
               {columns.map((col) => (
@@ -455,7 +553,7 @@ export default function DataCleaner({
             <select
               value={standardizeOp}
               onChange={(e) => setStandardizeOp(e.target.value)}
-              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
+              className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer"
             >
               <option value="trim">Trim Whitespace</option>
               <option value="lower">Lowercase</option>
@@ -464,7 +562,7 @@ export default function DataCleaner({
             <button
               onClick={handleStandardizeText}
               disabled={cleaning || loading || !standardizeCol}
-              className="w-full flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-md hover:shadow-lg active:scale-98 cursor-pointer disabled:opacity-40 disabled:bg-[#5A2F59]/50"
             >
               <span>Standardize</span>
             </button>
@@ -472,32 +570,32 @@ export default function DataCleaner({
         </div>
 
         {/* Number Extraction Card */}
-        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-white flex items-center gap-2">
-            <Scissors className="text-indigo-400" size={15} />
+        <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
+            <Scissors className="text-[#5A2F59]" size={15} />
             <span>Smart Number Extraction</span>
           </h3>
-          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
+          <p className="text-[10px] text-[#6F6A67] leading-relaxed font-medium">
             Extracts numeric digits from messy text strings (e.g. currencies, strings with text).
           </p>
           <div className="space-y-2">
             <select
               value={extractCol}
               onChange={(e) => setExtractCol(e.target.value)}
-              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
+              className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer"
             >
               <option value="">-- Choose Column --</option>
               {columns.map((col) => (
                 <option key={col} value={col}>{col}</option>
               ))}
             </select>
-            <div className="text-[9px] text-emerald-400 bg-emerald-500/[0.06] px-2.5 py-1.5 rounded-lg border border-emerald-500/20 font-semibold mt-2">
+            <div className="text-[9px] text-[#3E8E5B] bg-[#3E8E5B]/8 px-2.5 py-1.5 rounded-lg border border-[#3E8E5B]/20 font-semibold mt-2">
               Removes all letters and symbols except digits, dots, and minus signs.
             </div>
             <button
               onClick={handleExtractNumbers}
               disabled={cleaning || loading || !extractCol}
-              className="w-full mt-2 flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-md hover:shadow-lg active:scale-98 cursor-pointer disabled:opacity-40 disabled:bg-[#5A2F59]/50"
             >
               <span>Extract Numbers</span>
             </button>
@@ -505,19 +603,19 @@ export default function DataCleaner({
         </div>
 
         {/* Outlier Capping Card */}
-        <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-white flex items-center gap-2">
-            <Activity className="text-indigo-400" size={15} />
+        <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
+            <Activity className="text-[#5A2F59]" size={15} />
             <span>Outlier Capping (Winsorization)</span>
           </h3>
-          <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">
+          <p className="text-[10px] text-[#6F6A67] leading-relaxed font-medium">
             Caps extreme numerical outliers to percentiles boundaries.
           </p>
           <div className="space-y-2">
             <select
               value={outlierCol}
               onChange={(e) => setOutlierCol(e.target.value)}
-              className="w-full bg-[#18181B] border border-white/[0.08] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300 font-semibold cursor-pointer"
+              className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer"
             >
               <option value="">-- Numeric Column --</option>
               {columns.filter(c => isNumericType(c)).map((col) => (
@@ -526,7 +624,7 @@ export default function DataCleaner({
             </select>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-[8px] uppercase tracking-wider font-extrabold text-zinc-500 block mb-1">Lower Limit</label>
+                <label className="text-[8px] uppercase tracking-wider font-extrabold text-[#6F6A67] block mb-1">Lower Limit</label>
                 <input
                   type="number"
                   step="0.01"
@@ -534,11 +632,11 @@ export default function DataCleaner({
                   max="0.5"
                   value={lowerBound}
                   onChange={(e) => setLowerBound(parseFloat(e.target.value))}
-                  className="w-full bg-[#18181B] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300"
+                  className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20]"
                 />
               </div>
               <div>
-                <label className="text-[8px] uppercase tracking-wider font-extrabold text-zinc-500 block mb-1">Upper Limit</label>
+                <label className="text-[8px] uppercase tracking-wider font-extrabold text-[#6F6A67] block mb-1">Upper Limit</label>
                 <input
                   type="number"
                   step="0.01"
@@ -546,14 +644,14 @@ export default function DataCleaner({
                   max="1"
                   value={upperBound}
                   onChange={(e) => setUpperBound(parseFloat(e.target.value))}
-                  className="w-full bg-[#18181B] border border-white/[0.08] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 text-zinc-300"
+                  className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20]"
                 />
               </div>
             </div>
             <button
               onClick={handleCapOutliers}
               disabled={cleaning || loading || !outlierCol}
-              className="w-full mt-2 flex items-center justify-center gap-2 bg-[#18181B] border border-white/[0.08] hover:border-indigo-500 hover:bg-indigo-500/10 text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-sm active:scale-98 cursor-pointer disabled:opacity-50"
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-md hover:shadow-lg active:scale-98 cursor-pointer disabled:opacity-40 disabled:bg-[#5A2F59]/50"
             >
               <span>Cap Outliers</span>
             </button>
