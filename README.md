@@ -176,3 +176,31 @@ The development frontend server will boot up at **`http://localhost:5173`**.
 | **2. Simulation** | Impact Estimator | Generates a virtual dry-run targeting `SELECT COUNT(*)` on active tables to determine exactly how many entries match the criteria. |
 | **3. Verification** | AI Explainer & UI Alert | Generates a descriptive warning explaining exactly how many rows will be altered or deleted. |
 | **4. Auditing** | Audit Logs & Transactions | Logs the query, user approving action, status, and outcome. Runs everything transactionally so it rolls back automatically on execution failures. |
+
+---
+
+## 🚀 Want to Improve This Project?
+
+Contributions are always welcome! If you have ideas to improve this project, feel free to:
+
+- 🐛 Report bugs by opening an issue.
+- ✨ Suggest new features or enhancements.
+- 🔧 Fix bugs and submit a pull request.
+- 📖 Improve documentation or code comments.
+- ⚡ Optimize performance or refactor the code.
+
+---
+
+<div align="center">
+
+
+## 🎉 Thank You for Checking Out This Project!
+
+
+If you found this project helpful:
+
+⭐ **Star this repository**
+
+🍴 **Fork it to build upon it**
+
+</div>
