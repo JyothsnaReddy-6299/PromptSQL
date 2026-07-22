@@ -7,7 +7,8 @@ import {
   BarChart3, 
   Cpu, 
   History, 
-  Download 
+  Download,
+  Wand2
 } from "lucide-react";
 
 interface WorkflowStep {
@@ -145,6 +146,19 @@ export default function WorkflowMarquee() {
           <span className="opacity-40 animate-pulse">●</span>
           <span className="opacity-70 animate-pulse" style={{ animationDelay: "0.3s" }}>●</span>
           <span className="opacity-100 animate-pulse" style={{ animationDelay: "0.6s" }}>●</span>
+        </div>
+      )
+    },
+    {
+      id: "data cleaner",
+      icon: <Wand2 size={18} className="text-[#5A2F59]" />,
+      title: "Smart Data Cleaner",
+      subtitle: "Clean up dataset anomalies",
+      micro: (
+        <div className="flex items-center gap-1 justify-center mt-2.5 bg-[#5A2F59]/5 px-2 py-0.5 rounded border border-[#5A2F59]/10 text-[#5A2F59] font-mono text-[8px] font-bold animate-pulse">
+          <span>[NULL]</span>
+          <span className="text-[7px] text-[#BDA37A]">→</span>
+          <span>REPAIRED</span>
         </div>
       )
     },

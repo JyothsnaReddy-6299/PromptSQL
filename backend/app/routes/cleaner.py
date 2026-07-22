@@ -11,6 +11,7 @@ from app.models.audit_log import AuditLog
 from app.services.auth_service import get_current_user_id
 from app.services.table_manager import get_current_table
 from sqlalchemy import text
+from app.utils.tz_helper import get_ist_time
 
 router = APIRouter(prefix="/clean", tags=["Data Cleaner"])
 
@@ -74,7 +75,7 @@ def remove_duplicates(db: Session = Depends(get_db), user_id: str = Depends(get_
         # Save to Audit Log
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="CLEAN",
             table_name=table_name,
             generated_sql=f"-- Deduplicate table by copying distinct records\nDELETE duplicates FROM `{table_name}`",
@@ -141,7 +142,7 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), user_id: st
         # Save to Audit Log
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="CLEAN",
             table_name=table_name,
             generated_sql=sql_executed + (f" -- Imputed value: {val}" if strategy != "drop" else ""),
@@ -234,7 +235,7 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), user_id: 
         # Save to Audit Log
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="UPDATE",
             table_name=table_name,
             generated_sql=sql_executed + f" -- New value: {new_val}",
@@ -300,7 +301,7 @@ def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), user_id
         # Save to Audit Log
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="ALTER",
             table_name=table_name,
             generated_sql=f"ALTER TABLE `{table_name}` MODIFY `{col}` {target.upper()}",
@@ -349,7 +350,7 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db),
         # Save to Audit Log
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="CLEAN",
             table_name=table_name,
             generated_sql=update_query,
@@ -387,7 +388,7 @@ def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), u
         # Save to Audit Log
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="CLEAN",
             table_name=table_name,
             generated_sql=update_query,
@@ -443,7 +444,7 @@ def cap_outliers(req: CapOutliersRequest, db: Session = Depends(get_db), user_id
 
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="CLEAN",
             table_name=table_name,
             generated_sql=f"-- Cap Outliers\n{sql_lower};\n{sql_upper};",
@@ -535,7 +536,7 @@ def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get
 
         audit_log = AuditLog(
             user_id=user_id,
-            timestamp=datetime.utcnow(),
+            timestamp=get_ist_time(),
             operation="ALTER",
             table_name=table_name,
             generated_sql=f"-- Extract numbers + convert to DOUBLE for column `{col}`",

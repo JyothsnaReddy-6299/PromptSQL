@@ -76,7 +76,7 @@ def ask_modification(
 
     # Get base friendly table name
     friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
-    physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", table_name, sql)
+    physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_name)}\`?(?!\w)", f"`{table_name}`", sql)
 
     # 4. Validate SQL safety rules
     validation = validate_modification_sql(physical_sql, table_name, intent)
@@ -120,7 +120,7 @@ def execute_modification_query(
             raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
 
     friendly_name = payload.table_name.split("_usr_")[0] if "_usr_" in payload.table_name else payload.table_name
-    physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", payload.table_name, payload.sql)
+    physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_name)}\`?(?!\w)", f"`{payload.table_name}`", payload.sql)
 
     # Execute query inside transaction
     result = execute_modification(physical_sql, payload.table_name, payload.intent)

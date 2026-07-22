@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 from datetime import datetime
 
 from app.database.connection import Base
+from app.utils.tz_helper import get_ist_time
 
 
 class AuditLog(Base):
@@ -9,7 +10,7 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(50), default="default_user", nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=get_ist_time, nullable=False)#nullable=False means it cannot be empty
     operation = Column(String(50), nullable=False)  # INSERT, UPDATE, DELETE, etc.
     table_name = Column(String(100), nullable=False)
     generated_sql = Column(Text, nullable=False)

@@ -76,7 +76,7 @@ def ask_question(
 
         for _ in range(MAX_RETRIES):
             # Translate friendly SQL to physical SQL for verification/execution
-            physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", table_name, sql_query)
+            physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_name)}\`?(?!\w)", f"`{table_name}`", sql_query)
 
             valid, message = validate_sql(
                 physical_sql,
@@ -113,7 +113,7 @@ def ask_question(
         # Execute SQL
         # -----------------------------------------
 
-        physical_sql = re.sub(rf"\b{re.escape(friendly_name)}\b", table_name, sql_query)
+        physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_name)}\`?(?!\w)", f"`{table_name}`", sql_query)
         records = execute_sql(physical_sql)
 
         print("\nReturned Records :", len(records))

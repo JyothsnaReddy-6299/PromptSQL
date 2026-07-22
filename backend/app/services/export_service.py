@@ -1,6 +1,7 @@
 import pandas as pd
 from io import BytesIO
 from datetime import datetime
+from app.utils.tz_helper import get_ist_time
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -11,10 +12,21 @@ from openpyxl.utils import get_column_letter
 
 def generate_pdf(question: str, summary: str, sql: str, records: list) -> bytes:
     buffer = BytesIO()
-    # 0.5 inch margins (36 points)
+    
+    cols = list(records[0].keys()) if records else []
+    num_cols = len(cols)
+
+    # 1. Page Orientation Choice: Landscape if we have many columns to display cleanly
+    if num_cols > 6:
+        pagesize = (792, 612) # Landscape Letter
+        usable_width = 720 # 792 - 72 (margins)
+    else:
+        pagesize = (612, 792) # Portrait Letter
+        usable_width = 540 # 612 - 72 (margins)
+
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=letter,
+        pagesize=pagesize,
         rightMargin=36,
         leftMargin=36,
         topMargin=36,
@@ -68,10 +80,42 @@ def generate_pdf(question: str, summary: str, sql: str, records: list) -> bytes:
         borderColor=colors.HexColor('#F3ECE6'),
         spaceAfter=8
     )
+
+    # 2. Dynamic Font Scaling inside data cells based on column density
+    if num_cols <= 5:
+        cell_font_size = 9
+        cell_leading = 12
+    elif num_cols <= 8:
+        cell_font_size = 8
+        cell_leading = 11
+    elif num_cols <= 12:
+        cell_font_size = 6.5
+        cell_leading = 9
+    else:
+        cell_font_size = 5.5
+        cell_leading = 7.5
+
+    cell_style = ParagraphStyle(
+        'CellText',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=cell_font_size,
+        textColor=colors.HexColor('#352B26'),
+        leading=cell_leading
+    )
+    
+    header_style = ParagraphStyle(
+        'HeaderCellText',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=cell_font_size,
+        textColor=colors.HexColor('#C35237'),
+        leading=cell_leading
+    )
     
     # Title & Generation Meta
     story.append(Paragraph("PromptSQL Analytics Report", title_style))
-    story.append(Paragraph(f"Report Generation Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", body_style))
+    story.append(Paragraph(f"Report Generation Timestamp: {get_ist_time().strftime('%Y-%m-%d %H:%M:%S')}", body_style))
     story.append(Spacer(1, 10))
     
     # User Question
@@ -97,48 +141,34 @@ def generate_pdf(question: str, summary: str, sql: str, records: list) -> bytes:
     if not records:
         story.append(Paragraph("No records returned by database execution.", body_style))
     else:
-        cols = list(records[0].keys())
-        # Restrict horizontally to prevent cutting off in portrait PDF
-        max_pdf_cols = 8
-        truncated_cols = cols[:max_pdf_cols]
-        
         # Header row
-        table_data = [[Paragraph(f"<b>{c}</b>", body_style) for c in truncated_cols]]
+        table_data = [[Paragraph(f"<b>{c}</b>", header_style) for c in cols]]
         
-        # Max rows inside PDF to save paper / performance
-        max_rows = 50
-        for row in records[:max_rows]:
+        # Populate all records (No truncation vertically)
+        for row in records:
             row_cells = []
-            for col in truncated_cols:
-                val = row[col]
+            for col in cols:
+                val = row.get(col)
                 val_str = "null" if val is None else str(val)
-                row_cells.append(Paragraph(val_str, body_style))
+                row_cells.append(Paragraph(val_str, cell_style))
             table_data.append(row_cells)
             
-        # Draw Table layout
-        col_width = (8.5 * 72 - 72) / len(truncated_cols)
-        t = Table(table_data, colWidths=[col_width]*len(truncated_cols))
+        # Draw Table layout using dynamic column widths
+        col_width = usable_width / num_cols
+        t = Table(table_data, colWidths=[col_width] * num_cols)
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F7ECE9')), # Light terracotta header
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#C35237')),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#EFEAE4')),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FAF8F5')])
         ]))
         story.append(t)
-        
-        if len(records) > max_rows:
-            story.append(Spacer(1, 4))
-            story.append(Paragraph(f"<i>* Displaying first {max_rows} of {len(records)} total records (PDF truncated)</i>", body_style))
-            
-        if len(cols) > max_pdf_cols:
-            story.append(Spacer(1, 4))
-            story.append(Paragraph(f"<i>* Displaying first {max_pdf_cols} of {len(cols)} columns (PDF truncated horizontally)</i>", body_style))
             
     doc.build(story)
     pdf_bytes = buffer.getvalue()

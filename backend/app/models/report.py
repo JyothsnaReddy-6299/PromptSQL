@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from datetime import datetime
+from app.utils.tz_helper import get_ist_time
 
 from app.database.connection import Base
 
@@ -15,4 +16,4 @@ class SavedReport(Base):
     generated_sql = Column(Text, nullable=False)
     summary = Column(Text, nullable=False)
     result_json = Column(Text(16777215), nullable=False)  # MEDIUMTEXT in MySQL to store serialized records safely
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=get_ist_time, nullable=False)

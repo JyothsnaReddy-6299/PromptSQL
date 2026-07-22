@@ -54,15 +54,47 @@ interface Message {
   canceled?: boolean;
 }
 
-export default function ChatBox() {
-  const [question, setQuestion] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      sender: "ai",
-      text: "Hello! I am your AI Analytics Assistant. Ask me anything about your uploaded dataset in plain English. I'll translate your question into optimized SQL, fetch the results, and explain the trends for you!"
+interface ChatBoxProps {
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  question: string;
+  setQuestion: (q: string) => void;
+}
+
+// Safely format basic markdown elements (**bold**, `code`, - bullet lists) into HTML
+function formatMessageText(text: string): string {
+  if (!text) return "";
+  
+  // 1. Escape HTML characters to protect against any injection
+  let escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  // 2. Parse bold text: **text** -> <strong>text</strong>
+  escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+  // 3. Parse inline code snippets: `code` -> <code class="...">code</code>
+  escaped = escaped.replace(/`(.*?)`/g, '<code class="bg-[#5A2F59]/10 text-[#5A2F59] px-1.5 py-0.5 rounded font-mono text-[10px] font-bold">$1</code>');
+
+  // 4. Parse line-by-line bullet points
+  const lines = escaped.split("\n");
+  const formattedLines = lines.map(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      const content = trimmed.substring(2);
+      return `<li class="list-disc ml-4 mt-0.5 text-[#241C20]">${content}</li>`;
     }
-  ]);
+    return line;
+  });
+  
+  return formattedLines.join("<br/>");
+}
+
+export default function ChatBox({ messages, setMessages, question, setQuestion }: ChatBoxProps) {
+  const [loading, setLoading] = useState(false);
   const [copiedSql, setCopiedSql] = useState<string | null>(null);
 
   // History states
@@ -391,23 +423,23 @@ export default function ChatBox() {
               className={`flex gap-3 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               {msg.sender === "ai" && (
-                <div className="w-8 h-8 bg-gradient-to-br from-terracotta-500 to-terracotta-600 text-white rounded-xl flex items-center justify-center shadow-md shadow-terracotta-500/10 shrink-0">
-                  <Brain size={16} />
+                <div className="w-8 h-8 bg-[#5A2F59] text-[#BDA37A] border border-[#BDA37A]/20 rounded-xl flex items-center justify-center shadow-md shadow-[#5A2F59]/20 shrink-0">
+                  <Brain size={15} />
                 </div>
               )}
 
               <div className={`max-w-[85%] space-y-2.5 ${msg.sender === "user" ? "text-right" : "text-left"}`}>
                 {/* Regular Message Text */}
                 <div
-                  className={`p-4 rounded-2xl text-xs leading-relaxed ${
+                  className={`p-3.5 px-4 rounded-2xl text-xs leading-relaxed ${
                     msg.sender === "user"
-                      ? "bg-[#FFFDFC] text-[#241C20] border border-[#E8DED3] rounded-tr-sm shadow-sm"
+                      ? "bg-[#FFFDFC] text-[#241C20] border-2 border-[#E8DED3] rounded-tr-sm shadow-sm"
                       : msg.canceled
-                      ? "bg-[#111113] text-zinc-500 border border-warmgray-150 border-dashed"
-                      : "bg-[#111113]/80 text-warmgray-850 rounded-tl-sm border border-white/[0.06]/50"
+                      ? "bg-[#F7F2EC] text-zinc-400 border border-[#E8DED3] border-dashed"
+                      : "bg-[#F7F2EC] text-[#241C20] rounded-tl-sm border border-[#E8DED3] shadow-sm"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap font-medium text-left">{msg.text}</p>
+                  <p className="whitespace-pre-wrap font-medium text-left" dangerouslySetInnerHTML={{ __html: formatMessageText(msg.text) }} />
 
                   {/* Warning tags */}
                   {msg.warning && msg.requires_confirmation && (

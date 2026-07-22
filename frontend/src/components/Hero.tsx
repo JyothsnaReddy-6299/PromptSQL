@@ -102,11 +102,11 @@ export default function Hero() {
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Workflow Marquee */}
-        <div className="w-full max-w-5xl mx-auto border border-[#E8DED3] rounded-3xl overflow-hidden bg-[#FFFDFC] shadow-md mt-4">
-          <WorkflowMarquee />
-        </div>
+      {/* Workflow Marquee (Placed outside the max-w-5xl text wrapper to span from screen edge to screen edge) */}
+      <div className="w-full relative z-10 mt-4 overflow-hidden">
+        <WorkflowMarquee />
       </div>
 
       {/* Bottom gradient fade */}

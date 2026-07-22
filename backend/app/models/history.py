@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from datetime import datetime
+from app.utils.tz_helper import get_ist_time
 
 from app.database.connection import Base
 
@@ -15,4 +16,4 @@ class QueryHistory(Base):
     summary = Column(Text, nullable=False)
     result_count = Column(Integer, default=0, nullable=False)
     result_json = Column(Text(16777215), nullable=True)  # Store query output records for offline reopenings
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=get_ist_time, nullable=False)

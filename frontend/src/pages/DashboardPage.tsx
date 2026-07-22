@@ -24,6 +24,15 @@ export default function DashboardPage() {
   const [columnMissing, setColumnMissing] = useState<Record<string, number>>({});
   const [columnStats, setColumnStats] = useState<Record<string, any>>({});
 
+  // Lifted Chat Assistant states to preserve conversation across sidebar section switches
+  const [chatMessages, setChatMessages] = useState<any[]>([
+    {
+      sender: "ai",
+      text: "Hello! I am your AI Analytics Assistant. Ask me anything about your uploaded dataset in plain English. I'll translate your question into optimized SQL, fetch the results, and explain the trends for you!"
+    }
+  ]);
+  const [chatQuestion, setChatQuestion] = useState("");
+
   const datasetMeta = JSON.parse(sessionStorage.getItem("dataset") || "{}");
 
   const fileName = datasetMeta?.filename || "";
@@ -110,6 +119,17 @@ export default function DashboardPage() {
 
     return () => clearTimeout(timer);
   }, [fileName, refreshTrigger, searchTerm, sortCol, sortDir, navigate]);
+
+  // Clean chat log only when active dataset switches
+  useEffect(() => {
+    setChatMessages([
+      {
+        sender: "ai",
+        text: "Hello! I am your AI Analytics Assistant. Ask me anything about your uploaded dataset in plain English. I'll translate your question into optimized SQL, fetch the results, and explain the trends for you!"
+      }
+    ]);
+    setChatQuestion("");
+  }, [fileName]);
 
   useEffect(() => {
     const handleModified = () => {
@@ -240,7 +260,12 @@ export default function DashboardPage() {
 
             {/* Chat box assistant */}
             <div id="chat" className="scroll-mt-24">
-              <ChatBox />
+              <ChatBox 
+                messages={chatMessages}
+                setMessages={setChatMessages}
+                question={chatQuestion}
+                setQuestion={setChatQuestion}
+              />
             </div>
           </>
         )}

@@ -39,7 +39,7 @@ def validate_modification_sql(sql: str, table_name: str, intent: str) -> dict:
     
     # Table must exist for modification operations (except for CREATE)
     if intent in ["INSERT", "UPDATE", "DELETE", "MERGE", "ALTER", "TRUNCATE", "RENAME"]:
-        table_pattern = re.compile(rf"\b`?{table_name}`?\b", re.IGNORECASE)
+        table_pattern = re.compile(rf"\b`?{re.escape(table_name)}`?\b", re.IGNORECASE)
         if not table_pattern.search(sql):
             return {
                 "valid": False,
