@@ -73,47 +73,6 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 * **Driver:** PyMySQL
 * **ORM:** SQLAlchemy (Handles schema generation, session orchestration, and query execution safely)
 
-## 📋 Prerequisites
-
-Before running the application, make sure you have the following installed on your system:
-* **Python 3.8+** (with `pip` and `venv` support)
-* **Node.js** (v18.0 or higher)
-* **MySQL Server** (Running locally on port `3306` or hosted)
-
----
-
-## ⚡ Quick Start (1-Click Run)
-
-PromptSQL contains a root-level orchestrator script `run.py` which automates virtual environment creation, dependencies installation (for both backend and frontend), frontend assets compilation, and launches the server.
-
-Simply run the following in your root terminal:
-
-```bash
-python run.py
-```
-
-This will:
-- Check for Python virtual environment (`venv`) and install missing requirements.
-- Execute `npm install` inside the frontend directory.
-- Build static frontend assets (`npm run build`).
-- Start the unified FastAPI Server on **`http://127.0.0.1:8000`** serving both the API backend and the static client files.
-
----
-
-## ⚙️ Environment Configuration
-
-Create a `.env` file in the `/backend` directory. Provide your MySQL credentials, Groq API Key, and a JWT Secret signature key as shown below:
-
-```ini
-MYSQL_USER=root
-MYSQL_PASSWORD=your_mysql_password
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_DATABASE=promptsql_db
-GROQ_API_KEY=gsk_your_actual_groq_api_key
-JWT_SECRET=your_super_secret_jwt_sign_key
-```
-
 ---
 
 ## 🚀 Key Features
@@ -140,31 +99,62 @@ While PromptSQL is highly functional, here are the planned features for future r
 
 ---
 
-## 🔧 Manual Developer Setup
+## 📋 Prerequisites
 
-If you'd like to run frontend and backend separately for hot-reloading development environments:
+Before running the application, make sure you have the following installed on your system:
+* **Python 3.8+** (with `pip` and `venv` support)
+* **Node.js** (v18.0 or higher)
+* **MySQL Server** (Running locally on port `3306` or hosted)
 
-### 1. Setup Backend
+---
+
+## ⚡ Quick Start (1-Click Run)
+
+PromptSQL contains a root-level orchestrator script `run.py` which automates virtual environment creation, dependencies installation (for both backend and frontend), and launches the servers.
+
+Simply run the following in your root terminal:
+
 ```bash
-cd backend
-python -m venv venv
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-pip install -r requirements.txt
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+python run.py
 ```
 
-### 2. Setup Frontend
+This will:
+- Check for Python virtual environment (`venv`) and install missing requirements.
+- Execute `npm install` inside the frontend directory.
+- Prompt you to choose your run mode:
+  1. **Developer Mode**: Concurrently spins up **both** the FastAPI API server (`http://localhost:8000`) and React/Vite development server (`http://localhost:5173`) with live hot-reloading inside a single terminal window.
+  2. **Production Mode**: Compiles the frontend assets (`npm run build`) and serves them from a single port on `http://localhost:8000`.
+
+---
+
+## 🐳 Docker Setup (Zero-Installation Run)
+
+If you don't want to install Python, Node.js, or MySQL locally on your machine, you can run the entire stack inside isolated Docker containers.
+
+1. Configure your API credentials inside the root `docker-compose.yml` environment block.
+2. Build and launch all services with a single command:
+
 ```bash
-cd frontend
-npm install
-npm run dev
+docker-compose up --build
 ```
-The development frontend server will boot up at **`http://localhost:5173`**.
+
+This will automatically pull MySQL, build the FastAPI backend, set up React, and host the live console at **`http://localhost:5173`**.
+
+---
+
+## ⚙️ Environment Configuration
+
+Create a `.env` file in the `/backend` directory. Provide your MySQL credentials, Groq API Key, and a JWT Secret signature key as shown below:
+
+```ini
+MYSQL_USER=root
+MYSQL_PASSWORD=your_mysql_password
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_DATABASE=promptsql_db
+GROQ_API_KEY=gsk_your_actual_groq_api_key
+JWT_SECRET=your_super_secret_jwt_sign_key
+```
 
 ---
 

@@ -58,34 +58,64 @@ def main():
     if not run_command("npm install", cwd=frontend_dir):
         sys.exit(1)
 
-    # 3. Build Frontend
-    log("Building Frontend Assets")
-    if not run_command("npm run build", cwd=frontend_dir):
-        sys.exit(1)
-
-    # 4. Start Integrated Server
-    log("Starting FastAPI Backend (serving frontend at http://localhost:8000)")
-    backend_dir = os.path.join(root_dir, "backend")
+    # 3. Choose running mode
+    print("\n=============================================")
+    print("      PROMPTSQL RUNNER MODE CHOOSER          ")
+    print("=============================================")
+    print(" [1] Developer Mode (Backend + Frontend live reloading side-by-side)")
+    print(" [2] Production Mode (Compiles Frontend and serves on single port http://localhost:8000)")
+    print("=============================================")
     
-    # Run uvicorn via python -m to ensure the venv paths are clean across all platforms
-    uvicorn_cmd = (
-        f'"{venv_python}" -m uvicorn app.main:app '
-        "--host 127.0.0.1 --port 8000 --reload"
-    )
+    choice = input("Select running mode (default=1): ").strip()
+    if choice not in ["1", "2"]:
+        choice = "1"
 
-    # We use subprocess.Popen to let uvicorn take over the console output
-    process = subprocess.Popen(
-        uvicorn_cmd,
-        cwd=backend_dir,
-        shell=True
-    )
-    try:
-        process.wait()
-    except KeyboardInterrupt:
-        print("\nShutting down server...")
-        process.terminate()
+    backend_dir = os.path.join(root_dir, "backend")
+    frontend_dir = os.path.join(root_dir, "frontend")
+    
+    uvicorn_cmd = f'"{venv_python}" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload'
+
+    if choice == "2":
+        # Build Frontend
+        log("Building Frontend Assets")
+        if not run_command("npm run build", cwd=frontend_dir):
+            sys.exit(1)
+            
+        log("Starting FastAPI Backend in Production (serving frontend at http://localhost:8000)")
+        process = subprocess.Popen(uvicorn_cmd, cwd=backend_dir, shell=True)
+        try:
+            process.wait()
+        except KeyboardInterrupt:
+            print("\nShutting down server...")
+            process.terminate()
+    else:
+        # Dev Mode
+        import time
+        log("Starting Developer Mode (Concurrent Live Servers)")
+        print("- FastAPI running at: http://localhost:8000")
+        print("- React/Vite running at: http://localhost:5173 (Hot Reload Active)")
+        
+        # Start both concurrently
+        backend_proc = subprocess.Popen(uvicorn_cmd, cwd=backend_dir, shell=True)
+        frontend_proc = subprocess.Popen("npm run dev", cwd=frontend_dir, shell=True)
+        
+        try:
+            # Poll loop to keep console open and monitor status
+            while True:
+                if backend_proc.poll() is not None:
+                    print("\n[RUN.PY] Backend server terminated unexpectedly.")
+                    break
+                if frontend_proc.poll() is not None:
+                    print("\n[RUN.PY] Frontend server terminated unexpectedly.")
+                    break
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nShutting down developer servers...")
+        finally:
+            # Clean exit
+            backend_proc.terminate()
+            frontend_proc.terminate()
 
 
 if __name__ == "__main__":
     main()
-
