@@ -88,7 +88,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#F7F2EC] flex items-center justify-center p-4">
+    <div className="relative h-screen overflow-hidden bg-[#F7F2EC] flex items-center justify-center p-4">
       {/* Warm background glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-[#5A2F59]/6 rounded-full blur-[100px]" />
@@ -108,7 +108,7 @@ export default function UploadPage() {
         {/* Back link */}
         <button
           onClick={() => navigate("/")}
-          className="group inline-flex gap-1.5 items-center mb-8 text-[#6F6A67] hover:text-[#5A2F59] transition-colors font-medium text-sm cursor-pointer"
+          className="group inline-flex gap-1.5 items-center mb-6 text-[#6F6A67] hover:text-[#5A2F59] transition-colors font-medium text-sm cursor-pointer"
         >
           <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
           <span>Back to home</span>
@@ -116,15 +116,15 @@ export default function UploadPage() {
 
         <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-7 shadow-xl shadow-[#5A2F59]/5">
           {/* Header */}
-          <div className="mb-7">
-            <div className="inline-flex items-center gap-1.5 bg-[#5A2F59]/8 border border-[#5A2F59]/20 px-3 py-1 rounded-full text-[#5A2F59] text-[11px] font-medium mb-4">
+          <div className="mb-6">
+            <div className="inline-flex items-center gap-1.5 bg-[#5A2F59]/8 border border-[#5A2F59]/20 px-3 py-1 rounded-full text-[#5A2F59] text-[11px] font-medium mb-3">
               <Sparkles size={10} className="animate-spin-slow" />
               <span>Dataset Agnostic Engine</span>
             </div>
-            <h1 className="text-2xl font-bold text-[#241C20] tracking-tight">
+            <h1 className="text-xl font-bold text-[#241C20] tracking-tight">
               Upload your dataset
             </h1>
-            <p className="text-[#6F6A67] mt-1.5 text-sm leading-relaxed">
+            <p className="text-[#6F6A67] mt-1 text-xs leading-relaxed">
               Load any structured CSV, XLS, or XLSX file to start querying with AI.
             </p>
           </div>
@@ -135,14 +135,14 @@ export default function UploadPage() {
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
-            onClick={() => !selectedFile && fileInputRef.current?.click()}
-            className={`relative rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-all duration-300 ${
+            onClick={() => !selectedFile && !uploading && fileInputRef.current?.click()}
+            className={`relative rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
               dragActive
                 ? "border-[#5A2F59]/60 bg-[#5A2F59]/5"
                 : selectedFile
                 ? "border-[#3E8E5B]/40 bg-[#3E8E5B]/4 cursor-default"
                 : "border-[#E8DED3] hover:border-[#5A2F59]/40 bg-[#F7F2EC] hover:bg-[#5A2F59]/3"
-            }`}
+            } ${uploading ? "cursor-default" : "cursor-pointer"}`}
           >
             <input
               ref={fileInputRef}
@@ -153,7 +153,33 @@ export default function UploadPage() {
               className="hidden"
             />
 
-            {selectedFile ? (
+            {uploading ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative mb-2">
+                  <div className="absolute inset-0 bg-[#5A2F59]/15 blur-xl rounded-full"></div>
+                  <div className="relative bg-[#FFFDFC] border border-[#E8DED3] w-12 h-12 rounded-xl flex items-center justify-center shadow-sm">
+                    <Loader2 size={20} className="text-[#5A2F59] animate-spin" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-[#241C20] font-semibold text-xs animate-pulse">
+                    Processing {selectedFile?.name}
+                  </h3>
+                  <p className="text-[#6F6A67] text-[10px] mt-0.5">
+                    Detecting schemas, datatypes, and missing values
+                  </p>
+                </div>
+                <div className="w-full bg-[#E8DED3] rounded-full h-1.5 overflow-hidden mt-2 relative">
+                  <div
+                    style={{ width: `${progress}%` }}
+                    className="bg-[#5A2F59] h-full rounded-full transition-all duration-300 relative"
+                  >
+                    <div className="absolute inset-0 bg-[#BDA37A]/30 animate-pulse"></div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-[#5A2F59]">{progress}% Complete</span>
+              </div>
+            ) : selectedFile ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-12 h-12 bg-[#3E8E5B]/10 border border-[#3E8E5B]/25 rounded-xl flex items-center justify-center">
                   <FileSpreadsheet size={22} className="text-[#3E8E5B]" />
@@ -195,41 +221,15 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Loading state */}
-          {uploading ? (
-            <div className="mt-5 bg-[#F7F2EC] rounded-xl p-6 border border-[#E8DED3] flex flex-col items-center justify-center text-center">
-              <div className="relative mb-5">
-                <div className="absolute inset-0 bg-[#5A2F59]/15 blur-xl rounded-full"></div>
-                <div className="relative bg-[#FFFDFC] border border-[#E8DED3] w-14 h-14 rounded-2xl flex items-center justify-center shadow-md">
-                  <Loader2 size={24} className="text-[#5A2F59] animate-spin" />
-                </div>
-              </div>
-              <h3 className="text-[#241C20] font-medium text-sm mb-1.5 animate-pulse">
-                Processing your dataset
-              </h3>
-              <p className="text-[#6F6A67] text-xs mb-5">
-                Detecting schemas, datatypes, and generating analytics
-              </p>
-
-              <div className="w-full bg-[#E8DED3] rounded-full h-1.5 overflow-hidden">
-                <div
-                  style={{ width: `${progress}%` }}
-                  className="bg-[#5A2F59] h-full rounded-full transition-all duration-300 relative"
-                >
-                  <div className="absolute inset-0 bg-[#BDA37A]/30 animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            selectedFile && (
-              <button
-                onClick={handleUpload}
-                className="mt-5 w-full bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] py-3.5 rounded-xl font-semibold hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-md shadow-[#5A2F59]/20 cursor-pointer flex justify-center items-center gap-2 text-sm"
-              >
-                <Database size={15} />
-                <span>Process & Ingest Data</span>
-              </button>
-            )
+          {/* Action button */}
+          {!uploading && selectedFile && (
+            <button
+              onClick={handleUpload}
+              className="mt-5 w-full bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] py-3.5 rounded-xl font-semibold hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-md shadow-[#5A2F59]/20 cursor-pointer flex justify-center items-center gap-2 text-sm"
+            >
+              <Database size={15} />
+              <span>Process & Ingest Data</span>
+            </button>
           )}
 
           {/* Formats hint */}

@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { Brain, Menu, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function Navbar() {
+interface NavbarProps {
+  onStartQuery?: () => void;
+}
+
+export default function Navbar({ onStartQuery }: NavbarProps) {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -16,12 +20,34 @@ export default function Navbar() {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
 
-    // Retrieve authentication status
+    // Retrieve authentication status and check expiration (24h logout safety)
     const token = localStorage.getItem("promptsql_token");
     const storedUsername = localStorage.getItem("promptsql_username") || "";
-    if (token) {
+
+    const isExpired = (t: string | null) => {
+      if (!t) return true;
+      try {
+        const parts = t.split(".");
+        if (parts.length !== 3) return true;
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (typeof payload.exp !== "number") return false;
+        return Math.floor(Date.now() / 1000) >= payload.exp;
+      } catch (e) {
+        return true;
+      }
+    };
+
+    if (token && !isExpired(token)) {
       setIsAuthenticated(true);
       setUsername(storedUsername);
+    } else if (token) {
+      // Clear expired credentials
+      localStorage.removeItem("promptsql_token");
+      localStorage.removeItem("promptsql_user_id");
+      localStorage.removeItem("promptsql_username");
+      sessionStorage.clear();
+      setIsAuthenticated(false);
+      setUsername("");
     }
 
     return () => window.removeEventListener("scroll", handleScroll);
@@ -99,7 +125,11 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
-                      navigate("/upload");
+                      if (onStartQuery) {
+                        onStartQuery();
+                      } else {
+                        navigate("/upload");
+                      }
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/6 transition-colors cursor-pointer"
                   >
@@ -158,7 +188,11 @@ export default function Navbar() {
               <button
                 onClick={() => {
                   setMobileOpen(false);
-                  navigate("/upload");
+                  if (onStartQuery) {
+                    onStartQuery();
+                  } else {
+                    navigate("/upload");
+                  }
                 }}
                 className="w-full text-left px-4 py-2.5 text-sm text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/6 rounded-lg transition"
               >

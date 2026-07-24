@@ -2,7 +2,11 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ScrollFloat from "./ScrollFloat";
 
-export default function CTA() {
+interface CTAProps {
+  onStartQuery?: () => void;
+}
+
+export default function CTA({ onStartQuery }: CTAProps) {
   const navigate = useNavigate();
 
   return (
@@ -40,7 +44,13 @@ export default function CTA() {
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <button
-                  onClick={() => navigate("/upload")}
+                  onClick={() => {
+                    if (onStartQuery) {
+                      onStartQuery();
+                    } else {
+                      navigate("/upload");
+                    }
+                  }}
                   className="group bg-[#BDA37A] hover:bg-[#A8906A] text-[#34182F] font-semibold px-8 py-3.5 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-[#BDA37A]/20"
                 >
                   <span>Upload Your Dataset</span>

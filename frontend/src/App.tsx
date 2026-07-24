@@ -19,7 +19,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("promptsql_token");
   if (token) {
-    return <Navigate to="/upload" replace />;
+    return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }

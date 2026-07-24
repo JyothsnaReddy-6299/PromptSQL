@@ -127,6 +127,21 @@ export async function deleteDataset(tableName: string) {
   return response.json();
 }
 
+export async function createTable(tableName: string, columns: { name: string; type: string }[]) {
+  const response = await fetch(`${API_URL}/datasets/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ table_name: tableName, columns }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed creating table");
+  }
+  return response.json();
+}
+
 
 // -------------------------------------------------------------
 // QUERY HISTORY LOGS API

@@ -38,7 +38,7 @@ export default function SignupPage() {
       localStorage.setItem("promptsql_username", data.username);
       sessionStorage.removeItem("dataset");
       setTimeout(() => {
-        navigate("/upload");
+        navigate("/");
       }, 1000);
     } catch (err: any) {
       setError(err.message || "Failed to create account. Username might be taken.");

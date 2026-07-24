@@ -3,7 +3,6 @@ import {
   Database,
   Brain,
   MessageSquare,
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -224,16 +223,6 @@ export default function DashboardSidebar({
       </div>
 
       <div className="p-2 border-t border-[#5A2F59]/30 space-y-0.5 shrink-0">
-        <button
-          onClick={() => navigate("/upload")}
-          title={collapsed ? "Upload new dataset" : undefined}
-          className={`flex items-center gap-3 w-full px-3 py-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-all cursor-pointer ${
-            collapsed ? "justify-center" : ""
-          }`}
-        >
-          <ArrowLeft size={15} className="text-white/50 group-hover:text-white shrink-0" />
-          {!collapsed && <span className="text-xs font-medium">Upload New</span>}
-        </button>
 
         <button
           onClick={handleLogout}

@@ -25,7 +25,7 @@ export default function LoginPage() {
       localStorage.setItem("promptsql_user_id", data.user_id);
       localStorage.setItem("promptsql_username", data.username);
       sessionStorage.removeItem("dataset");
-      navigate("/upload");
+      navigate("/");
     } catch (err: any) {
       setError(err.message || "Invalid username or password. Please try again.");
     } finally {

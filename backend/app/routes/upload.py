@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends
 import os
-from typing import Optional
+from typing import Optional, List
+from pydantic import BaseModel
 
 from app.services.upload_service import upload_dataset
 from app.services.auth_service import get_current_user_id
@@ -306,3 +307,67 @@ def delete_dataset(table_name: str, user_id: str = Depends(get_current_user_id))
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class ColumnDefinition(BaseModel):
+    name: str
+    type: str
+
+class CreateTableRequest(BaseModel):
+    table_name: str
+    columns: List[ColumnDefinition]
+
+@router.post("/datasets/create")
+def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_current_user_id)):
+    from app.database.connection import engine
+    from sqlalchemy import text
+    import re
+    
+    # 1. Validate Table Name (alphanumeric + underscore only)
+    clean_table_name = re.sub(r'[^a-zA-Z0-9_]', '', req.table_name).lower()
+    if not clean_table_name:
+        raise HTTPException(status_code=400, detail="Invalid table name")
+        
+    physical_table_name = f"{clean_table_name}_usr_{user_id}"
+    
+    # 2. Build Column Definitions SQL
+    col_definitions = []
+    # Always add an auto-incrementing id column as primary key
+    col_definitions.append("`id` INT AUTO_INCREMENT PRIMARY KEY")
+    
+    for col in req.columns:
+        clean_col_name = re.sub(r'[^a-zA-Z0-9_]', '', col.name).lower()
+        if not clean_col_name:
+            continue
+        if clean_col_name == "id":
+            continue # already added
+            
+        # Validate data type against a whitelist
+        allowed_types = ["VARCHAR(255)", "INT", "DOUBLE", "DATE", "TEXT"]
+        selected_type = col.type.upper()
+        if selected_type not in allowed_types:
+            selected_type = "VARCHAR(255)"
+            
+        col_definitions.append(f"`{clean_col_name}` {selected_type} NULL")
+        
+    if len(col_definitions) <= 1:
+        raise HTTPException(status_code=400, detail="Table must have at least one column")
+        
+    # 3. Execute CREATE TABLE
+    sql_create = f"CREATE TABLE `{physical_table_name}` (\n  " + ",\n  ".join(col_definitions) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+    
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(sql_create))
+            
+        # Set active dataset in table manager
+        from app.services.table_manager import set_current_table
+        set_current_table(physical_table_name)
+        
+        return {
+            "success": True, 
+            "table_name": physical_table_name,
+            "message": f"Table '{clean_table_name}' created successfully!"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

@@ -31,7 +31,11 @@ const STATS = [
   { value: "< 1s", label: "Response time" },
 ];
 
-export default function Hero() {
+interface HeroProps {
+  onStartQuery?: () => void;
+}
+
+export default function Hero({ onStartQuery }: HeroProps) {
   const navigate = useNavigate();
 
   return (
@@ -84,7 +88,13 @@ export default function Hero() {
         {/* CTA button */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-16">
           <button
-            onClick={() => navigate("/upload")}
+            onClick={() => {
+              if (onStartQuery) {
+                onStartQuery();
+              } else {
+                navigate("/upload");
+              }
+            }}
             className="group relative w-full sm:w-auto bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] font-semibold px-7 py-3.5 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer shadow-lg shadow-[#5A2F59]/20"
           >
             <Sparkles size={15} className="text-[#BDA37A]" />
