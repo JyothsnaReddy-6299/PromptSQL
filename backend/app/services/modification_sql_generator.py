@@ -55,6 +55,8 @@ def generate_modification_sql(question: str, table_name: str, intent: str) -> st
     12. For TRUNCATE: generate "TRUNCATE TABLE `{friendly_name}`"
     13. For RENAME: generate "RENAME TABLE `{friendly_name}` TO `new_name`"
     14. Output ONLY the raw SQL code. Do NOT explain. Do NOT use markdown code blocks.
+    15. For columns that are NOT specified in the user's question, always use `NULL` or omit them entirely from the INSERT/UPDATE statement (e.g. omit columns like `date_of_birth` or `name` if they are not mentioned).
+    16. NEVER use default placeholder dates like '0000-00-00' or '0000-00-00 00:00:00' because MySQL strict SQL mode (NO_ZERO_DATE) rejects them. Always use `NULL` for date/timestamp columns if the value is not specified.
     
     =========================
     QUESTION

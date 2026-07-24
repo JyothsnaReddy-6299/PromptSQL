@@ -99,6 +99,7 @@ export default function DashboardPage() {
               const updatedMeta = { 
                 ...datasetMeta, 
                 detected_types: data.detected_types,
+                columns: data.columns ? data.columns.length : datasetMeta.columns,
                 missing_values: data.total_missing ?? datasetMeta.missing_values,
                 rows: data.total_rows ?? datasetMeta.rows
               };

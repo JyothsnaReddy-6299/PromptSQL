@@ -328,7 +328,7 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
     if not clean_table_name:
         raise HTTPException(status_code=400, detail="Invalid table name")
         
-    physical_table_name = f"{clean_table_name}_usr_{user_id}"
+    physical_table_name = f"{clean_table_name}_{user_id}"
     
     # 2. Build Column Definitions SQL
     col_definitions = []

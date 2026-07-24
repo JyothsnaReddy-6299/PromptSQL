@@ -72,6 +72,7 @@ export default function QueryWorkspaceModal({ onClose }: QueryWorkspaceModalProp
         // Set local storage and session active dataset
         const friendlyName = res.table_name.split("_usr_")[0];
         sessionStorage.setItem("dataset", JSON.stringify({
+          table_name: res.table_name,
           filename: friendlyName,
           rows: 0,
           columns: columns.length + 1, // include id column

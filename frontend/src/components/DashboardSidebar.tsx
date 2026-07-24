@@ -89,10 +89,16 @@ export default function DashboardSidebar({
     try {
       const res = await setActiveDataset(tableName);
       if (res.success) {
-        setCurrentTable(tableName);
-        const currentData = JSON.parse(sessionStorage.getItem("dataset") || "{}");
         const displayName = tableName.split("_usr_")[0];
-        sessionStorage.setItem("dataset", JSON.stringify({ ...currentData, table_name: tableName, filename: displayName }));
+        setCurrentTable(tableName);
+        sessionStorage.setItem("dataset", JSON.stringify({
+          table_name: tableName,
+          filename: displayName,
+          rows: 0,
+          columns: 0,
+          missing_values: 0,
+          detected_types: {}
+        }));
         window.location.reload();
       }
     } catch (e) {
