@@ -36,7 +36,7 @@
       <br>
     </td>
     <td align="center">
-      <img src="images/ai cleaner.png" alt="Description of Image 4" width="400" />
+      <img src="images/AI data cleaner.png" alt="Description of Image 4" width="400" />
       <br>
     </td>
   </tr>
