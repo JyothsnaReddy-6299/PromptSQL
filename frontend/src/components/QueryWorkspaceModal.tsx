@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Upload, Database, FileSpreadsheet, Plus, Trash2, ArrowLeft, Loader2, PlusCircle } from "lucide-react";
-import { createTable } from "../services/api";
+import { createTable, getPreview, getDatasets, setActiveDataset } from "../services/api";
 
 interface QueryWorkspaceModalProps {
   onClose: () => void;
+  initialView?: "options" | "create";
 }
 
 interface ColumnDef {
@@ -12,9 +13,9 @@ interface ColumnDef {
   type: string;
 }
 
-export default function QueryWorkspaceModal({ onClose }: QueryWorkspaceModalProps) {
+export default function QueryWorkspaceModal({ onClose, initialView = "options" }: QueryWorkspaceModalProps) {
   const navigate = useNavigate();
-  const [view, setView] = useState<"options" | "create">("options");
+  const [view, setView] = useState<"options" | "create">(initialView);
   
   // Table creation form states
   const [tableName, setTableName] = useState("");
@@ -23,11 +24,62 @@ export default function QueryWorkspaceModal({ onClose }: QueryWorkspaceModalProp
     { name: "amount", type: "DOUBLE" }
   ]);
   const [creating, setCreating] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleUseExisting = () => {
-    onClose();
-    navigate("/dashboard");
+  const handleUseExisting = async () => {
+    try {
+      setResolving(true);
+      setError(null);
+      
+      // 1. Try to fetch preview of currently active table
+      const previewRes = await getPreview().catch(() => ({ success: false }));
+      if (previewRes.success && previewRes.table_name) {
+        const friendlyName = previewRes.table_name.split("_usr_")[0];
+        sessionStorage.setItem("dataset", JSON.stringify({
+          table_name: previewRes.table_name,
+          filename: friendlyName,
+          rows: previewRes.total_rows || 0,
+          columns: previewRes.columns ? previewRes.columns.length : 0,
+          missing_values: previewRes.total_missing || 0,
+          detected_types: previewRes.detected_types || {}
+        }));
+        onClose();
+        navigate("/dashboard");
+        return;
+      }
+      
+      // 2. If no active table is set, fetch the user's available datasets
+      const datasetsRes = await getDatasets();
+      if (datasetsRes.success && datasetsRes.datasets && datasetsRes.datasets.length > 0) {
+        const firstTable = datasetsRes.datasets[0];
+        const switchRes = await setActiveDataset(firstTable);
+        if (switchRes.success) {
+          const friendlyName = firstTable.split("_usr_")[0];
+          sessionStorage.setItem("dataset", JSON.stringify({
+            table_name: firstTable,
+            filename: friendlyName,
+            rows: 0,
+            columns: 0,
+            missing_values: 0,
+            detected_types: {}
+          }));
+          onClose();
+          navigate("/dashboard");
+          return;
+        }
+      }
+      
+      // 3. If no datasets are uploaded, redirect to upload
+      onClose();
+      navigate("/upload");
+    } catch (e) {
+      // Fallback
+      onClose();
+      navigate("/upload");
+    } finally {
+      setResolving(false);
+    }
   };
 
   const handleUploadNew = () => {
@@ -142,17 +194,21 @@ export default function QueryWorkspaceModal({ onClose }: QueryWorkspaceModalProp
 
             {/* Options */}
             <div className="space-y-2.5">
-              {/* Use active dataset option */}
               <button
                 onClick={handleUseExisting}
-                className="w-full p-3.5 rounded-2xl bg-[#FFFDFC] border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/3 flex items-center gap-4 transition-all duration-200 text-left cursor-pointer group shadow-sm"
+                disabled={resolving}
+                className="w-full p-3.5 rounded-2xl bg-[#FFFDFC] border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/3 flex items-center gap-4 transition-all duration-200 text-left cursor-pointer group shadow-sm disabled:opacity-75 disabled:cursor-not-allowed"
               >
                 <div className="w-9 h-9 rounded-xl bg-[#5A2F59]/8 border border-[#5A2F59]/15 flex items-center justify-center text-[#5A2F59] shrink-0 group-hover:scale-105 transition-transform">
-                  <FileSpreadsheet size={16} />
+                  {resolving ? (
+                    <Loader2 size={16} className="animate-spin text-[#5A2F59]" />
+                  ) : (
+                    <FileSpreadsheet size={16} />
+                  )}
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-[#241C20] group-hover:text-[#5A2F59] transition-colors">
-                    Use Active Dataset
+                    {resolving ? "Locating active dataset..." : "Use Active Dataset"}
                   </h4>
                   <p className="text-[9px] text-[#6F6A67] mt-0.5 leading-none">
                     Resume analyzing your loaded data
@@ -217,7 +273,7 @@ export default function QueryWorkspaceModal({ onClose }: QueryWorkspaceModalProp
                 value={tableName}
                 onChange={(e) => setTableName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
                 placeholder="e.g. quarterly_targets"
-                className="w-full px-3.5 py-2.5 bg-[#F7F2EC] border border-[#E8DED3] focus:border-[#5A2F59]/40 rounded-xl text-[#241C20] placeholder-[#B0A79E] text-xs focus:outline-none transition-all"
+                className="w-full px-3.5 py-2.5 bg-[#F7F2EC] border border-[#E8DED3] focus:border-[#5A2F59] focus:ring-2 focus:ring-[#5A2F59]/15 rounded-xl text-[#241C20] placeholder-[#B0A79E] text-xs focus:outline-none transition-all"
               />
               <span className="text-[9px] text-[#6F6A67] mt-1 block">
                 Lowercase letters, numbers, and underscores only.
@@ -236,7 +292,7 @@ export default function QueryWorkspaceModal({ onClose }: QueryWorkspaceModalProp
               </div>
 
               {/* Scrollable Column Configuration items */}
-              <div className="max-h-52 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              <div className="max-h-52 overflow-y-auto space-y-2 p-1.5 custom-scrollbar">
                 {columns.map((col, index) => (
                   <div key={index} className="flex gap-2 items-center">
                     <input
@@ -245,12 +301,12 @@ export default function QueryWorkspaceModal({ onClose }: QueryWorkspaceModalProp
                       value={col.name}
                       onChange={(e) => handleColumnChange(index, "name", e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
                       placeholder="column_name"
-                      className="flex-1 px-3 py-2 bg-[#F7F2EC] border border-[#E8DED3] rounded-xl text-[#241C20] placeholder-[#B0A79E] text-xs focus:outline-none focus:border-[#5A2F59]/40 transition-all"
+                      className="flex-1 px-3 py-2 bg-[#F7F2EC] border border-[#E8DED3] focus:border-[#5A2F59] focus:ring-2 focus:ring-[#5A2F59]/15 rounded-xl text-[#241C20] placeholder-[#B0A79E] text-xs focus:outline-none transition-all"
                     />
                     <select
                       value={col.type}
                       onChange={(e) => handleColumnChange(index, "type", e.target.value)}
-                      className="w-28 px-2 py-2 bg-[#F7F2EC] border border-[#E8DED3] rounded-xl text-[#241C20] text-xs focus:outline-none focus:border-[#5A2F59]/40 cursor-pointer"
+                      className="w-28 px-2 py-2 bg-[#F7F2EC] border border-[#E8DED3] focus:border-[#5A2F59] focus:ring-2 focus:ring-[#5A2F59]/15 rounded-xl text-[#241C20] text-xs focus:outline-none cursor-pointer transition-all"
                     >
                       <option value="VARCHAR(255)">TEXT (Varchar)</option>
                       <option value="INT">INTEGER</option>

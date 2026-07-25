@@ -110,11 +110,11 @@ export default function ReportsManager() {
     <div id="reports" className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-2xl shadow-black/10">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
+          <h2 className="text-base font-bold text-[#2C3E50] flex items-center gap-2">
             <FileText className="text-terracotta-500" size={18} />
             <span>Saved Reports</span>
           </h2>
-          <p className="text-zinc-400 text-[10px] mt-0.5 font-semibold">
+          <p className="text-[#566573] text-[10px] mt-0.5 font-semibold">
             Manage, review, and re-export your saved query reports
           </p>
         </div>
@@ -135,10 +135,10 @@ export default function ReportsManager() {
           {error}
         </div>
       ) : reports.length === 0 ? (
-        <div className="h-48 flex flex-col items-center justify-center text-zinc-500 border border-dashed border-white/[0.08] rounded-xl p-4">
+        <div className="h-48 flex flex-col items-center justify-center text-[#95A5A6] border border-dashed border-white/[0.08] rounded-xl p-4">
           <FileText className="text-zinc-600 mb-1" size={24} />
-          <p className="text-xs font-bold text-zinc-300">No reports saved yet.</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">Click the "Save as Report" button inside the AI Assistant chat after running queries.</p>
+          <p className="text-xs font-bold text-[#566573]">No reports saved yet.</p>
+          <p className="text-[10px] text-[#95A5A6] mt-0.5">Click the "Save as Report" button inside the AI Assistant chat after running queries.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -149,35 +149,35 @@ export default function ReportsManager() {
             >
               <div>
                 <div className="flex justify-between items-start gap-2 mb-2">
-                  <h3 className="text-sm font-bold text-white truncate max-w-[80%]" title={report.title}>
+                  <h3 className="text-sm font-bold text-[#2C3E50] truncate max-w-[80%]" title={report.title}>
                     {report.title}
                   </h3>
                   {/* Export Trigger */}
                   <div className="relative">
                     <button
                       onClick={() => setExportMenuId(exportMenuId === report.id ? null : report.id)}
-                      className="p-1 hover:bg-white/[0.04] rounded transition text-zinc-400 hover:text-white cursor-pointer"
+                      className="p-1 hover:bg-[#34495E]/5 rounded transition text-[#566573] hover:text-[#34495E] cursor-pointer"
                       title="Export report"
                     >
                       <Download size={14} className="text-terracotta-500" />
                     </button>
                     {exportMenuId === report.id && (
-                      <div className="absolute right-0 mt-1 bg-[#18181B] border border-white/[0.08] rounded-lg shadow-lg py-1.5 w-24 z-20 text-[10px] font-bold">
+                      <div className="absolute right-0 mt-1 bg-white border border-[#BDC3C7] rounded-lg shadow-lg py-1.5 w-24 z-20 text-[10px] font-bold">
                         <button
                           onClick={() => handleExport(report.id, "pdf", report.title)}
-                          className="w-full text-left px-3 py-1 hover:bg-white/[0.04] flex items-center gap-1.5 cursor-pointer text-zinc-300 hover:text-white"
+                          className="w-full text-left px-3 py-1 hover:bg-[#34495E]/5 flex items-center gap-1.5 cursor-pointer text-[#566573] hover:text-[#34495E]"
                         >
                           PDF Format
                         </button>
                         <button
                           onClick={() => handleExport(report.id, "excel", report.title)}
-                          className="w-full text-left px-3 py-1 hover:bg-white/[0.04] flex items-center gap-1.5 cursor-pointer text-zinc-300 hover:text-white"
+                          className="w-full text-left px-3 py-1 hover:bg-[#34495E]/5 flex items-center gap-1.5 cursor-pointer text-[#566573] hover:text-[#34495E]"
                         >
                           Excel File
                         </button>
                         <button
                           onClick={() => handleExport(report.id, "csv", report.title)}
-                          className="w-full text-left px-3 py-1 hover:bg-white/[0.04] flex items-center gap-1.5 cursor-pointer text-zinc-300 hover:text-white"
+                          className="w-full text-left px-3 py-1 hover:bg-[#34495E]/5 flex items-center gap-1.5 cursor-pointer text-[#566573] hover:text-[#34495E]"
                         >
                           CSV Sheet
                         </button>
@@ -186,11 +186,11 @@ export default function ReportsManager() {
                   </div>
                 </div>
 
-                <p className="text-xs text-zinc-300 font-semibold italic bg-[#09090B] border border-white/[0.06] rounded-lg p-2.5 mb-3 line-clamp-2">
+                <p className="text-xs text-[#566573] font-semibold italic bg-[#09090B] border border-white/[0.06] rounded-lg p-2.5 mb-3 line-clamp-2">
                   "{report.question}"
                 </p>
 
-                <div className="space-y-1.5 text-[10px] text-zinc-400 font-semibold mb-4">
+                <div className="space-y-1.5 text-[10px] text-[#566573] font-semibold mb-4">
                   <div className="flex items-center gap-1">
                     <Database size={12} className="text-zinc-500" />
                     <span className="truncate">{report.table_name.split("_usr_")[0]}</span>
@@ -206,7 +206,7 @@ export default function ReportsManager() {
               <div className="border-t border-white/[0.06] pt-3 mt-auto flex justify-between gap-2">
                 <button
                   onClick={() => handleOpenDetail(report.id)}
-                  className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.08] hover:bg-indigo-500/10 hover:border-indigo-500/30 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-zinc-300 hover:text-white transition cursor-pointer"
+                  className="flex items-center gap-1 bg-[#F4F6F7] border border-[#BDC3C7]/40 hover:bg-[#34495E]/5 hover:border-[#34495E]/30 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-[#566573] hover:text-[#34495E] transition cursor-pointer"
                 >
                   <Eye size={12} />
                   <span>View Details</span>
@@ -218,14 +218,14 @@ export default function ReportsManager() {
                       setRenameId(report.id);
                       setNewTitle(report.title);
                     }}
-                    className="p-1.5 border border-white/[0.08] hover:bg-white/[0.04] rounded-lg text-zinc-400 hover:text-white cursor-pointer transition"
+                    className="p-1.5 border border-[#BDC3C7]/40 hover:bg-[#34495E]/5 rounded-lg text-[#566573] hover:text-[#34495E] cursor-pointer transition"
                     title="Rename report"
                   >
                     <Edit3 size={12} />
                   </button>
                   <button
                     onClick={() => handleDelete(report.id)}
-                    className="p-1.5 border border-white/[0.08] hover:bg-red-500/10 hover:border-red-500/30 rounded-lg text-zinc-400 hover:text-red-400 cursor-pointer transition"
+                    className="p-1.5 border border-[#BDC3C7]/40 hover:bg-red-500/5 hover:border-red-500/20 rounded-lg text-[#566573] hover:text-red-500 cursor-pointer transition"
                     title="Delete report"
                   >
                     <Trash2 size={12} />
@@ -240,14 +240,14 @@ export default function ReportsManager() {
       {/* Rename Modal overlay */}
       {renameId !== null && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-[#111113] border border-white/[0.08] rounded-xl max-w-sm w-full p-5 shadow-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white">Rename Report</h3>
+          <div className="bg-white border border-[#BDC3C7] rounded-xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+            <h3 className="text-sm font-bold text-[#2C3E50]">Rename Report</h3>
             <input
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Enter new report title..."
-              className="w-full bg-[#09090B] border border-white/[0.06] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 focus:bg-[#09090B] text-white font-bold"
+              className="w-full bg-[#F4F6F7] border border-[#BDC3C7] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#34495E] text-[#2C3E50] font-bold"
             />
             <div className="flex justify-end gap-2.5">
               <button
@@ -256,7 +256,7 @@ export default function ReportsManager() {
                   setNewTitle("");
                 }}
                 disabled={renaming}
-                className="px-3 py-1.5 border border-white/[0.08] rounded-lg text-xs font-bold text-zinc-400 hover:bg-white/[0.04] cursor-pointer disabled:opacity-50"
+                className="px-3 py-1.5 border border-[#BDC3C7] rounded-lg text-xs font-bold text-[#566573] hover:bg-[#34495E]/5 cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>

@@ -15,9 +15,9 @@ BLOCKED_KEYWORDS = {
 }
 
 
-def validate_sql(sql_query, table_name):
+def validate_sql(sql_query, user_tables):
     """
-    Validates AI-generated SQL before execution.
+    Validates AI-generated SQL before execution against a list of user-owned tables.
     """
 
     sql = sql_query.strip()
@@ -45,78 +45,43 @@ def validate_sql(sql_query, table_name):
             )
 
     inspector = inspect(engine)
-
-    tables = inspector.get_table_names()
-
-    # ----------------------------
-    # Check table exists
-    # ----------------------------
-
-    if table_name not in tables:
-
-        return (
-            False,
-            f"Table '{table_name}' does not exist."
-        )
+    all_db_tables = inspector.get_table_names()
 
     # ----------------------------
-    # Verify FROM table
+    # Check table permissions (Security)
     # ----------------------------
-
-    match = re.search(
-
-        r"FROM\s+`?([^`\s]+)`?",
-
-        sql,
-
-        re.IGNORECASE
-
-    )
-
-    if not match:
-
-        return (
-            False,
-            "No FROM clause found."
-        )
-
-    used_table = match.group(1)
-
-    if used_table != table_name:
-
-        return (
-            False,
-            "Generated SQL uses the wrong table."
-        )
+    # Verify that the query does NOT access any database tables that are NOT in user_tables
+    for tbl in all_db_tables:
+        if tbl not in user_tables:
+            if re.search(rf"\b{re.escape(tbl)}\b", sql, re.IGNORECASE):
+                return False, f"Access to table '{tbl}' is forbidden."
 
     # ----------------------------
     # Check all backticked columns
     # ----------------------------
 
-    valid_columns = {
-
-        column["name"]
-
-        for column in inspector.get_columns(table_name)
-
-    }
+    valid_columns = set()
+    known_tables = set()
+    for tbl in user_tables:
+        known_tables.add(tbl.lower())
+        friendly = tbl.split("_usr_")[0].lower()
+        known_tables.add(friendly)
+        for col in inspector.get_columns(tbl):
+            valid_columns.add(col["name"].lower())
 
     used_columns = re.findall(
-
         r"`([^`]+)`",
-
         sql
-
     )
 
     for column in used_columns:
-
-        # Skip table name references
-        if column.lower() == table_name.lower():
+        col_lower = column.lower()
+        
+        # Skip table names or aliases that match known tables
+        if col_lower in known_tables:
             continue
 
-        if column not in valid_columns:
-
+        if col_lower not in valid_columns:
             return (
                 False,
                 f"Unknown column '{column}'."

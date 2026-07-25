@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Database,
-  Brain,
   MessageSquare,
   ChevronLeft,
   ChevronRight,
@@ -141,7 +140,7 @@ export default function DashboardSidebar({
             onClick={() => navigate("/")}
             className="w-8 h-8 bg-[#5A2F59] rounded-lg flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-[#5A2F59]/40 transition-all shrink-0 border border-[#BDA37A]/20"
           >
-            <Brain size={16} className="text-[#BDA37A]" />
+            <Database size={16} className="text-[#BDA37A]" />
           </div>
           {!collapsed && (
             <div onClick={() => navigate("/")} className="cursor-pointer">

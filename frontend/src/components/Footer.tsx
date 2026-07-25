@@ -1,4 +1,4 @@
-import { Brain } from "lucide-react";
+import { Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface FooterProps {
@@ -38,7 +38,7 @@ export default function Footer({ onStartQuery }: FooterProps) {
               className="flex items-center gap-2.5 cursor-pointer group mb-4"
             >
               <div className="w-8 h-8 bg-[#5A2F59] border border-[#BDA37A]/20 rounded-lg flex items-center justify-center">
-                <Brain size={16} className="text-[#BDA37A]" />
+                <Database size={16} className="text-[#BDA37A]" />
               </div>
               <span className="text-base font-bold text-[#FFFDFC] group-hover:text-[#BDA37A] transition-colors">
                 PromptSQL

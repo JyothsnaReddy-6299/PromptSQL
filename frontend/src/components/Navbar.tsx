@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Brain, Menu, X, LogOut } from "lucide-react";
+import { Database, Menu, X, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface NavbarProps {
@@ -80,7 +80,7 @@ export default function Navbar({ onStartQuery }: NavbarProps) {
         >
           <div className="relative">
             <div className="w-8 h-8 bg-[#5A2F59] rounded-lg flex items-center justify-center shadow-md shadow-[#5A2F59]/20 group-hover:shadow-[#5A2F59]/35 transition-shadow duration-300">
-              <Brain size={16} className="text-[#BDA37A]" />
+              <Database size={16} className="text-[#BDA37A]" />
             </div>
             <div className="absolute -inset-0.5 bg-[#5A2F59] rounded-lg blur opacity-0 group-hover:opacity-20 transition-opacity duration-300 -z-10" />
           </div>

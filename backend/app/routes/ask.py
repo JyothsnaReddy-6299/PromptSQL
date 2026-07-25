@@ -51,8 +51,20 @@ def ask_question(
             if owner_id != user_id:
                 raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
 
+        # Fetch all user-owned tables to support cross-table joins
+        from app.database.connection import engine
+        from sqlalchemy import inspect
+
+        inspector = inspect(engine)
+        all_tables = inspector.get_table_names()
+        suffix = f"_{user_id}"
+        user_tables = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
+        if table_name not in user_tables:
+            user_tables.append(table_name)
+
         print("\n==============================")
         print("Current Table :", table_name)
+        print("User Tables   :", user_tables)
         print("Question      :", payload.question)
 
         # -----------------------------------------
@@ -61,7 +73,8 @@ def ask_question(
 
         sql_query = generate_sql(
             payload.question,
-            table_name
+            table_name,
+            user_id
         )
 
         print("\nGenerated SQL")
@@ -75,12 +88,15 @@ def ask_question(
         # -----------------------------------------
 
         for _ in range(MAX_RETRIES):
-            # Translate friendly SQL to physical SQL for verification/execution
-            physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_name)}\`?(?!\w)", f"`{table_name}`", sql_query)
+            # Translate all friendly table references to physical table names
+            physical_sql = sql_query
+            for t in user_tables:
+                friendly_tbl = t.split("_usr_")[0]
+                physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_tbl)}\`?(?!\w)", f"`{t}`", physical_sql)
 
             valid, message = validate_sql(
                 physical_sql,
-                table_name
+                user_tables
             )
 
             if valid:
@@ -90,13 +106,17 @@ def ask_question(
             print(message)
 
             # Sanitize physical table name in error message so LLM sees friendly name
-            sanitized_message = message.replace(table_name, friendly_name)
+            sanitized_message = message
+            for t in user_tables:
+                friendly_tbl = t.split("_usr_")[0]
+                sanitized_message = sanitized_message.replace(t, friendly_tbl)
 
             sql_query = regenerate_sql(
                 payload.question,
                 table_name,
                 sql_query,
-                sanitized_message
+                sanitized_message,
+                user_id
             )
 
             print("\nRegenerated SQL")
@@ -113,7 +133,11 @@ def ask_question(
         # Execute SQL
         # -----------------------------------------
 
-        physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_name)}\`?(?!\w)", f"`{table_name}`", sql_query)
+        physical_sql = sql_query
+        for t in user_tables:
+            friendly_tbl = t.split("_usr_")[0]
+            physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_tbl)}\`?(?!\w)", f"`{t}`", physical_sql)
+
         records = execute_sql(physical_sql)
 
         print("\nReturned Records :", len(records))

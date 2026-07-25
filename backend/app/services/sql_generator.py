@@ -14,27 +14,42 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 
-def generate_sql(question, table_name):
+def generate_sql(question, table_name, user_id=None):
+    from app.database.connection import engine
+    from sqlalchemy import inspect
 
-    schema = schema_to_prompt(table_name)
+    inspector = inspect(engine)
+    all_tables = inspector.get_table_names()
+    suffix = f"_{user_id}" if user_id else ""
+    
+    if suffix:
+        user_tables = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
+    else:
+        user_tables = [table_name]
+        
+    if table_name not in user_tables:
+        user_tables.append(table_name)
+        
+    schemas_prompt = ""
+    for t in user_tables:
+        friendly_tbl = t.split("_usr_")[0]
+        tbl_schema = schema_to_prompt(t)
+        schemas_prompt += f"Table: `{friendly_tbl}`\nColumns:\n{tbl_schema}\n"
+
     friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
 
     prompt = f"""
 You are an expert MySQL SQL generator.
 
-You have EXACTLY ONE TABLE.
+You have access to the following tables owned by the user. You can query any of these tables, or JOIN them together if the user's question requires information from multiple tables.
 
 =========================
-TABLE NAME
+TABLES & SCHEMAS
 =========================
 
-`{friendly_name}`
+{schemas_prompt}
 
-=========================
-SCHEMA
-=========================
-
-{schema}
+Active Table: `{friendly_name}` (This is the table the user is currently viewing).
 
 =========================
 YOUR TASK
@@ -58,6 +73,7 @@ Possible intents include:
 • Group-wise aggregation
 • Sorting
 • Date filtering
+• Multi-table joins
 
 Then identify:
 
@@ -67,7 +83,7 @@ Then identify:
 • Grouping column
 • Sorting column
 
-ONLY from the schema above.
+ONLY from the schemas above.
 
 Never invent anything.
 
@@ -87,13 +103,13 @@ CREATE
 TRUNCATE
 REPLACE
 
-3. Use ONLY the table name provided.
+3. Use ONLY the table names listed above. You can JOIN them using foreign/primary key relationships if needed.
 
-4. Use ONLY the column names provided.
+4. Use ONLY the column names listed in their respective schemas.
 
 5. NEVER invent column names.
 
-6. NEVER rename columns.
+6. NEVER rename columns unless using aliases for clarity (e.g. `tableName`.`columnName` or `alias`.`columnName`).
 
 7. Preserve column names EXACTLY as they appear.
 
@@ -190,6 +206,8 @@ Do NOT use markdown.
 18. When filtering strings or text columns using WHERE, always use `LIKE '%value%'` or `TRIM(column) = 'value'` to prevent matching errors due to hidden whitespace in the dataset.
 
 19. NEVER perform mathematical aggregate operations (like SUM, AVG, MIN, MAX) on columns representing identifiers or codes (e.g., column names containing 'id', 'code', 'zip', 'phone', 'ssn', 'pin', 'card', 'account', 'serial', 'number', 'mobile'). If the user requests calculations on these fields, return INVALID_QUERY or count them using COUNT instead.
+
+20. If the user's question is ambiguous and does not mention a specific table name, ALWAYS prioritize and default to querying from the Active Table (`{friendly_name}`) rather than other tables. Only query or join other tables if the question explicitly references them or fields unique to them.
 
 =========================
 QUESTION

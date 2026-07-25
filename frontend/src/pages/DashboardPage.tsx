@@ -9,6 +9,7 @@ import ReportsManager from "../components/ReportsManager";
 import AuditManager from "../components/AuditManager";
 import DataCleaner from "../components/DataCleaner";
 import { getPreview } from "../services/api";
+import QueryWorkspaceModal from "../components/QueryWorkspaceModal";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export default function DashboardPage() {
   const [sortDir, setSortDir] = useState("ASC");
   const [columnMissing, setColumnMissing] = useState<Record<string, number>>({});
   const [columnStats, setColumnStats] = useState<Record<string, any>>({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalView, setModalView] = useState<"options" | "create">("options");
 
   // Lifted Chat Assistant states to preserve conversation across sidebar section switches
   const [chatMessages, setChatMessages] = useState<any[]>([
@@ -206,6 +209,8 @@ export default function DashboardPage() {
           fileName={fileName}
           onRefresh={() => setRefreshTrigger(p => p + 1)}
           isRefreshing={loadingPreview}
+          onUploadClick={() => navigate("/upload")}
+          onCreateTableClick={() => { setModalView("create"); setIsModalOpen(true); }}
         />
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -272,6 +277,13 @@ export default function DashboardPage() {
         )}
         </div>
       </div>
+
+      {isModalOpen && (
+        <QueryWorkspaceModal
+          onClose={() => setIsModalOpen(false)}
+          initialView={modalView}
+        />
+      )}
     </div>
   );
 }
