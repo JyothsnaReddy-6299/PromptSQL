@@ -94,7 +94,6 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 While PromptSQL is highly functional, here are the planned features for future releases to make it an even more powerful workspace:
 
 * 📊 **Auto-Generated Visualizations:** Integrating libraries like `Recharts` or `Chart.js` to automatically generate Bar, Line, and Pie charts directly from the AI-generated SQL results without manual configuration.
-* 🔗 **Multi-Table Joins & Schema Mapping:** Upgrading the prompt engine to support multiple uploaded tables simultaneously, allowing users to ask complex questions that require `JOIN` operations across related datasets.
 * 🔐 **Role-Based Access Control (RBAC):** Introducing granular team permissions (e.g., "Viewer", "Editor", "Admin") so specific users can query data but are restricted from executing DML/DDL modification queries.
 
 ---
