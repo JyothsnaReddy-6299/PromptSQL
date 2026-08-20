@@ -1,14 +1,8 @@
-from groq import Groq
 import os
 from dotenv import load_dotenv
+from app.services.llm_service import call_llm
 
 load_dotenv()
-api_key = os.getenv("GROQ_API_KEY")
-
-if not api_key:
-    raise Exception("GROQ_API_KEY not found.")
-
-client = Groq(api_key=api_key)
 
 
 def detect_intent(question: str) -> str:
@@ -37,22 +31,9 @@ def detect_intent(question: str) -> str:
     """
 
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a precise SQL intent classifier. Output ONLY the uppercase intent word."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.0
-        )
+        system_prompt = "You are a precise SQL intent classifier. Output ONLY the uppercase intent word."
+        intent = call_llm(system_prompt, prompt, temperature=0.0).upper()
         
-        intent = response.choices[0].message.content.strip().upper()
         valid_intents = ["SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "ALTER", "DROP", "RENAME", "TRUNCATE"]
         
         if intent not in valid_intents:

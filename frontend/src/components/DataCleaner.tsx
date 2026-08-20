@@ -91,7 +91,18 @@ export default function DataCleaner({
   }, [selectedColumn, columnMissing]);
 
   const handleConvertType = async (columnName: string, targetType: string) => {
-    const confirmMsg = `The column "${columnName}" is currently stored in TEXT format. Would you like to convert it to ${targetType.toUpperCase()}? Any non-numeric text values in this column will be set to NULL.`;
+    const currentType = detectedTypes[columnName] || "text";
+    if (currentType === targetType) return;
+
+    let confirmMsg = "";
+    if (targetType === "numeric") {
+      confirmMsg = `Convert column "${columnName}" to NUMERIC?\n\nWarning: Any non-numeric values in this column will be set to NULL.`;
+    } else if (targetType === "date") {
+      confirmMsg = `Convert column "${columnName}" to DATE?\n\nWarning: Values will be converted to YYYY-MM-DD format. Invalid date strings will be set to NULL.`;
+    } else {
+      confirmMsg = `Convert column "${columnName}" to TEXT?\n\nThis will modify the database column to VARCHAR(255). No data will be lost.`;
+    }
+
     if (!window.confirm(confirmMsg)) return;
 
     try {
@@ -686,13 +697,28 @@ export default function DataCleaner({
                     <td className="px-4 py-3 font-bold text-zinc-200">{col}</td>
                     <td className="px-4 py-3 font-mono text-[10px] text-zinc-500">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                          (detectedTypes[col] || "text") === "numeric"
-                            ? "text-sky-400 border-sky-500/20 bg-sky-500/10"
-                            : (detectedTypes[col] || "text") === "date"
-                            ? "text-violet-400 border-violet-500/20 bg-violet-500/10"
-                            : "text-zinc-400 border-white/[0.08] bg-white/[0.03]"
-                        }`}>{detectedTypes[col] || "text"}</span>
+                        {col.toLowerCase() === "id" ? (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold border text-zinc-500 border-zinc-300 bg-zinc-50">
+                            numeric (ID)
+                          </span>
+                        ) : (
+                          <select
+                            value={detectedTypes[col] || "text"}
+                            disabled={cleaning || loading}
+                            onChange={(e) => handleConvertType(col, e.target.value)}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold border bg-white cursor-pointer focus:outline-none transition-colors ${
+                              (detectedTypes[col] || "text") === "numeric"
+                                ? "text-sky-700 border-sky-200 bg-sky-50 hover:bg-sky-100"
+                                : (detectedTypes[col] || "text") === "date"
+                                ? "text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100"
+                                : "text-zinc-700 border-zinc-300 bg-zinc-50 hover:bg-zinc-100"
+                            }`}
+                          >
+                            <option value="text">text (VARCHAR)</option>
+                            <option value="numeric">numeric (DOUBLE)</option>
+                            <option value="date">date (DATE)</option>
+                          </select>
+                        )}
                         {/* Show Fix button for columns detected as suspicious */}
                         {suspiciousColumns.find(s => s.column === col) && (
                           <button
@@ -701,16 +727,6 @@ export default function DataCleaner({
                             className="text-[9px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20 cursor-pointer transition flex items-center gap-1"
                           >
                             <Zap size={9} /> Fix → Numeric
-                          </button>
-                        )}
-                        {/* Show plain convert for confirmed text columns by name */}
-                        {!suspiciousColumns.find(s => s.column === col) && (detectedTypes[col] || "text") === "text" && (
-                          <button
-                            onClick={() => handleConvertType(col, "numeric")}
-                            disabled={cleaning || loading}
-                            className="text-[9px] font-bold text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 px-1.5 py-0.5 rounded border border-white/[0.08] hover:border-indigo-500/20 cursor-pointer transition"
-                          >
-                            → Numeric
                           </button>
                         )}
                       </div>

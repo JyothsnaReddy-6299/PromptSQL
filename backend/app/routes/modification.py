@@ -154,10 +154,13 @@ def execute_modification_query(
                 generated_sql=payload.sql,
                 summary=result["message"],
                 result_count=result["rows_affected"],
-                result_json=json.dumps(sanitize_for_json(result.get("records", [])))
+                result_json=json.dumps(sanitize_for_json(result.get("records", []))),
+                undo_sql=result.get("undo_sql")
             )
             db.add(db_history)
             db.commit()
+            db.refresh(db_history)
+            result["history_id"] = db_history.id
         except Exception as history_err:
             print("Failed logging modification query to history:", history_err)
 

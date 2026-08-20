@@ -1,17 +1,9 @@
-from groq import Groq
 from dotenv import load_dotenv
 import os
-
 from app.services.schema_service import schema_to_prompt
+from app.services.llm_service import call_llm
 
 load_dotenv()
-
-api_key = os.getenv("GROQ_API_KEY")
-
-if not api_key:
-    raise Exception("GROQ_API_KEY not found.")
-
-client = Groq(api_key=api_key)
 
 
 def generate_sql(question, table_name, user_id=None):
@@ -216,28 +208,8 @@ QUESTION
 {question}
 """
 
-    response = client.chat.completions.create(
-
-        model="llama-3.3-70b-versatile",
-
-        messages=[
-
-            {
-                "role": "system",
-                "content":
-                "You are an expert MySQL query generator. Never invent tables or columns. Output ONLY the raw SQL code."
-            },
-
-            {
-                "role": "user",
-                "content": prompt
-            }
-
-        ]
-
-    )
-
-    sql = response.choices[0].message.content.strip()
+    system_prompt = "You are an expert MySQL query generator. Never invent tables or columns. Output ONLY the raw SQL code."
+    sql = call_llm(system_prompt, prompt, temperature=0.1)
 
     sql = (
         sql.replace("```sql", "")

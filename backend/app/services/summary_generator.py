@@ -1,13 +1,9 @@
-from groq import Groq
 from dotenv import load_dotenv
 import os
 import json
+from app.services.llm_service import call_llm
 
 load_dotenv()
-
-client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
-)
 
 MAX_RECORDS_FOR_SUMMARY = 20
 
@@ -69,25 +65,5 @@ describe that record clearly.
 briefly summarize them and mention the total count.
 """
 
-    response = client.chat.completions.create(
-
-        model="llama-3.3-70b-versatile",
-
-        messages=[
-
-            {
-                "role": "system",
-                "content":
-                "You summarize SQL query results accurately without inventing information."
-            },
-
-            {
-                "role": "user",
-                "content": prompt
-            }
-
-        ]
-
-    )
-
-    return response.choices[0].message.content.strip()
+    system_prompt = "You summarize SQL query results accurately without inventing information."
+    return call_llm(system_prompt, prompt, temperature=0.1)

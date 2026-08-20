@@ -120,7 +120,7 @@ export default function Navbar({ onStartQuery }: NavbarProps) {
               {dropdownOpen && (
                 <div className="absolute right-0 mt-2.5 w-48 bg-[#FFFDFC] backdrop-blur-xl border border-[#E8DED3] rounded-xl shadow-xl shadow-[#5A2F59]/8 py-1.5 z-50 text-left">
                   <div className="px-4 py-2 border-b border-[#E8DED3] text-xs text-[#6F6A67]">
-                    Signed in as <span className="font-semibold text-[#241C20] block truncate">{username}</span>
+                    User: <span className="font-semibold text-[#241C20] inline-block max-w-[110px] align-bottom truncate ml-1">{username}</span>
                   </div>
                   <button
                     onClick={() => {
@@ -183,7 +183,7 @@ export default function Navbar({ onStartQuery }: NavbarProps) {
           {isAuthenticated ? (
             <div className="mt-3 border-t border-[#E8DED3] pt-3 space-y-2">
               <div className="px-4 text-xs text-[#6F6A67]">
-                Signed in as <span className="text-[#241C20] font-semibold">{username}</span>
+                User: <span className="text-[#241C20] font-semibold">{username}</span>
               </div>
               <button
                 onClick={() => {

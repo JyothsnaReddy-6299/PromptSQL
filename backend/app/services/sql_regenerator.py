@@ -1,14 +1,9 @@
-from groq import Groq
 from dotenv import load_dotenv
 import os
-
 from app.services.schema_service import schema_to_prompt
+from app.services.llm_service import call_llm
 
 load_dotenv()
-
-client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
-)
 
 
 def regenerate_sql(
@@ -93,25 +88,8 @@ Rules:
 Return ONLY SQL.
 """
 
-    response = client.chat.completions.create(
-
-        model="llama-3.3-70b-versatile",
-
-        messages=[
-            {
-                "role": "system",
-                "content":
-                "You repair invalid MySQL queries. Output ONLY raw SQL. No markdown wrappers."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-
-    )
-
-    sql = response.choices[0].message.content.strip()
+    system_prompt = "You repair invalid MySQL queries. Output ONLY raw SQL. No markdown wrappers."
+    sql = call_llm(system_prompt, prompt, temperature=0.1)
 
     sql = (
         sql

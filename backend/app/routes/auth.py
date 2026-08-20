@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel #checks user input like the datatype is correct or not
 
 from app.database.connection import SessionLocal
 from app.models.user import User
@@ -24,7 +24,7 @@ def signup(req: AuthRequest, db: Session = Depends(get_db)):
     username = req.username.strip().lower()
     if not username or not req.password:
         raise HTTPException(status_code=400, detail="Username and password are required")
-    
+     
     # Check if user already exists
     existing = db.query(User).filter(User.username == username).first()
     if existing:

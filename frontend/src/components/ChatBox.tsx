@@ -29,7 +29,8 @@ import {
   downloadActiveCSV,
   askModification,
   executeModification,
-  askQuestion
+  askQuestion,
+  undoHistoryItem
 } from "../services/api";
 
 interface Message {
@@ -52,6 +53,9 @@ interface Message {
   rows_affected?: number;
   execution_time_ms?: number;
   canceled?: boolean;
+  history_id?: number;
+  is_undone?: boolean;
+  is_undoing?: boolean;
 }
 
 interface ChatBoxProps {
@@ -259,6 +263,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
         finalized[idx].rows_affected = result.rows_affected;
         finalized[idx].execution_time_ms = result.execution_time_ms;
         finalized[idx].records = result.records || []; // Save modified/inserted records
+        finalized[idx].history_id = result.history_id;
         
         // Dispatch window event so explorer table fetches latest mysql table rows immediately!
         window.dispatchEvent(new Event("dataset-modified"));
@@ -287,6 +292,38 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
     updated[idx].canceled = true;
     updated[idx].text = "Database modification operation was canceled by the user.";
     setMessages(updated);
+  };
+
+  const handleUndo = async (idx: number, historyId: number) => {
+    try {
+      const updating = [...messages];
+      updating[idx].is_undoing = true;
+      setMessages(updating);
+
+      const result = await undoHistoryItem(historyId);
+
+      const finalized = [...messages];
+      finalized[idx].is_undoing = false;
+      
+      if (result.success) {
+        finalized[idx].is_undone = true;
+        finalized[idx].text = "Database changes successfully rolled back! (Undone)";
+        
+        // Dispatch window event so explorer table fetches latest mysql table rows immediately!
+        window.dispatchEvent(new Event("dataset-modified"));
+        
+        // Refresh sidebar history drawer
+        loadHistoryLogs();
+      } else {
+        finalized[idx].error = result.message || "Failed to undo change.";
+      }
+      setMessages(finalized);
+    } catch (err: any) {
+      const finalized = [...messages];
+      finalized[idx].is_undoing = false;
+      finalized[idx].error = err.message || "Failed to undo change.";
+      setMessages(finalized);
+    }
   };
 
   // Reopen query history offline
@@ -459,9 +496,32 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
                   {/* Success metrics */}
                   {!msg.requires_confirmation && msg.rows_affected !== undefined && (
-                    <div className="mt-3 pt-2.5 border-t border-white/[0.12]/50 flex gap-4 text-[9.5px] font-bold text-zinc-500">
-                      <span>Rows affected: <strong className="text-warmgray-850">{msg.rows_affected}</strong></span>
-                      <span>Execution time: <strong className="text-warmgray-850">{msg.execution_time_ms} ms</strong></span>
+                    <div className="mt-3 pt-2.5 border-t border-[#E8DED3] flex items-center justify-between text-[9.5px] font-bold text-zinc-500">
+                      <div className="flex gap-4">
+                        <span>Rows affected: <strong className="text-zinc-700">{msg.rows_affected}</strong></span>
+                        <span>Execution time: <strong className="text-zinc-700">{msg.execution_time_ms} ms</strong></span>
+                      </div>
+                      
+                      {msg.history_id && !msg.is_undone && (
+                        <button
+                          onClick={() => handleUndo(idx, msg.history_id!)}
+                          disabled={msg.is_undoing}
+                          className="flex items-center gap-1 text-[#D95D39] hover:text-[#c44f2d] bg-[#D95D39]/5 hover:bg-[#D95D39]/10 border border-[#D95D39]/20 px-2 py-0.5 rounded-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                        >
+                          {msg.is_undoing ? (
+                            <Loader2 size={10} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={10} />
+                          )}
+                          <span>{msg.is_undoing ? "Undoing..." : "Undo Change"}</span>
+                        </button>
+                      )}
+
+                      {msg.is_undone && (
+                        <span className="text-[#3E8E5B] bg-[#3E8E5B]/5 px-2 py-0.5 rounded-md border border-[#3E8E5B]/20">
+                          ✓ Undone
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

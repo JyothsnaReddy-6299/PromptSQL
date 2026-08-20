@@ -1,14 +1,8 @@
-from groq import Groq
 import os
 from dotenv import load_dotenv
+from app.services.llm_service import call_llm
 
 load_dotenv()
-api_key = os.getenv("GROQ_API_KEY")
-
-if not api_key:
-    raise Exception("GROQ_API_KEY not found.")
-
-client = Groq(api_key=api_key)
 
 
 def explain_impact(sql: str, table_name: str, intent: str, estimated_rows: int) -> str:
@@ -33,21 +27,8 @@ def explain_impact(sql: str, table_name: str, intent: str, estimated_rows: int) 
     """
     
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a database impact analyst. Provide a short 1-2 sentence warning/explanation of the query's impact."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.1
-        )
-        return response.choices[0].message.content.strip()
+        system_prompt = "You are a database impact analyst. Provide a short 1-2 sentence warning/explanation of the query's impact."
+        return call_llm(system_prompt, prompt, temperature=0.1)
     except Exception:
         # Fallback explanations
         if intent == "DELETE":

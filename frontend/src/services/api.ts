@@ -168,6 +168,17 @@ export async function clearHistory() {
   return response.json();
 }
 
+export async function undoHistoryItem(id: number) {
+  const response = await fetch(`${API_URL}/api/history/${id}/undo`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to undo database change");
+  }
+  return response.json();
+}
+
 // -------------------------------------------------------------
 // SAVED REPORTS API
 // -------------------------------------------------------------

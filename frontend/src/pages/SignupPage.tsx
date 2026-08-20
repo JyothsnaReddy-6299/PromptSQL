@@ -48,7 +48,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative h-screen bg-[#F7F2EC] flex items-center justify-center p-4 overflow-hidden font-sans">
+    <div className="relative min-h-screen bg-[#F7F2EC] flex items-center justify-center p-4 overflow-y-auto py-12 font-sans">
       {/* Warm background glows */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#5A2F59]/8 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-[#BDA37A]/10 rounded-full blur-[120px] pointer-events-none" />

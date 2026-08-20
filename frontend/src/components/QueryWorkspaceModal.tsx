@@ -70,13 +70,11 @@ export default function QueryWorkspaceModal({ onClose, initialView = "options" }
         }
       }
       
-      // 3. If no datasets are uploaded, redirect to upload
-      onClose();
-      navigate("/upload");
+      // 3. If no datasets are uploaded, show error message instead of redirecting
+      setError("No datasets present, upload dataset to work");
     } catch (e) {
       // Fallback
-      onClose();
-      navigate("/upload");
+      setError("No datasets present, upload dataset to work");
     } finally {
       setResolving(false);
     }
@@ -191,6 +189,12 @@ export default function QueryWorkspaceModal({ onClose, initialView = "options" }
             <p className="text-xs text-[#6F6A67] leading-relaxed mb-5">
               Would you like to continue querying your active dataset, upload a new spreadsheet file, or manually create a clean custom table?
             </p>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-500/5 border border-red-500/15 rounded-xl text-red-500 text-[10px] leading-tight font-medium">
+                {error}
+              </div>
+            )}
 
             {/* Options */}
             <div className="space-y-2.5">

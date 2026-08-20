@@ -20,6 +20,24 @@ from app.routes.auth import router as auth_router
 # Auto-initialize database tables in MySQL
 Base.metadata.create_all(bind=engine)
 
+# Self-healing database check to automatically add undo_sql column to existing query_history table
+def check_and_add_undo_column():
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(engine)
+        if "query_history" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("query_history")]
+            if "undo_sql" not in columns:
+                print("[STARTUP] Adding 'undo_sql' column to query_history table...")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE query_history ADD COLUMN undo_sql TEXT NULL"))
+                    conn.execute(text("COMMIT"))
+                print("[STARTUP] 'undo_sql' column added successfully!")
+    except Exception as e:
+        print("[STARTUP] Failed database schema check for undo_sql column:", e)
+
+check_and_add_undo_column()
+
 app = FastAPI(title="AI Analytics API")
 
 app.add_middleware(

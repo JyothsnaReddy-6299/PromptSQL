@@ -49,6 +49,75 @@ def extract_first_insert_identity(sql: str) -> tuple:
     return None, None
 
 
+def generate_undo_sql(intent: str, table_name: str, records_before: list, records_after: list) -> str:
+    from sqlalchemy import inspect
+    from app.database.connection import engine
+    
+    try:
+        inspector = inspect(engine)
+        pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
+        if not pk_cols:
+            cols = [c["name"] for c in inspector.get_columns(table_name)]
+            if cols:
+                pk_cols = [cols[0]]
+                
+        if not pk_cols:
+            return None
+            
+        pk_col = pk_cols[0]
+        
+        def format_value(val):
+            if val is None:
+                return "NULL"
+            if isinstance(val, (int, float)):
+                return str(val)
+            escaped = str(val).replace("'", "''")
+            return f"'{escaped}'"
+
+        if intent == "INSERT":
+            if not records_after:
+                return None
+            delete_queries = []
+            for rec in records_after:
+                pk_val = rec.get(pk_col)
+                if pk_val is not None:
+                    delete_queries.append(f"DELETE FROM `{table_name}` WHERE `{pk_col}` = {format_value(pk_val)}")
+            return "; ".join(delete_queries) if delete_queries else None
+            
+        elif intent == "DELETE":
+            if not records_before:
+                return None
+            insert_queries = []
+            for rec in records_before:
+                cols = list(rec.keys())
+                vals = [format_value(rec[c]) for c in cols]
+                cols_str = ", ".join(f"`{c}`" for c in cols)
+                vals_str = ", ".join(vals)
+                insert_queries.append(f"INSERT INTO `{table_name}` ({cols_str}) VALUES ({vals_str})")
+            return "; ".join(insert_queries) if insert_queries else None
+            
+        elif intent == "UPDATE":
+            if not records_before:
+                return None
+            update_queries = []
+            for rec in records_before:
+                pk_val = rec.get(pk_col)
+                if pk_val is None:
+                    continue
+                set_parts = []
+                for col, val in rec.items():
+                    if col != pk_col:
+                        set_parts.append(f"`{col}` = {format_value(val)}")
+                set_str = ", ".join(set_parts)
+                update_queries.append(f"UPDATE `{table_name}` SET {set_str} WHERE `{pk_col}` = {format_value(pk_val)}")
+            return "; ".join(update_queries) if update_queries else None
+    except Exception as undo_err:
+        print("Failed to generate undo SQL:", undo_err)
+        return None
+        
+    return None
+
+
 def execute_modification(sql: str, table_name: str, intent: str) -> dict:
     """
     Executes a DML or DDL query inside a transaction, rolling back automatically
@@ -56,10 +125,11 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
     """
     start_time = time.time()
     records = []
+    records_before = []
     
     try:
-        # Pre-fetch records if it is a DELETE operation (to know what was deleted)
-        if intent == "DELETE":
+        # Pre-fetch records if it is a DELETE or UPDATE operation (to know previous state)
+        if intent in ["DELETE", "UPDATE"]:
             try:
                 sql_lower = sql.lower()
                 where_idx = sql_lower.find("where")
@@ -72,9 +142,9 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
                     select_sql = select_sql[:-1]
                 with engine.connect() as conn:
                     res = conn.execute(text(select_sql))
-                    records = [dict(row._mapping) for row in res]
+                    records_before = [dict(row._mapping) for row in res]
             except Exception as select_err:
-                print("Failed pre-fetching deleted records:", select_err)
+                print("Failed pre-fetching records before modification:", select_err)
 
         # Execute query transactionally
         with engine.begin() as connection:
@@ -131,6 +201,12 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
             except Exception as update_err:
                 print("Failed post-fetching updated records:", update_err)
 
+        # Generate the Undo SQL query string
+        undo_sql = None
+        if intent in ["INSERT", "UPDATE", "DELETE"] and rows_affected > 0:
+            records_after = records if intent == "INSERT" else []
+            undo_sql = generate_undo_sql(intent, table_name, records_before, records_after)
+
         ai_message = generate_confirmation_message(intent, table_name, rows_affected, sql)
         
         return {
@@ -140,6 +216,7 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
             "sql": sql,
             "message": ai_message,
             "records": records,
+            "undo_sql": undo_sql,
             "error": None
         }
     except Exception as e:
@@ -151,6 +228,7 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
             "sql": sql,
             "message": "Database execution failed. Transaction rolled back successfully.",
             "records": [],
+            "undo_sql": None,
             "error": str(e)
         }
 

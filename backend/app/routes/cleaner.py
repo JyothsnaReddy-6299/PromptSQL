@@ -25,7 +25,8 @@ def get_db():
 
 
 def get_secure_active_table(user_id: str) -> str:
-    """Helper to retrieve and verify ownership of the active dataset table."""
+    """Helper to retrieve and verify ownership of the active dataset table.""" # this is a doc srtring It describes what the function does. It doesn't affect execution.
+                                                                             #If another developer hovers over the function, they'll see this description.
     table_name = get_current_table()
     if not table_name:
         raise HTTPException(
@@ -42,7 +43,7 @@ def get_secure_active_table(user_id: str) -> str:
     return table_name
 
 
-class ImputeRequest(BaseModel):
+class ImputeRequest(BaseModel): # basemodel is imp class of pydantic, define structure of data your API expects
     column_name: str
     strategy: str
     custom_value: Optional[str] = None

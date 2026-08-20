@@ -16,4 +16,5 @@ class QueryHistory(Base):
     summary = Column(Text, nullable=False)
     result_count = Column(Integer, default=0, nullable=False)
     result_json = Column(Text(16777215), nullable=True)  # Store query output records for offline reopenings
+    undo_sql = Column(Text, nullable=True)  # Store the SQL statement needed to revert this modification query
     timestamp = Column(DateTime, default=get_ist_time, nullable=False)
