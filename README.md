@@ -6,7 +6,7 @@
   [![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
   [![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-  [![Groq Llama 3](https://img.shields.io/badge/Groq_Llama_3-f55a2a?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
+  [![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white)](https://ai.google.dev/)
 
   *An **Natural Language to SQL (NL-to-SQL) analytics console** that bridges the gap between raw datasets and business insights. Upload any CSV or Excel file, and chat with your database directly using natural language. The system automatically creates isolated tables, translates your questions into optimized SQL, executes them safely alongside AI-interpreted summaries.*
 
@@ -66,7 +66,7 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 * **Data Processing:** Pandas (for high-speed statistical calculations and file parsing)
 * **Validation & Types:** Pydantic
 * **Authentication:** Stateless JWT (JSON Web Tokens) with Bcrypt password hashing
-* **AI Integration:** Groq API (Powered by Llama 3 for lightning-fast NL2SQL inference)
+* **AI Integration:** Gemini API key
 
 **Database & ORM**
 * **Engine:** MySQL
@@ -143,7 +143,7 @@ This will automatically pull MySQL, build the FastAPI backend, set up React, and
 
 ## ⚙️ Environment Configuration
 
-Create a `.env` file in the `/backend` directory. Provide your MySQL credentials, Groq API Key, and a JWT Secret signature key as shown below:
+Create a `.env` file in the `/backend` directory. Provide your MySQL credentials, Gemini API Key, and a JWT Secret signature key as shown below:
 
 ```ini
 MYSQL_USER=root
@@ -151,7 +151,7 @@ MYSQL_PASSWORD=your_mysql_password
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_DATABASE=promptsql_db
-GROQ_API_KEY=gsk_your_actual_groq_api_key
+GEMINI_API_KEY=your_actual_gemini_api_key
 JWT_SECRET=your_super_secret_jwt_sign_key
 ```
 
