@@ -39,6 +39,7 @@ uploads/
 # Python cache (if used later)
 __pycache__/
 *.pyc
+venv/
 
 # Local config
 *.local

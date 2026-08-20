@@ -671,14 +671,14 @@ export default function DataCleaner({
       </div>
 
       {/* Dataset Audit details Table */}
-      <div className="bg-[#111113] border border-white/[0.06] rounded-2xl p-5 shadow-2xl shadow-black/10 space-y-4">
-        <h3 className="text-xs font-bold text-white flex items-center gap-2">
-          <Database className="text-indigo-400" size={15} />
+      <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
+          <Database className="text-[#5A2F59]" size={15} />
           <span>Column Schema Health Audit</span>
         </h3>
-        <div className="overflow-x-auto border border-white/[0.06] rounded-xl max-h-[300px]">
-          <table className="min-w-full border-collapse text-left text-xs text-zinc-300">
-            <thead className="bg-[#0D0D0F] sticky top-0 border-b border-white/[0.06] z-10 font-bold text-[9px] uppercase text-zinc-500 tracking-wider">
+        <div className="overflow-x-auto border border-[#E8DED3] rounded-xl max-h-[300px]">
+          <table className="min-w-full border-collapse text-left text-xs text-[#241C20]">
+            <thead className="bg-[#F7F2EC] sticky top-0 border-b border-[#E8DED3] z-10 font-bold text-[9px] uppercase text-[#6F6A67] tracking-wider">
               <tr>
                 <th className="px-4 py-3.5">Column Name</th>
                 <th className="px-4 py-3.5">Detected Type</th>
@@ -687,15 +687,15 @@ export default function DataCleaner({
                 <th className="px-4 py-3.5">Statistics</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04] bg-[#111113] font-semibold">
+            <tbody className="divide-y divide-[#E8DED3] bg-[#FFFDFC] font-semibold">
               {columns.map((col) => {
                 const nullsCount = columnMissing[col] || 0;
                 const isHealthy = nullsCount === 0;
                 const stats = columnStats?.[col];
                 return (
-                  <tr key={col} className="hover:bg-white/[0.02] transition">
-                    <td className="px-4 py-3 font-bold text-zinc-200">{col}</td>
-                    <td className="px-4 py-3 font-mono text-[10px] text-zinc-500">
+                  <tr key={col} className="hover:bg-[#5A2F59]/5 transition">
+                    <td className="px-4 py-3 font-bold text-[#241C20]">{col}</td>
+                    <td className="px-4 py-3 font-mono text-[10px] text-[#6F6A67]">
                       <div className="flex items-center gap-2 flex-wrap">
                         {col.toLowerCase() === "id" ? (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-bold border text-zinc-500 border-zinc-300 bg-zinc-50">
@@ -710,7 +710,7 @@ export default function DataCleaner({
                               (detectedTypes[col] || "text") === "numeric"
                                 ? "text-sky-700 border-sky-200 bg-sky-50 hover:bg-sky-100"
                                 : (detectedTypes[col] || "text") === "date"
-                                ? "text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100"
+                                ? "text-violet-750 border-violet-200 bg-violet-50 hover:bg-violet-100"
                                 : "text-zinc-700 border-zinc-300 bg-zinc-50 hover:bg-zinc-100"
                             }`}
                           >
@@ -724,22 +724,22 @@ export default function DataCleaner({
                           <button
                             onClick={() => handleExtractAndConvert(col)}
                             disabled={cleaning || loading}
-                            className="text-[9px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20 cursor-pointer transition flex items-center gap-1"
+                            className="text-[9px] font-bold text-amber-600 hover:text-amber-700 bg-amber-550/10 hover:bg-amber-550/20 px-2 py-0.5 rounded border border-amber-550/20 cursor-pointer transition flex items-center gap-1"
                           >
                             <Zap size={9} /> Fix → Numeric
                           </button>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center text-zinc-200">{nullsCount}</td>
+                    <td className="px-4 py-3 text-center text-[#241C20]">{nullsCount}</td>
                     <td className="px-4 py-3">
                       {isHealthy ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold bg-emerald-500/[0.06] px-2 py-0.5 border border-emerald-500/20 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 font-bold bg-emerald-550/[0.06] px-2 py-0.5 border border-emerald-500/20 rounded-full">
                           <CheckCircle size={10} />
                           <span>100% Clean</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-bold bg-amber-500/[0.06] px-2 py-0.5 border border-amber-500/20 rounded-full">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 font-bold bg-amber-550/[0.06] px-2 py-0.5 border border-amber-500/20 rounded-full">
                           <AlertTriangle size={10} />
                           <span>Needs Review</span>
                         </span>
@@ -747,14 +747,14 @@ export default function DataCleaner({
                     </td>
                     <td className="px-4 py-3">
                       {stats ? (
-                        <div className="flex flex-wrap gap-2 text-[9px] font-mono text-zinc-400">
-                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Mean: {stats.mean?.toFixed(2)}</span>
-                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Med: {stats.median?.toFixed(2)}</span>
-                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Min: {stats.min?.toFixed(2)}</span>
-                          <span className="bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded">Max: {stats.max?.toFixed(2)}</span>
+                        <div className="flex flex-wrap gap-2 text-[9px] font-mono text-[#6F6A67]">
+                          <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Mean: {stats.mean?.toFixed(2)}</span>
+                          <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Med: {stats.median?.toFixed(2)}</span>
+                          <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Min: {stats.min?.toFixed(2)}</span>
+                          <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Max: {stats.max?.toFixed(2)}</span>
                         </div>
                       ) : (
-                        <span className="text-[9px] text-zinc-600 font-medium italic">N/A (Non-numeric)</span>
+                        <span className="text-[9px] text-[#6F6A67] font-medium italic">N/A (Non-numeric)</span>
                       )}
                     </td>
                   </tr>
