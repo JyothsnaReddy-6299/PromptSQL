@@ -11,3 +11,5 @@ python-multipart
 cryptography
 pyjwt
 bcrypt
+groq
+httpx
