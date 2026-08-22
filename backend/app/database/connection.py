@@ -16,7 +16,15 @@ DATABASE_URL = (
     f"@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
 )
 
-engine = create_engine(DATABASE_URL, echo=False)
+connect_args = {}
+if MYSQL_HOST and MYSQL_HOST != "localhost" and MYSQL_HOST != "127.0.0.1":
+    connect_args = {
+        "ssl": {
+            "check_hostname": False
+        }
+    }
+
+engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
