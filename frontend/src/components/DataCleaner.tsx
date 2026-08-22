@@ -141,7 +141,7 @@ export default function DataCleaner({
       setCleaning(false);
     }
   };
-  const [strategy, setStrategy] = useState("mean");
+  const [strategy, setStrategy] = useState("mode");
   const [customValue, setCustomValue] = useState("");
 
   const handleRemoveDuplicates = async () => {
@@ -386,12 +386,7 @@ export default function DataCleaner({
                 value={selectedColumn}
                 onChange={(e) => {
                   setSelectedColumn(e.target.value);
-                  // Default to mode if non-numeric
-                  if (e.target.value && !isNumericType(e.target.value)) {
-                    setStrategy("mode");
-                  } else {
-                    setStrategy("mean");
-                  }
+                  setStrategy("mode");
                 }}
                 className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer"
               >
@@ -413,12 +408,6 @@ export default function DataCleaner({
                 disabled={!selectedColumn}
                 className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer disabled:opacity-50"
               >
-                {selectedColumn && isNumericType(selectedColumn) && (
-                  <>
-                    <option value="mean">Mean (Fill with Average)</option>
-                    <option value="median">Median (Fill with Middle Value)</option>
-                  </>
-                )}
                 <option value="mode">Mode (Fill with Most Frequent)</option>
                 <option value="custom">Custom (Specify value below)</option>
                 <option value="drop">Drop Rows (Delete rows where column is null)</option>
@@ -441,7 +430,7 @@ export default function DataCleaner({
           )}
 
           {/* Numeric/Sales Columns Warning */}
-          {selectedColumn && (isNumericType(selectedColumn) || selectedColumn.toLowerCase().includes("sale") || selectedColumn.toLowerCase().includes("price") || selectedColumn.toLowerCase().includes("quantity")) && (strategy === "custom" || strategy === "mode" || strategy === "mean" || strategy === "median") && (
+          {selectedColumn && (isNumericType(selectedColumn) || selectedColumn.toLowerCase().includes("sale") || selectedColumn.toLowerCase().includes("price") || selectedColumn.toLowerCase().includes("quantity")) && (strategy === "custom" || strategy === "mode") && (
             <div className="bg-amber-500/[0.06] border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-2.5 text-[10px] text-amber-700 font-semibold animate-fade-in text-left">
               <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
               <div>
@@ -748,8 +737,6 @@ export default function DataCleaner({
                     <td className="px-4 py-3">
                       {stats ? (
                         <div className="flex flex-wrap gap-2 text-[9px] font-mono text-[#6F6A67]">
-                          <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Mean: {stats.mean?.toFixed(2)}</span>
-                          <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Med: {stats.median?.toFixed(2)}</span>
                           <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Min: {stats.min?.toFixed(2)}</span>
                           <span className="bg-[#F7F2EC] border border-[#E8DED3] px-1.5 py-0.5 rounded">Max: {stats.max?.toFixed(2)}</span>
                         </div>
