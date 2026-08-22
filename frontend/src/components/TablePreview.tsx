@@ -242,7 +242,7 @@ export default function TablePreview({
           {/* Footer Controls */}
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px]">
             <span className="text-[#6F6A67] font-medium">
-              Showing {paginatedRecords.length} out of {totalRows || totalItems} entries
+              Showing {totalItems} out of {totalRows || totalItems} entries
               {searchTerm && " (filtered)"}
             </span>
 

@@ -112,16 +112,12 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   const [savingReport, setSavingReport] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isFirstMount = useRef(true);
 
   const dataset = JSON.parse(sessionStorage.getItem("dataset") || "{}");
   const activeTableName = dataset?.filename || "Active Dataset";
 
   useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
+    if (messages.length <= 1 && !loading) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
