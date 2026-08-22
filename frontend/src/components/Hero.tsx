@@ -28,7 +28,7 @@ function Typewriter({ text, delay = 0, speed = 55 }: { text: string; delay?: num
 const STATS = [
   { value: "10x", label: "Faster than writing SQL" },
   { value: "99%", label: "Query accuracy" },
-  { value: "< 1s", label: "Response time" },
+  { value: "< 5s", label: "Response time" },
 ];
 
 interface HeroProps {

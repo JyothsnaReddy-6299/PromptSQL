@@ -5,7 +5,7 @@ const features = [
   {
     icon: <Brain size={20} />,
     title: "Natural Language Queries",
-    desc: "Ask questions in plain English. Our AI maps your schema and generates optimized MySQL queries in milliseconds.",
+    desc: "Ask questions in plain English. Our AI maps your schema and generates optimized MySQL queries in seconds.",
     badge: "Core",
     iconBg: "bg-[#5A2F59]",
     iconText: "text-[#BDA37A]",
