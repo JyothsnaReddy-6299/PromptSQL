@@ -322,7 +322,7 @@ def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), user_id
 
 class StandardizeTextRequest(BaseModel):
     column_name: str
-    operation: str  # "trim", "upper", "lower"
+    operation: str  # "trim", "upper", "lower", "title"
 
 
 @router.post("/standardize-text")
@@ -331,22 +331,40 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db),
 
     col = req.column_name
     op = req.operation.lower()
-
-    if op == "trim":
-        sql_func = f"TRIM(`{col}`)"
-    elif op == "upper":
-        sql_func = f"UPPER(`{col}`)"
-    elif op == "lower":
-        sql_func = f"LOWER(`{col}`)"
-    else:
-        return {"success": False, "error": f"Unsupported standardize operation: {op}"}
-
-    update_query = f"UPDATE `{table_name}` SET `{col}` = {sql_func} WHERE `{col}` IS NOT NULL AND `{col}` != ''"
+    rows_affected = 0
+    update_query = ""
 
     try:
-        with engine.begin() as conn:
-            res = conn.execute(text(update_query))
-            rows_affected = res.rowcount or 0
+        if op == "title":
+            query = f"SELECT `id`, `{col}` FROM `{table_name}`"
+            with engine.connect() as conn:
+                df = pd.read_sql(query, conn)
+            
+            # Apply Title Case, preserving NULL values
+            df[col] = df[col].apply(lambda x: str(x).title() if pd.notna(x) and x is not None else None)
+            
+            update_query = f"-- Title case update via Pandas\nUPDATE `{table_name}` SET `{col}` = :val WHERE `id` = :id"
+            with engine.begin() as conn:
+                for _, row in df.iterrows():
+                    conn.execute(
+                        text(f"UPDATE `{table_name}` SET `{col}` = :val WHERE `id` = :id"),
+                        {"val": row[col], "id": int(row["id"])}
+                    )
+                rows_affected = len(df)
+        else:
+            if op == "trim":
+                sql_func = f"TRIM(`{col}`)"
+            elif op == "upper":
+                sql_func = f"UPPER(`{col}`)"
+            elif op == "lower":
+                sql_func = f"LOWER(`{col}`)"
+            else:
+                return {"success": False, "error": f"Unsupported standardize operation: {op}"}
+
+            update_query = f"UPDATE `{table_name}` SET `{col}` = {sql_func} WHERE `{col}` IS NOT NULL AND `{col}` != ''"
+            with engine.begin() as conn:
+                res = conn.execute(text(update_query))
+                rows_affected = res.rowcount or 0
 
         # Save to Audit Log
         audit_log = AuditLog(

@@ -535,6 +535,7 @@ export default function DataCleaner({
               <option value="trim">Trim Whitespace</option>
               <option value="lower">Lowercase</option>
               <option value="upper">Uppercase</option>
+              <option value="title">Title Case</option>
             </select>
             <button
               onClick={handleStandardizeText}
