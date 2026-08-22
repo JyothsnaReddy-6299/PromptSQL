@@ -9,7 +9,6 @@ import {
   Database,
   Type,
   Scissors,
-  Activity,
   Zap,
   MapPin
 } from "lucide-react";
@@ -19,7 +18,6 @@ import {
   cleanConvertType,
   cleanStandardizeText,
   cleanExtractNumbers,
-  cleanCapOutliers,
   detectNumericTextColumns,
   cleanExtractAndConvert,
   locateMissingCells
@@ -251,28 +249,7 @@ export default function DataCleaner({
     }
   };
 
-  const [outlierCol, setOutlierCol] = useState("");
-  const [lowerBound, setLowerBound] = useState(0.05);
-  const [upperBound, setUpperBound] = useState(0.95);
-  
-  const handleCapOutliers = async () => {
-    if (!outlierCol) return;
-    try {
-      setCleaning(true);
-      setStatusMessage(null);
-      const data = await cleanCapOutliers(outlierCol, lowerBound, upperBound);
-      if (data.success) {
-        setStatusMessage({ type: "success", text: data.message });
-        onRefresh();
-      } else {
-        setStatusMessage({ type: "error", text: data.error || "Failed capping outliers." });
-      }
-    } catch (e: any) {
-      setStatusMessage({ type: "error", text: e.message || "Failed capping outliers." });
-    } finally {
-      setCleaning(false);
-    }
-  };
+
 
   return (
     <div className="space-y-6">
@@ -529,7 +506,7 @@ export default function DataCleaner({
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 gap-6">
         {/* Text Standardization Card */}
         <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
           <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
@@ -598,62 +575,6 @@ export default function DataCleaner({
               className="w-full mt-2 flex items-center justify-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-md hover:shadow-lg active:scale-98 cursor-pointer disabled:opacity-40 disabled:bg-[#5A2F59]/50"
             >
               <span>Extract Numbers</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Outlier Capping Card */}
-        <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-xs font-bold text-[#241C20] flex items-center gap-2">
-            <Activity className="text-[#5A2F59]" size={15} />
-            <span>Outlier Capping (Winsorization)</span>
-          </h3>
-          <p className="text-[10px] text-[#6F6A67] leading-relaxed font-medium">
-            Caps extreme numerical outliers to percentiles boundaries.
-          </p>
-          <div className="space-y-2">
-            <select
-              value={outlierCol}
-              onChange={(e) => setOutlierCol(e.target.value)}
-              className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold cursor-pointer"
-            >
-              <option value="">-- Numeric Column --</option>
-              {columns.filter(c => isNumericType(c)).map((col) => (
-                <option key={col} value={col}>{col}</option>
-              ))}
-            </select>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[8px] uppercase tracking-wider font-extrabold text-[#6F6A67] block mb-1">Lower Limit</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="0.5"
-                  value={lowerBound}
-                  onChange={(e) => setLowerBound(parseFloat(e.target.value))}
-                  className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20]"
-                />
-              </div>
-              <div>
-                <label className="text-[8px] uppercase tracking-wider font-extrabold text-[#6F6A67] block mb-1">Upper Limit</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.5"
-                  max="1"
-                  value={upperBound}
-                  onChange={(e) => setUpperBound(parseFloat(e.target.value))}
-                  className="w-full bg-[#F7F2EC] border border-[#E8DED3] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] text-[#241C20]"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleCapOutliers}
-              disabled={cleaning || loading || !outlierCol}
-              className="w-full mt-2 flex items-center justify-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-white font-bold text-xs py-2 px-4 rounded-xl transition shadow-md hover:shadow-lg active:scale-98 cursor-pointer disabled:opacity-40 disabled:bg-[#5A2F59]/50"
-            >
-              <span>Cap Outliers</span>
             </button>
           </div>
         </div>

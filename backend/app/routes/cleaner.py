@@ -408,62 +408,7 @@ def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), u
         return {"success": False, "error": str(e)}
 
 
-class CapOutliersRequest(BaseModel):
-    column_name: str
-    lower_percentile: float = 0.05
-    upper_percentile: float = 0.95
 
-
-@router.post("/cap-outliers")
-def cap_outliers(req: CapOutliersRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
-    col = req.column_name
-
-    try:
-        query = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL"
-        with engine.connect() as conn:
-            df = pd.read_sql(query, conn)
-            
-        numeric_series = pd.to_numeric(df[col], errors='coerce').dropna()
-        if len(numeric_series) == 0:
-            return {"success": False, "error": "No valid numeric data found to calculate percentiles."}
-
-        lower_val = float(numeric_series.quantile(req.lower_percentile))
-        upper_val = float(numeric_series.quantile(req.upper_percentile))
-        
-        sql_lower = f"UPDATE `{table_name}` SET `{col}` = :lower_val WHERE `{col}` < :lower_val AND `{col}` IS NOT NULL"
-        sql_upper = f"UPDATE `{table_name}` SET `{col}` = :upper_val WHERE `{col}` > :upper_val AND `{col}` IS NOT NULL"
-
-        with engine.begin() as conn:
-            res_lower = conn.execute(text(sql_lower), {"lower_val": lower_val})
-            rows_lower = res_lower.rowcount or 0
-            
-            res_upper = conn.execute(text(sql_upper), {"upper_val": upper_val})
-            rows_upper = res_upper.rowcount or 0
-            
-            rows_affected = rows_lower + rows_upper
-
-        audit_log = AuditLog(
-            user_id=user_id,
-            timestamp=get_ist_time(),
-            operation="CLEAN",
-            table_name=table_name,
-            generated_sql=f"-- Cap Outliers\n{sql_lower};\n{sql_upper};",
-            rows_affected=rows_affected,
-            status="SUCCESS"
-        )
-        db.add(audit_log)
-        db.commit()
-
-        return {
-            "success": True,
-            "message": f"Successfully capped outliers. {rows_affected} rows adjusted to bounds [{lower_val:.2f}, {upper_val:.2f}].",
-            "rows_affected": rows_affected,
-            "lower_bound": lower_val,
-            "upper_bound": upper_val
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
 
 
 @router.get("/detect-numeric-text")

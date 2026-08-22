@@ -421,21 +421,6 @@ export async function cleanExtractNumbers(columnName: string) {
   return response.json();
 }
 
-export async function cleanCapOutliers(columnName: string, lowerPercentile: number, upperPercentile: number) {
-  const response = await fetch(`${API_URL}/api/clean/cap-outliers`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      column_name: columnName,
-      lower_percentile: lowerPercentile,
-      upper_percentile: upperPercentile,
-    }),
-  });
-  if (!response.ok) throw new Error("Failed capping outliers");
-  return response.json();
-}
 
 export async function detectNumericTextColumns() {
   const response = await fetch(`${API_URL}/api/clean/detect-numeric-text`);

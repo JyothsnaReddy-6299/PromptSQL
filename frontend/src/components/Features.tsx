@@ -13,7 +13,7 @@ const features = [
   {
     icon: <Wand2 size={20} />,
     title: "AI Data Cleaning Suite",
-    desc: "Industry-grade preprocessing: outlier capping, imputation, text standardization, and type conversion — all automated.",
+    desc: "Industry-grade preprocessing: imputation, text standardization, and type conversion — all automated.",
     badge: "New",
     iconBg: "bg-[#5A2F59]/80",
     iconText: "text-[#BDA37A]",
