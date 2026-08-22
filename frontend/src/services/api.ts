@@ -1,4 +1,4 @@
-const API_URL = "";
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 // Custom fetch wrapper to automatically inject user session and JWT authorization headers
 const originalFetch = window.fetch;
