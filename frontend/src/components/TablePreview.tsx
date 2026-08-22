@@ -12,6 +12,7 @@ interface Props {
   sortDir: string;
   onSortChange: (col: string, dir: string) => void;
   onRefresh?: () => void;
+  totalRows?: number;
 }
 
 export default function TablePreview({
@@ -23,7 +24,8 @@ export default function TablePreview({
   sortCol = "",
   sortDir = "ASC",
   onSortChange,
-  onRefresh
+  onRefresh,
+  totalRows = 0
 }: Props) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -240,7 +242,7 @@ export default function TablePreview({
           {/* Footer Controls */}
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px]">
             <span className="text-[#6F6A67] font-medium">
-              Showing {totalItems === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, totalItems)} of {totalItems} entries
+              Showing {paginatedRecords.length} out of {totalRows || totalItems} entries
               {searchTerm && " (filtered)"}
             </span>
 

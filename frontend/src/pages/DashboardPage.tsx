@@ -261,6 +261,7 @@ export default function DashboardPage() {
                   setSortDir(dir);
                 }}
                 onRefresh={() => setRefreshTrigger((p) => p + 1)}
+                totalRows={totalRows}
               />
             </div>
 
