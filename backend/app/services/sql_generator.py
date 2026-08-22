@@ -195,7 +195,7 @@ Do NOT use markdown.
 
 17. If the user request asks to 'display all details', 'show all columns', 'everything', 'all records', 'all information', or does not specify particular fields (implied select all), use `SELECT *` instead of listing all columns individually.
 
-18. When filtering strings or text columns using WHERE, always use `LIKE '%value%'` or `TRIM(column) = 'value'` to prevent matching errors due to hidden whitespace in the dataset.
+18. When filtering text or string columns in WHERE clauses, ALWAYS use exact matches with TRIM and LOWER (e.g., TRIM(LOWER(columnName)) = 'value') to guarantee case-insensitive and whitespace-safe matches. NEVER use `LIKE '%value%'` by default for specific name or category filters, as it causes incorrect partial matches (like matching 'Punch EV' when searching for 'Punch'). Only use `LIKE` with wildcards if the user explicitly asks for partial matching (e.g., "contains", "starts with", "ends with").
 
 19. NEVER perform mathematical aggregate operations (like SUM, AVG, MIN, MAX) on columns representing identifiers or codes (e.g., column names containing 'id', 'code', 'zip', 'phone', 'ssn', 'pin', 'card', 'account', 'serial', 'number', 'mobile'). If the user requests calculations on these fields, return INVALID_QUERY or count them using COUNT instead.
 
