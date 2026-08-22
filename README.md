@@ -50,7 +50,7 @@
 
 ---
 
-### 🌐 Live Demo: [YOUR_LIVE_FRONTEND_URL](https://promptsql-frontend.onrender.com) 
+### 🌐 Live Demo: [https://promptsql-frontend.onrender.com](https://promptsql-frontend.onrender.com) 
 
 ---
 ## 🛠️ Complete Tech Stack
