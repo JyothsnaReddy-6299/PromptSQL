@@ -50,6 +50,9 @@
 
 ---
 
+### 🌐 Live Demo: [YOUR_LIVE_FRONTEND_URL](https://promptsql-frontend.onrender.com) 
+
+---
 ## 🛠️ Complete Tech Stack
 
 PromptSQL is built using a modern, scalable, and type-safe architecture.
