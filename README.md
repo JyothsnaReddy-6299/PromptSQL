@@ -143,16 +143,32 @@ This will automatically pull MySQL, build the FastAPI backend, set up React, and
 
 ## ⚙️ Environment Configuration
 
-Create a `.env` file in the `/backend` directory. Provide your MySQL credentials, Gemini API Key, and a JWT Secret signature key as shown below:
+### Backend Configuration (create `/backend/.env`)
+Provide your database credentials, Gemini API settings, and a JWT Secret key:
 
 ```ini
-MYSQL_USER=root
+# Database Settings
+MYSQL_USER=avnadmin                   # 'root' for local, 'avnadmin' for Aiven
 MYSQL_PASSWORD=your_mysql_password
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_DATABASE=promptsql_db
+MYSQL_HOST=localhost                  # 'localhost' or cloud host (e.g. promptsql-xxx.aivencloud.com)
+MYSQL_PORT=3306                       # '3306' or cloud port (e.g. 24331)
+MYSQL_DATABASE=defaultdb              # 'promptsql_db' or Aiven's 'defaultdb'
+
+# AI & LLM Settings
 GEMINI_API_KEY=your_actual_gemini_api_key
+GEMINI_MODEL=gemini-3.6-flash         # Default model used for queries
+
+# Auth Security
 JWT_SECRET=your_super_secret_jwt_sign_key
+```
+> [!NOTE]
+> **Cloud Databases (Aiven/DigitalOcean):** When connecting to external cloud database hosts, the backend automatically detects the remote address and enables secure SSL/TLS transport. No manual SSL certification setup is needed.
+
+### Frontend Configuration (Render Static Site Environment Variables)
+For production hosting, you must configure the frontend to talk to your live backend endpoint. Add this variable to your static site environment settings:
+
+```ini
+VITE_API_URL=https://your-backend-name.onrender.com
 ```
 
 ---
