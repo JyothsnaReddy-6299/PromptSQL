@@ -89,13 +89,31 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
             table_name = f"{cleaned_base[:-overflow]}_{safe_user_id}"
 
     # ------------------------
-    # Store in MySQL
+    # Store in MySQL (Enforce Primary Key creation to support Aiven DB rules)
     # ------------------------
+    from sqlalchemy import text
+    
+    col_defs = ["`id` INT AUTO_INCREMENT PRIMARY KEY"]
+    for col in cleaned_df.columns:
+        t_type = detected_types.get(col, "text")
+        if t_type == "numeric":
+            db_type = "DOUBLE"
+        elif t_type == "date":
+            db_type = "DATETIME"
+        else:
+            db_type = "TEXT"
+        col_defs.append(f"`{col}` {db_type} NULL")
+        
+    sql_create = f"CREATE TABLE `{table_name}` (\n  " + ",\n  ".join(col_defs) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+    
+    with engine.begin() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS `{table_name}`"))
+        conn.execute(text(sql_create))
 
     cleaned_df.to_sql(
         name=table_name,
         con=engine,
-        if_exists="replace",
+        if_exists="append",
         index=False
     )
 
