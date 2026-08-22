@@ -4,6 +4,8 @@ import axios from 'axios'
 import './index.css'
 import App from './App.tsx'
 
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || "";
+
 // Configure axios interceptor to inject user, table, and JWT auth token automatically
 axios.interceptors.request.use((config) => {
   const currentUserId = localStorage.getItem("promptsql_user_id");
