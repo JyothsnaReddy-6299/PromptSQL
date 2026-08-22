@@ -82,10 +82,10 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 
 * **🔑 Secure User Auth**: Multi-tenant Login & Signup system protecting accounts with hashed passwords via **Bcrypt** and sessions secured by stateless **JWT Tokens**.
 * **📁 Ingestion & Auto-Cleaning**: Supports CSV and Excel, parses datatypes (Dates, Floats, Strings), and normalizes column headers safely.
-* **🔍 Smart ID Detection**: Recognizes numeric codes (such as Salesman IDs, Customer IDs, Zip codes) and marks them as text, preventing meaningless math computations (mean/median) on ID fields.
+* **🔍 Smart ID Detection**: Recognizes numeric codes (such as Salesman IDs, Customer IDs, Zip codes) and marks them as text, preventing meaningless math computations (max/min) on ID fields.
 * **💬 Conversational NL-to-SQL**: Translates questions (e.g. *"Show me the top 5 brands by sales in 2025"*) into native SQL queries with a self-healing error correction loop.
 * **🛡️ Natural Modifications with Impact Simulation**: Safely run INSERTS, UPDATES, or DELETES. The backend runs a dry-run estimation first, warns you of the row impact count, and requires manual confirmation before writing.
-* **⚡ Natively Fast In-Database Operations**: Grid loading, search queries, and column statistics (Min, Max, Avg, Median) are computed directly in MySQL, resolving memory overload and loading pages in milliseconds.
+* **⚡ Natively Fast In-Database Operations**: Grid loading, search queries, and column statistics (Min, Max, Avg) are computed directly in MySQL, resolving memory overload and loading pages in milliseconds.
 * **✏️ Interactive Cell Editing**: Manually modify any single table cell value by double-clicking it directly inside the UI explorer grid.
 * **📄 Exporters**: Export raw query datasets directly to CSV, Excel, or custom formatted **PDF Reports** complete with natural language AI summaries.
 * **🪄 AI Data Cleaning & Preprocessing Suite**: An automated utility designed to handle data deduplication, text standardization, and outlier capping. It repairs datasets effortlessly by isolating unique records, extracting clean numbers, and intelligently imputing missing values using custom constraints or statistical strategies.
