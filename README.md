@@ -69,7 +69,7 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 * **Data Processing:** Pandas (for high-speed statistical calculations and file parsing)
 * **Validation & Types:** Pydantic
 * **Authentication:** Stateless JWT (JSON Web Tokens) with Bcrypt password hashing
-* **AI Integration:** Groq API key (using Llama 3.3 70B)
+* **AI Integration:** Groq API key (using Qwen 3.6 27B)
 
 **Database & ORM**
 * **Engine:** MySQL
@@ -159,7 +159,7 @@ MYSQL_DATABASE=defaultdb              # 'promptsql_db' or Aiven's 'defaultdb'
 
 # AI & LLM Settings
 GROQ_API_KEY=your_actual_groq_api_key
-GROQ_MODEL=llama-3.3-70b-versatile    # Recommended high-performance free model
+GROQ_MODEL=qwen/qwen3.6-27b           # Recommended high-performance free model
 
 # Auth Security
 JWT_SECRET=your_super_secret_jwt_sign_key
