@@ -6,7 +6,7 @@
   [![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
   [![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-  [![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white)](https://ai.google.dev/)
+  [![Groq](https://img.shields.io/badge/Groq-f55a3b?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
 
   *An **Natural Language to SQL (NL-to-SQL) analytics console** that bridges the gap between raw datasets and business insights. Upload any CSV or Excel file, and chat with your database directly using natural language. The system automatically creates isolated tables, translates your questions into optimized SQL, executes them safely alongside AI-interpreted summaries.*
 
@@ -69,7 +69,7 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 * **Data Processing:** Pandas (for high-speed statistical calculations and file parsing)
 * **Validation & Types:** Pydantic
 * **Authentication:** Stateless JWT (JSON Web Tokens) with Bcrypt password hashing
-* **AI Integration:** Gemini API key
+* **AI Integration:** Groq API key (using Llama 3.3 70B)
 
 **Database & ORM**
 * **Engine:** MySQL
@@ -147,7 +147,7 @@ This will automatically pull MySQL, build the FastAPI backend, set up React, and
 ## ⚙️ Environment Configuration
 
 ### Backend Configuration (create `/backend/.env`)
-Provide your database credentials, Gemini API settings, and a JWT Secret key:
+Provide your database credentials, Groq API settings, and a JWT Secret key:
 
 ```ini
 # Database Settings
@@ -158,8 +158,8 @@ MYSQL_PORT=3306                       # '3306' or cloud port (e.g. 24331)
 MYSQL_DATABASE=defaultdb              # 'promptsql_db' or Aiven's 'defaultdb'
 
 # AI & LLM Settings
-GEMINI_API_KEY=your_actual_gemini_api_key
-GEMINI_MODEL=gemini-3.6-flash         # Default model used for queries
+GROQ_API_KEY=your_actual_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile    # Recommended high-performance free model
 
 # Auth Security
 JWT_SECRET=your_super_secret_jwt_sign_key
