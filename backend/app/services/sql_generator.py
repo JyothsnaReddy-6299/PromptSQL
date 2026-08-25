@@ -11,17 +11,7 @@ def generate_sql(question, table_name, user_id=None):
     from app.database.connection import engine
     from sqlalchemy import inspect
 
-    inspector = inspect(engine)
-    all_tables = inspector.get_table_names()
-    suffix = f"_{user_id}" if user_id else ""
-    
-    if suffix:
-        user_tables = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
-    else:
-        user_tables = [table_name]
-        
-    if table_name not in user_tables:
-        user_tables.append(table_name)
+    user_tables = [table_name]
         
     schemas_prompt = ""
     for t in user_tables:
