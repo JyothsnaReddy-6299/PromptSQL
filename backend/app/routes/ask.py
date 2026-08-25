@@ -94,6 +94,12 @@ def ask_question(
                 friendly_tbl = t.split("_usr_")[0]
                 physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_tbl)}\`?(?!\w)", f"`{t}`", physical_sql)
 
+            # Auto-correct any generic or mismatched table references in FROM/JOIN clauses to use the active table
+            from_join_tables = re.findall(r"\b(?:FROM|JOIN)\s+`?([a-zA-Z0-9_\-\(\)]+)`?", physical_sql, re.IGNORECASE)
+            for tbl in from_join_tables:
+                if tbl not in user_tables and tbl.lower() not in ["query_history", "audit_logs", "users"]:
+                    physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(tbl)}\`?(?!\w)", f"`{table_name}`", physical_sql)
+
             valid, message = validate_sql(
                 physical_sql,
                 user_tables
