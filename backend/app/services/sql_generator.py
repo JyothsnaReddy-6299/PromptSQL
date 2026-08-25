@@ -218,7 +218,7 @@ QUESTION
     # 1. Check for INVALID_QUERY first
     if "INVALID_QUERY" in sql_cleaned:
         raise Exception(
-            "This question cannot be answered using the uploaded dataset."
+            "The requested query is invalid and cannot be executed."
         )
         
     # 2. Try to extract from markdown code blocks
@@ -244,7 +244,7 @@ QUESTION
     # If it is not a SELECT/WITH query and not a write query, it is conversational error text from the AI
     if not sql_cleaned.lower().startswith("select") and not sql_cleaned.lower().startswith("with"):
         raise Exception(
-            "This question cannot be answered using the uploaded dataset (make sure you are referring to existing column names)."
+            "The requested query is invalid and cannot be executed (please verify your column names)."
         )
 
     print("\nGenerated SQL:")

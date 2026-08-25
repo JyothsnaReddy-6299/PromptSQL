@@ -95,7 +95,7 @@ def generate_modification_sql(question: str, table_name: str, intent: str) -> st
             
     if not is_valid_sql_structure:
         raise Exception(
-            "This question cannot be answered using the uploaded dataset (make sure you are referring to existing column names)."
+            "The requested query is invalid and cannot be executed (please verify your column names)."
         )
 
     return sql_cleaned
