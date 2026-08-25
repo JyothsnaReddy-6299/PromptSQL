@@ -60,10 +60,42 @@ def generate_modification_sql(question: str, table_name: str, intent: str) -> st
     system_prompt = "You are a precise MySQL query generator. Return ONLY raw SQL statement. No markdown formatting, no explanations."
     sql = call_llm(system_prompt, prompt, temperature=0.1)
     
-    # Strip markdown wrappers if any
-    sql = (
-        sql.replace("```sql", "")
-           .replace("```", "")
-           .strip()
-    )
-    return sql
+    import re
+
+    # Robust SQL Extraction using Regex
+    sql_cleaned = sql.strip()
+    
+    # 1. Try to extract from markdown code blocks
+    code_block_match = re.search(r"```(?:sql)?\s*(.*?)\s*```", sql_cleaned, re.DOTALL | re.IGNORECASE)
+    if code_block_match:
+        sql_cleaned = code_block_match.group(1).strip()
+    else:
+        # 2. Look for the first valid DML/DDL verb
+        verbs = ["insert", "update", "delete", "replace", "merge", "create", "alter", "drop", "rename", "truncate"]
+        pattern = r"\b(" + "|".join(verbs) + r")\b.*"
+        statement_match = re.search(pattern, sql_cleaned, re.DOTALL | re.IGNORECASE)
+        if statement_match:
+            sql_cleaned = statement_match.group(0).strip()
+            sql_cleaned = re.sub(r"```.*", "", sql_cleaned, flags=re.DOTALL).strip()
+
+    # 3. Verify SQL structural integrity based on intent
+    sql_upper = sql_cleaned.upper()
+    is_valid_sql_structure = False
+    
+    if intent == "UPDATE" and " SET " in sql_upper:
+        is_valid_sql_structure = True
+    elif intent == "DELETE" and " FROM " in sql_upper:
+        is_valid_sql_structure = True
+    elif intent == "INSERT" and (" INTO " in sql_upper or " VALUES " in sql_upper):
+        is_valid_sql_structure = True
+    elif intent in ["CREATE", "ALTER", "DROP", "TRUNCATE", "RENAME"]:
+        first_word = sql_cleaned.split()[0].upper() if sql_cleaned.split() else ""
+        if first_word == intent or (intent == "RENAME" and first_word in ["RENAME", "ALTER"]):
+            is_valid_sql_structure = True
+            
+    if not is_valid_sql_structure:
+        raise Exception(
+            "This question cannot be answered using the uploaded dataset (make sure you are referring to existing column names)."
+        )
+
+    return sql_cleaned
