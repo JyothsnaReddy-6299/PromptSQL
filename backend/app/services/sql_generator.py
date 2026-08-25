@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import re
 from app.services.schema_service import schema_to_prompt
 from app.services.llm_service import call_llm
 
