@@ -26,7 +26,7 @@ def validate_sql(sql_query, user_tables):
     # Only SELECT queries allowed
     # ----------------------------
 
-    if not sql.lower().startswith("select"):
+    if not sql.lower().startswith("select") and not sql.lower().startswith("with"):
         return False, "Only SELECT queries are allowed."
 
     # ----------------------------

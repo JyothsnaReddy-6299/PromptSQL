@@ -211,24 +211,34 @@ QUESTION
     system_prompt = "You are an expert MySQL query generator. Never invent tables or columns. Output ONLY the raw SQL code."
     sql = call_llm(system_prompt, prompt, temperature=0.1)
 
-    sql = (
-        sql.replace("```sql", "")
-           .replace("```", "")
-           .strip()
-    )
-
-    if sql == "INVALID_QUERY":
+    # Robust SQL Extraction using Regex
+    sql_cleaned = sql.strip()
+    
+    # 1. Check for INVALID_QUERY first
+    if "INVALID_QUERY" in sql_cleaned:
         raise Exception(
             "This question cannot be answered using the uploaded dataset."
         )
+        
+    # 2. Try to extract from markdown code blocks
+    code_block_match = re.search(r"```(?:sql)?\s*(.*?)\s*```", sql_cleaned, re.DOTALL | re.IGNORECASE)
+    if code_block_match:
+        sql_cleaned = code_block_match.group(1).strip()
+    else:
+        # 3. Look for the first SELECT or WITH statement
+        statement_match = re.search(r"\b(SELECT|WITH)\b.*", sql_cleaned, re.DOTALL | re.IGNORECASE)
+        if statement_match:
+            sql_cleaned = statement_match.group(0).strip()
+            # Remove any trailing markdown quotes if present
+            sql_cleaned = re.sub(r"```.*", "", sql_cleaned, flags=re.DOTALL).strip()
 
-    if not sql.lower().startswith("select"):
+    if not sql_cleaned.lower().startswith("select") and not sql_cleaned.lower().startswith("with"):
         raise Exception(
             "Only SELECT queries are allowed."
         )
 
     print("\nGenerated SQL:")
-    print(sql)
+    print(sql_cleaned)
     print()
 
-    return sql
+    return sql_cleaned
