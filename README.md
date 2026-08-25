@@ -88,7 +88,7 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 * **⚡ Natively Fast In-Database Operations**: Grid loading, search queries, and column statistics (Min, Max, Avg) are computed directly in MySQL, resolving memory overload and loading pages in milliseconds.
 * **✏️ Interactive Cell Editing**: Manually modify any single table cell value by double-clicking it directly inside the UI explorer grid.
 * **📄 Exporters**: Export raw query datasets directly to CSV, Excel, or custom formatted **PDF Reports** complete with natural language AI summaries.
-* **🪄 AI Data Cleaning & Preprocessing Suite**: An automated utility designed to handle data deduplication, text standardization, and outlier capping. It repairs datasets effortlessly by isolating unique records, extracting clean numbers, and intelligently imputing missing values using custom constraints or statistical strategies.
+* **🪄 AI Data Cleaning & Preprocessing Suite**: An automated utility designed to handle data deduplication, text standardization. It repairs datasets effortlessly by isolating unique records, extracting clean numbers, and intelligently imputing missing values using custom constraints or statistical strategies.
 
 ---
 
@@ -96,8 +96,8 @@ PromptSQL is built using a modern, scalable, and type-safe architecture.
 
 While PromptSQL is highly functional, here are the planned features for future releases to make it an even more powerful workspace:
 
+* 🧠 **Conversational Memory (Contextual Follow-up):** Allowing users to ask follow-up questions based on previous answers.
 * 📊 **Auto-Generated Visualizations:** Integrating libraries like `Recharts` or `Chart.js` to automatically generate Bar, Line, and Pie charts directly from the AI-generated SQL results without manual configuration.
-* 🔐 **Role-Based Access Control (RBAC):** Introducing granular team permissions (e.g., "Viewer", "Editor", "Admin") so specific users can query data but are restricted from executing DML/DDL modification queries.
 
 ---
 
