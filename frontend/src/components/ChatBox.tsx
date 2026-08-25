@@ -1124,6 +1124,18 @@ function InnerChart({
 
 export function formatDateValue(val: any): string {
   if (val === null || val === undefined) return "";
+  
+  if (typeof val === "number" && !Number.isInteger(val)) {
+    return val.toFixed(2);
+  }
+  
+  if (typeof val === "string") {
+    const num = Number(val);
+    if (val.trim() !== "" && !isNaN(num) && val.includes(".") && !Number.isInteger(num)) {
+      return num.toFixed(2);
+    }
+  }
+
   const s = String(val);
   // Matches "YYYY-MM-DD[T]HH:MM:SS" or similar
   if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2})?/.test(s)) {

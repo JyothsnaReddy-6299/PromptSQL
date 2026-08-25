@@ -294,6 +294,18 @@ export default function TablePreview({
 
 function formatDateValue(val: any): string {
   if (val === null || val === undefined) return "";
+  
+  if (typeof val === "number" && !Number.isInteger(val)) {
+    return val.toFixed(2);
+  }
+  
+  if (typeof val === "string") {
+    const num = Number(val);
+    if (val.trim() !== "" && !isNaN(num) && val.includes(".") && !Number.isInteger(num)) {
+      return num.toFixed(2);
+    }
+  }
+
   const s = String(val);
   if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2})?/.test(s)) {
     if (s.includes("00:00:00") || s.includes("T00:00:00")) {
