@@ -27,7 +27,7 @@ def validate_sql(sql_query, user_tables):
     # ----------------------------
 
     if not sql.lower().startswith("select") and not sql.lower().startswith("with"):
-        return False, "Only SELECT queries are allowed."
+        return False, "The requested query is invalid and cannot be executed."
 
     # ----------------------------
     # Dangerous keywords

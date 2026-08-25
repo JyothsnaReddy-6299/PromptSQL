@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import re
 from app.services.schema_service import schema_to_prompt
 from app.services.llm_service import call_llm
 
@@ -91,11 +92,19 @@ Return ONLY SQL.
     system_prompt = "You repair invalid MySQL queries. Output ONLY raw SQL. No markdown wrappers."
     sql = call_llm(system_prompt, prompt, temperature=0.1)
 
-    sql = (
-        sql
-        .replace("```sql", "")
-        .replace("```", "")
-        .strip()
-    )
+    # Robust SQL Extraction using Regex
+    sql_cleaned = sql.strip()
+    
+    # 1. Try to extract from markdown code blocks
+    code_block_match = re.search(r"```(?:sql)?\s*(.*?)\s*```", sql_cleaned, re.DOTALL | re.IGNORECASE)
+    if code_block_match:
+        sql_cleaned = code_block_match.group(1).strip()
+    else:
+        # 2. Look for the first SELECT or WITH statement
+        statement_match = re.search(r"\b(SELECT|WITH)\b.*", sql_cleaned, re.DOTALL | re.IGNORECASE)
+        if statement_match:
+            sql_cleaned = statement_match.group(0).strip()
+            # Remove any trailing markdown quotes if present
+            sql_cleaned = re.sub(r"```.*", "", sql_cleaned, flags=re.DOTALL).strip()
 
-    return sql
+    return sql_cleaned
