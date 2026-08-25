@@ -223,12 +223,10 @@ QUESTION
             # Remove any trailing markdown quotes if present
             sql_cleaned = re.sub(r"```.*", "", sql_cleaned, flags=re.DOTALL).strip()
 
-    # Check if the AI generated a forbidden write query
     is_write_query = any(sql_cleaned.lower().startswith(kw) for kw in ["insert", "update", "delete", "drop", "alter", "create", "truncate", "replace"])
-    
     if is_write_query:
         raise Exception(
-            "Only SELECT queries are allowed."
+            "The requested query is invalid and cannot be executed."
         )
 
     # If it is not a SELECT/WITH query and not a write query, it is conversational error text from the AI
