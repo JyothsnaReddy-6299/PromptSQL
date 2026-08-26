@@ -137,11 +137,12 @@ def get_preview(
                 parts = search_clean.split(":", 1)
                 col_target = parts[0].strip()
                 val_target = parts[1].strip()
-                if col_target in columns:
+                col_match = next((col for col in columns if col.lower() == col_target.lower()), None)
+                if col_match:
                     if val_target.lower() in ["null", "empty", "is null"]:
-                        where_clause = f" WHERE (`{col_target}` IS NULL OR `{col_target}` = '')"  #Search all columns
+                        where_clause = f" WHERE (`{col_match}` IS NULL OR `{col_match}` = '')"
                     else:
-                        where_clause = f" WHERE `{col_target}` LIKE :col_val"
+                        where_clause = f" WHERE `{col_match}` LIKE :col_val"
                         params["col_val"] = f"%{val_target}%"
                 else:
                     conditions = [f"`{col}` LIKE :search" for col in columns] #Search a specific column
