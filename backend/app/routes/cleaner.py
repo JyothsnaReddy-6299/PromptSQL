@@ -449,9 +449,12 @@ def detect_numeric_text_columns(ctx: ActiveTableContext = Depends(get_active_con
         inspector = inspect(engine)
         col_info = inspector.get_columns(table_name)
 
+        # Exclude common identifier columns that shouldn't be cast to numeric
+        exclude_kws = ["id", "code", "zip", "phone", "ssn", "pin", "card", "account", "serial", "number", "mobile", "key"]
         text_columns = [
             c["name"] for c in col_info
-            if "varchar" in str(c["type"]).lower() or "text" in str(c["type"]).lower() or "char" in str(c["type"]).lower()
+            if ("varchar" in str(c["type"]).lower() or "text" in str(c["type"]).lower() or "char" in str(c["type"]).lower())
+            and not any(kw in c["name"].lower() for kw in exclude_kws)
         ]
 
         suspicious_columns = []

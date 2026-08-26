@@ -309,7 +309,7 @@ export default function DataCleaner({
                 <button
                   onClick={() => handleExtractAndConvert(item.column)}
                   disabled={cleaning}
-                  className="flex items-center gap-1.5 text-[10px] font-bold text-white bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 px-3 py-1.5 rounded-lg transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-white bg-amber-600 hover:bg-amber-700 px-3.5 py-1.5 rounded-lg shadow-sm transition cursor-pointer disabled:opacity-50"
                 >
                   <Zap size={10} />
                   Fix & Convert to Numeric
@@ -635,7 +635,7 @@ export default function DataCleaner({
                           <button
                             onClick={() => handleExtractAndConvert(col)}
                             disabled={cleaning || loading}
-                            className="text-[9px] font-bold text-amber-600 hover:text-amber-700 bg-amber-550/10 hover:bg-amber-550/20 px-2 py-0.5 rounded border border-amber-550/20 cursor-pointer transition flex items-center gap-1"
+                            className="text-[9px] font-bold text-amber-700 hover:text-amber-800 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 cursor-pointer transition flex items-center gap-1"
                           >
                             <Zap size={9} /> Fix → Numeric
                           </button>
