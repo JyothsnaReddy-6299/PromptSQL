@@ -117,15 +117,30 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: Active
     rows_affected = 0
 
     try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        col_info = inspector.get_columns(table_name)
+        col_meta = next((c for c in col_info if c["name"] == col), None)
+        col_type = str(col_meta["type"]).lower() if col_meta else "varchar"
+        is_text = "varchar" in col_type or "text" in col_type or "char" in col_type
+
         if strategy == "drop":
-            sql_executed = f"DELETE FROM `{table_name}` WHERE `{col}` IS NULL OR `{col}` = ''"
+            if is_text:
+                sql_executed = f"DELETE FROM `{table_name}` WHERE `{col}` IS NULL OR `{col}` = ''"
+            else:
+                sql_executed = f"DELETE FROM `{table_name}` WHERE `{col}` IS NULL"
+                
             with engine.begin() as conn:
                 res = conn.execute(text(sql_executed))
                 rows_affected = res.rowcount or 0
 
         else:
             # Impute value strategies (mean, median, mode, custom)
-            query = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL AND `{col}` != ''"
+            if is_text:
+                query = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL AND `{col}` != ''"
+            else:
+                query = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL"
+                
             with engine.connect() as conn:
                 df = pd.read_sql(query, conn)
 
@@ -145,7 +160,11 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: Active
                 val = req.custom_value or ""
 
             # Update rows where it is NULL
-            sql_executed = f"UPDATE `{table_name}` SET `{col}` = :val WHERE `{col}` IS NULL OR `{col}` = ''"
+            if is_text:
+                sql_executed = f"UPDATE `{table_name}` SET `{col}` = :val WHERE `{col}` IS NULL OR `{col}` = ''"
+            else:
+                sql_executed = f"UPDATE `{table_name}` SET `{col}` = :val WHERE `{col}` IS NULL"
+                
             with engine.begin() as conn:
                 res = conn.execute(text(sql_executed), {"val": val})
                 rows_affected = res.rowcount or 0
@@ -188,13 +207,25 @@ def locate_missing(column_name: str, ctx: ActiveTableContext = Depends(get_activ
         if column_name not in columns:
             raise HTTPException(status_code=400, detail=f"Column '{column_name}' does not exist.")
 
+        col_meta = next((c for c in col_info if c["name"] == column_name), None)
+        col_type = str(col_meta["type"]).lower() if col_meta else "varchar"
+        is_text = "varchar" in col_type or "text" in col_type or "char" in col_type
+
         # Query total null count
-        count_q = f"SELECT COUNT(*) FROM `{table_name}` WHERE `{column_name}` IS NULL OR `{column_name}` = ''"
+        if is_text:
+            count_q = f"SELECT COUNT(*) FROM `{table_name}` WHERE `{column_name}` IS NULL OR `{column_name}` = ''"
+        else:
+            count_q = f"SELECT COUNT(*) FROM `{table_name}` WHERE `{column_name}` IS NULL"
+            
         with engine.connect() as conn:
             total_missing = conn.execute(text(count_q)).scalar() or 0
 
         # Query sample rows where this column is missing
-        sample_q = f"SELECT * FROM `{table_name}` WHERE `{column_name}` IS NULL OR `{column_name}` = '' LIMIT 20"
+        if is_text:
+            sample_q = f"SELECT * FROM `{table_name}` WHERE `{column_name}` IS NULL OR `{column_name}` = '' LIMIT 20"
+        else:
+            sample_q = f"SELECT * FROM `{table_name}` WHERE `{column_name}` IS NULL LIMIT 20"
+            
         with engine.connect() as conn:
             res = conn.execute(text(sample_q))
             rows = [dict(r._mapping) for r in res]
