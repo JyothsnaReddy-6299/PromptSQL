@@ -51,8 +51,21 @@ def ask_question(
             if owner_id != user_id:
                 raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
 
-        # Restrict LLM query scope strictly to the active table (disable cross-table queries)
+        # Restrict LLM query scope strictly to active table by default, but dynamically include other tables if explicitly mentioned in the question
+        from app.database.connection import engine
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        all_tables = inspector.get_table_names()
+        suffix = f"_{user_id}"
+        all_user_tables = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
+        
         user_tables = [table_name]
+        question_lower = payload.question.lower()
+        for t in all_user_tables:
+            if t != table_name:
+                friendly_tbl = t.split("_usr_")[0].lower()
+                if friendly_tbl in question_lower or friendly_tbl.replace("_", " ") in question_lower:
+                    user_tables.append(t)
 
         print("\n==============================")
         print("Current Table :", table_name)
