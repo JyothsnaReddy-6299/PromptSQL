@@ -158,6 +158,17 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: Active
 
             elif strategy == "custom":
                 val = req.custom_value or ""
+                if not is_text:
+                    if "date" in col_type or "timestamp" in col_type:
+                        try:
+                            # Reformat custom date inputs (e.g. DD-MM-YYYY) into standard MySQL format
+                            parsed_date = pd.to_datetime(val, dayfirst=True, errors='raise')
+                            if "timestamp" in col_type or "datetime" in col_type:
+                                val = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+                            else:
+                                val = parsed_date.strftime("%Y-%m-%d")
+                        except Exception:
+                            pass
 
             # Update rows where it is NULL
             if is_text:
