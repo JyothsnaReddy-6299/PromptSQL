@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
@@ -24,10 +24,18 @@ def get_db():
         db.close()
 
 
-def get_secure_active_table(user_id: str) -> str:
-    """Helper to retrieve and verify ownership of the active dataset table.""" # this is a doc srtring It describes what the function does. It doesn't affect execution.
-                                                                             #If another developer hovers over the function, they'll see this description.
-    table_name = get_current_table()
+class ActiveTableContext:
+    def __init__(self, user_id: str, table_name: str):
+        self.user_id = user_id
+        self.table_name = table_name
+
+
+def get_active_context(
+    x_table_name: Optional[str] = Header(None),
+    user_id: str = Depends(get_current_user_id)
+) -> ActiveTableContext:
+    """Helper dependency to retrieve and verify ownership of the active dataset table via Header or active_table.txt."""
+    table_name = x_table_name or get_current_table()
     if not table_name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -40,7 +48,7 @@ def get_secure_active_table(user_id: str) -> str:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied. You do not own this dataset."
             )
-    return table_name
+    return ActiveTableContext(user_id, table_name)
 
 
 class ImputeRequest(BaseModel): # basemodel is imp class of pydantic, define structure of data your API expects
@@ -50,8 +58,9 @@ class ImputeRequest(BaseModel): # basemodel is imp class of pydantic, define str
 
 
 @router.post("/remove-duplicates")
-def remove_duplicates(db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def remove_duplicates(db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
+    table_name = ctx.table_name
+    user_id = ctx.user_id
 
     try:
         # Get count before
@@ -97,8 +106,9 @@ def remove_duplicates(db: Session = Depends(get_db), user_id: str = Depends(get_
 
 
 @router.post("/impute")
-def impute_column(req: ImputeRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
+    table_name = ctx.table_name
+    user_id = ctx.user_id
 
     col = req.column_name
     strategy = req.strategy.lower()
@@ -164,9 +174,9 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), user_id: st
 
 
 @router.get("/locate-missing")
-def locate_missing(column_name: str, user_id: str = Depends(get_current_user_id)):
+def locate_missing(column_name: str, ctx: ActiveTableContext = Depends(get_active_context)):
     from sqlalchemy import inspect
-    table_name = get_secure_active_table(user_id)
+    table_name = ctx.table_name
     if not column_name:
         raise HTTPException(status_code=400, detail="Column name is required.")
 
@@ -207,8 +217,9 @@ class UpdateCellRequest(BaseModel):
 
 
 @router.post("/update-cell")
-def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
+    table_name = ctx.table_name
+    user_id = ctx.user_id
 
     col = req.column_name
     new_val = req.new_value
@@ -261,8 +272,9 @@ class ConvertTypeRequest(BaseModel):
 
 
 @router.post("/convert-type")
-def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
+    table_name = ctx.table_name
+    user_id = ctx.user_id
 
     col = req.column_name
     target = req.target_type.lower()
@@ -326,8 +338,9 @@ class StandardizeTextRequest(BaseModel):
 
 
 @router.post("/standardize-text")
-def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
+    table_name = ctx.table_name
+    user_id = ctx.user_id
 
     col = req.column_name
     op = req.operation.lower()
@@ -393,8 +406,9 @@ class ExtractNumbersRequest(BaseModel):
 
 
 @router.post("/extract-numbers")
-def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
+    table_name = ctx.table_name
+    user_id = ctx.user_id
     col = req.column_name
 
     update_query = f"UPDATE `{table_name}` SET `{col}` = REGEXP_REPLACE(`{col}`, '[^0-9.-]', '') WHERE `{col}` IS NOT NULL AND `{col}` != ''"
@@ -426,12 +440,10 @@ def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), u
         return {"success": False, "error": str(e)}
 
 
-
-
-
 @router.get("/detect-numeric-text")
-def detect_numeric_text_columns(user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def detect_numeric_text_columns(ctx: ActiveTableContext = Depends(get_active_context)):
+    from sqlalchemy import inspect
+    table_name = ctx.table_name
 
     try:
         inspector = inspect(engine)
@@ -479,8 +491,9 @@ class ExtractAndConvertRequest(BaseModel):
 
 
 @router.post("/extract-and-convert")
-def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
-    table_name = get_secure_active_table(user_id)
+def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
+    table_name = ctx.table_name
+    user_id = ctx.user_id
     col = req.column_name
 
     try:
