@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from io import BytesIO
+from typing import Optional
 
 from app.services.export_service import generate_pdf, generate_excel, generate_csv
 from app.services.auth_service import get_current_user_id
@@ -71,12 +72,12 @@ def export_csv(payload: ExportDataRequest, user_id: str = Depends(get_current_us
 
 
 @router.get("/raw/csv")
-def export_raw_csv(user_id: str = Depends(get_current_user_id)):
+def export_raw_csv(x_table_name: Optional[str] = Header(None), user_id: str = Depends(get_current_user_id)):
     from app.services.table_manager import get_current_table
     from app.database.connection import engine
     from sqlalchemy import text
 
-    table_name = get_current_table()
+    table_name = x_table_name or get_current_table()
     if not table_name:
         raise HTTPException(status_code=400, detail="No active dataset.")
 
@@ -107,12 +108,12 @@ def export_raw_csv(user_id: str = Depends(get_current_user_id)):
 
 
 @router.get("/raw/excel")
-def export_raw_excel(user_id: str = Depends(get_current_user_id)):
+def export_raw_excel(x_table_name: Optional[str] = Header(None), user_id: str = Depends(get_current_user_id)):
     from app.services.table_manager import get_current_table
     from app.database.connection import engine
     from sqlalchemy import text
 
-    table_name = get_current_table()
+    table_name = x_table_name or get_current_table()
     if not table_name:
         raise HTTPException(status_code=400, detail="No active dataset.")
 
