@@ -29,10 +29,28 @@ def regenerate_sql(
             if t != table_name:
                 friendly_tbl = t.split("_usr_")[0].lower()
                 friendly_clean = friendly_tbl.rstrip('s')
-                if (friendly_tbl in question_lower or 
+                
+                table_matched = (
+                    friendly_tbl in question_lower or 
                     friendly_tbl.replace("_", " ") in question_lower or
                     (len(friendly_clean) > 3 and friendly_clean in question_lower) or
-                    any(word in friendly_tbl for word in question_lower.split() if len(word) > 3)):
+                    any(word in friendly_tbl for word in question_lower.split() if len(word) > 3)
+                )
+                
+                column_matched = False
+                if not table_matched:
+                    try:
+                        for col in inspector.get_columns(t):
+                            col_name = col["name"].lower()
+                            if col_name in ["id", "key", "date", "name", "city", "email", "status", "type"]:
+                                continue
+                            if any(word in col_name for word in question_lower.split() if len(word) > 3):
+                                column_matched = True
+                                break
+                    except Exception:
+                        pass
+                
+                if table_matched or column_matched:
                     user_tables.append(t)
         
     schemas_prompt = ""
