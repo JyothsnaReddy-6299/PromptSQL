@@ -28,7 +28,11 @@ def regenerate_sql(
         for t in all_user_tables:
             if t != table_name:
                 friendly_tbl = t.split("_usr_")[0].lower()
-                if friendly_tbl in question_lower or friendly_tbl.replace("_", " ") in question_lower:
+                friendly_clean = friendly_tbl.rstrip('s')
+                if (friendly_tbl in question_lower or 
+                    friendly_tbl.replace("_", " ") in question_lower or
+                    (len(friendly_clean) > 3 and friendly_clean in question_lower) or
+                    any(word in friendly_tbl for word in question_lower.split() if len(word) > 3)):
                     user_tables.append(t)
         
     schemas_prompt = ""
