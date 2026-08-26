@@ -129,8 +129,15 @@ def get_preview(
             search_lower = search_clean.lower()
 
             if search_lower in ["null", "empty", "is null", "missing"]:
-                # Match rows where ANY column is NULL or empty
-                conditions = [f"(`{col}` IS NULL OR `{col}` = '') font" if False else f"(`{col}` IS NULL OR `{col}` = '')" for col in columns]
+                # Match rows where ANY column is NULL or empty (type-safe for MySQL)
+                conditions = []
+                for col in col_info:
+                    col_name = col["name"]
+                    col_type = str(col["type"]).lower()
+                    if "varchar" in col_type or "text" in col_type or "char" in col_type:
+                        conditions.append(f"(`{col_name}` IS NULL OR `{col_name}` = '')")
+                    else:
+                        conditions.append(f"`{col_name}` IS NULL")
                 where_clause = " WHERE (" + " OR ".join(conditions) + ")"
             elif ":" in search_clean:
                 # Column-specific search e.g. "ORDER_ID:null" or "ORDER_ID:123"
@@ -139,8 +146,14 @@ def get_preview(
                 val_target = parts[1].strip()
                 col_match = next((col for col in columns if col.lower() == col_target.lower()), None)
                 if col_match:
+                    col_match_info = next((c for c in col_info if c["name"] == col_match), None)
+                    col_match_type = str(col_match_info["type"]).lower() if col_match_info else "varchar"
+                    
                     if val_target.lower() in ["null", "empty", "is null"]:
-                        where_clause = f" WHERE (`{col_match}` IS NULL OR `{col_match}` = '')"
+                        if "varchar" in col_match_type or "text" in col_match_type or "char" in col_match_type:
+                            where_clause = f" WHERE (`{col_match}` IS NULL OR `{col_match}` = '')"
+                        else:
+                            where_clause = f" WHERE `{col_match}` IS NULL"
                     else:
                         where_clause = f" WHERE `{col_match}` LIKE :col_val"
                         params["col_val"] = f"%{val_target}%"
