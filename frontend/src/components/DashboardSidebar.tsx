@@ -11,6 +11,7 @@ import {
   Check,
   Trash2,
   LogOut,
+  Target,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -25,6 +26,7 @@ const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
   { id: "preview", name: "Data Table", icon: Database },
   { id: "chat", name: "Ask AI", icon: MessageSquare },
+  { id: "metrics", name: "Business Metrics", icon: Target },
   { id: "reports", name: "Reports", icon: FileText },
   { id: "audit", name: "Audit Logs", icon: ClipboardList },
   { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },

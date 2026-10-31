@@ -93,6 +93,9 @@ def export_raw_csv(x_table_name: Optional[str] = Header(None), user_id: str = De
         with engine.connect() as conn:
             res = conn.execute(text(query))
             records = [dict(row._mapping) for row in res]
+            if records and "_row_id" in records[0]:
+                for r in records:
+                    r.pop("_row_id", None)
 
         csv_bytes = generate_csv(records)
         filename = f"{table_name.split('_usr_')[0]}.csv"
@@ -129,6 +132,9 @@ def export_raw_excel(x_table_name: Optional[str] = Header(None), user_id: str = 
         with engine.connect() as conn:
             res = conn.execute(text(query))
             records = [dict(row._mapping) for row in res]
+            if records and "_row_id" in records[0]:
+                for r in records:
+                    r.pop("_row_id", None)
 
         excel_bytes = generate_excel(records)
         filename = f"{table_name.split('_usr_')[0]}.xlsx"

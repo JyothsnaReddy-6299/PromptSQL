@@ -475,3 +475,82 @@ export async function downloadRawExcel() {
   const response = await fetch(`${API_URL}/api/export/raw/excel`);
   await triggerBlobDownload(response, "dataset.xlsx");
 }
+
+// -------------------------------------------------------------
+// BUSINESS METRICS & CLARIFICATION API
+// -------------------------------------------------------------
+export async function getMetrics(dataset?: string) {
+  const url = dataset ? `${API_URL}/api/metrics?dataset=${encodeURIComponent(dataset)}` : `${API_URL}/api/metrics`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Failed fetching metrics");
+  return response.json();
+}
+
+export async function createMetric(data: {
+  name: string;
+  source_dataset: string;
+  expression: string;
+  supported_aggregation?: string;
+  description?: string;
+  approved_aliases?: string[];
+  optional_filters?: any[];
+  currency_unit?: string;
+}) {
+  const response = await fetch(`${API_URL}/api/metrics`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const resData = await response.json();
+  if (!response.ok) throw new Error(resData.detail || "Failed creating metric");
+  return resData;
+}
+
+export async function updateMetric(id: number, data: any) {
+  const response = await fetch(`${API_URL}/api/metrics/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const resData = await response.json();
+  if (!response.ok) throw new Error(resData.detail || "Failed updating metric");
+  return resData;
+}
+
+export async function deleteMetric(id: number) {
+  const response = await fetch(`${API_URL}/api/metrics/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed deleting metric");
+  return response.json();
+}
+
+export async function testMetric(data: {
+  source_dataset: string;
+  expression: string;
+  supported_aggregation?: string;
+}) {
+  const response = await fetch(`${API_URL}/api/metrics/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const resData = await response.json();
+  if (!response.ok) throw new Error(resData.detail || "Failed testing metric expression");
+  return resData;
+}
+
+export async function resolveClarification(data: {
+  clarification_id: string;
+  selected_option_id: string;
+  save_as_default_metric?: boolean;
+}) {
+  const response = await fetch(`${API_URL}/api/clarification/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const resData = await response.json();
+  if (!response.ok) throw new Error(resData.detail || "Failed resolving clarification");
+  return resData;
+}

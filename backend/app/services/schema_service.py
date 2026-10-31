@@ -31,6 +31,8 @@ def get_schema(table_name):
     schema = []
 
     for column in columns:
+        if column["name"] == "_row_id":
+            continue
 
         schema.append(
             {

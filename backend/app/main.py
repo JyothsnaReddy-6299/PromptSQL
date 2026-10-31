@@ -6,6 +6,8 @@ from app.models.history import QueryHistory
 from app.models.report import SavedReport
 from app.models.audit_log import AuditLog
 from app.models.user import User
+from app.models.metric import BusinessMetric
+from app.models.clarification import ClarificationSession
 
 from app.routes.upload import router as upload_router
 from app.routes.ask import router as ask_router
@@ -16,6 +18,7 @@ from app.routes.modification import router as modification_router
 from app.routes.audit import router as audit_router
 from app.routes.cleaner import router as cleaner_router
 from app.routes.auth import router as auth_router
+from app.routes.metrics import router as metrics_router, clarification_router
 
 # Auto-initialize database tables in MySQL
 Base.metadata.create_all(bind=engine)
@@ -56,6 +59,8 @@ app.include_router(report_router, prefix="/api")
 app.include_router(modification_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
 app.include_router(cleaner_router, prefix="/api")
+app.include_router(metrics_router)
+app.include_router(clarification_router)
 
 @app.get("/health")
 def health():
@@ -104,4 +109,4 @@ else:
         return {
             "message": "Backend is running. Frontend build not found.",
             "build_path": frontend_dist
-        }
+        }

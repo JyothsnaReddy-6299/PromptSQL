@@ -16,7 +16,11 @@ import {
   FolderHeart,
   Loader2,
   AlertTriangle,
-  Play
+  Play,
+  HelpCircle,
+  Sliders,
+  Bookmark,
+  CheckCircle2
 } from "lucide-react";
 
 import { 
@@ -30,7 +34,9 @@ import {
   askModification,
   executeModification,
   askQuestion,
-  undoHistoryItem
+  undoHistoryItem,
+  resolveClarification,
+  createMetric
 } from "../services/api";
 
 interface Message {
@@ -56,6 +62,30 @@ interface Message {
   history_id?: number;
   is_undone?: boolean;
   is_undoing?: boolean;
+
+  // Business metrics & clarification properties
+  needs_clarification?: boolean;
+  clarification_id?: string;
+  clarification_options?: Array<{
+    id: string;
+    label: string;
+    description: string;
+    metric_name?: string;
+    expression?: string;
+    aggregation?: string;
+    currency_unit?: string;
+  }>;
+  interpretation?: {
+    metric_name?: string;
+    expression?: string;
+    aggregation?: string;
+    dimensions?: string[];
+    filters?: any[];
+    explanation?: string;
+  };
+  plan?: any;
+  is_clarifying?: boolean;
+  saved_as_metric?: boolean;
 }
 
 interface ChatBoxProps {
@@ -110,6 +140,10 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   const [saveReportIdx, setSaveReportIdx] = useState<number | null>(null);
   const [reportTitle, setReportTitle] = useState("");
   const [savingReport, setSavingReport] = useState(false);
+
+  // Business metrics & clarification states
+  const [saveAsDefaultMap, setSaveAsDefaultMap] = useState<Record<number, boolean>>({});
+  const [savingMetricIdx, setSavingMetricIdx] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -211,6 +245,23 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
         return;
       }
 
+      // Check if question clarification is required
+      if (data.needs_clarification) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: data.prompt || "Please clarify how you would like this metric interpreted:",
+            question: currentQuestion,
+            needs_clarification: true,
+            clarification_id: data.clarification_id,
+            clarification_options: data.options,
+            table_name: activeTableName
+          }
+        ]);
+        return;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -219,6 +270,8 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           question: currentQuestion,
           sql: data.generated_sql || "",
           records: data.result || [],
+          interpretation: data.interpretation,
+          plan: data.plan,
           activeTab: "table",
           chartType: "bar"
         }
@@ -240,6 +293,74 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       ]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClarificationSelect = async (msgIdx: number, optionId: string) => {
+    const msg = messages[msgIdx];
+    if (!msg.clarification_id) return;
+
+    try {
+      const updating = [...messages];
+      updating[msgIdx].is_clarifying = true;
+      setMessages(updating);
+
+      const saveDefault = saveAsDefaultMap[msgIdx] || false;
+      const result = await resolveClarification({
+        clarification_id: msg.clarification_id,
+        selected_option_id: optionId,
+        save_as_default_metric: saveDefault
+      });
+
+      const finalized = [...messages];
+      finalized[msgIdx].is_clarifying = false;
+      finalized[msgIdx].needs_clarification = false;
+
+      if (result.success) {
+        finalized[msgIdx].text = result.summary || "Here are the retrieved records based on your clarified metric.";
+        finalized[msgIdx].sql = result.generated_sql || "";
+        finalized[msgIdx].records = result.result || [];
+        finalized[msgIdx].interpretation = result.interpretation;
+        finalized[msgIdx].plan = result.plan;
+        finalized[msgIdx].activeTab = "table";
+        finalized[msgIdx].chartType = "bar";
+        if (showHistory) {
+          loadHistoryLogs();
+        }
+      } else {
+        finalized[msgIdx].error = result.error || "Failed to resolve clarification.";
+      }
+      setMessages(finalized);
+    } catch (err: any) {
+      const finalized = [...messages];
+      finalized[msgIdx].is_clarifying = false;
+      finalized[msgIdx].error = err.message || "Failed resolving clarification.";
+      setMessages(finalized);
+    }
+  };
+
+  const handleSaveMetricFromInterpretation = async (idx: number, interpretation: any) => {
+    if (!interpretation) return;
+    try {
+      setSavingMetricIdx(idx);
+      const datasetMeta = JSON.parse(sessionStorage.getItem("dataset") || "{}");
+      const datasetTable = datasetMeta?.table_name || activeTableName;
+      await createMetric({
+        name: interpretation.metric_name,
+        source_dataset: datasetTable,
+        expression: interpretation.expression,
+        supported_aggregation: interpretation.aggregation || "SUM",
+        description: `Approved business metric: ${interpretation.explanation || interpretation.metric_name}`,
+        approved_aliases: [interpretation.metric_name.toLowerCase()]
+      });
+
+      const updated = [...messages];
+      updated[idx].saved_as_metric = true;
+      setMessages(updated);
+    } catch (e: any) {
+      alert("Failed saving metric: " + e.message);
+    } finally {
+      setSavingMetricIdx(null);
     }
   };
 
@@ -526,6 +647,139 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                     </div>
                   )}
                 </div>
+
+                {/* Interactive Clarification Card */}
+                {msg.needs_clarification && msg.clarification_options && (
+                  <div className="bg-[#FFFDFC] border-2 border-[#BDA37A]/50 rounded-2xl p-4 shadow-md text-left space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#E8DED3] pb-2.5">
+                      <div className="flex items-center gap-2 text-[#5A2F59] font-bold text-xs uppercase tracking-wider">
+                        <HelpCircle className="w-4 h-4 text-[#BDA37A]" />
+                        <span>Question Clarification Required</span>
+                      </div>
+                      <span className="text-[10px] bg-[#5A2F59]/10 text-[#5A2F59] font-black px-2 py-0.5 rounded-full">
+                        Select an interpretation
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-[#241C20] font-semibold leading-relaxed">
+                      {msg.text}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      {msg.clarification_options.map((opt) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleClarificationSelect(idx, opt.id)}
+                          disabled={msg.is_clarifying}
+                          className="p-3 bg-[#F7F2EC] hover:bg-[#5A2F59]/10 border-2 border-[#E8DED3] hover:border-[#5A2F59]/50 rounded-xl text-left transition-all active:scale-[0.98] cursor-pointer group disabled:opacity-50 flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="font-bold text-xs text-[#241C20] group-hover:text-[#5A2F59]">
+                                {opt.label}
+                              </span>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#BDA37A] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <p className="text-[11px] text-[#6F6A67] leading-relaxed">
+                              {opt.description}
+                            </p>
+                          </div>
+                          <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-[#5A2F59] group-hover:underline">
+                            <span>Apply this definition &rarr;</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#E8DED3] text-[11px] text-[#6F6A67]">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={saveAsDefaultMap[idx] || false}
+                          onChange={(e) => setSaveAsDefaultMap((prev) => ({ ...prev, [idx]: e.target.checked }))}
+                          className="rounded accent-[#5A2F59] cursor-pointer"
+                        />
+                        <span>Save chosen metric as default for future questions</span>
+                      </label>
+                      {msg.is_clarifying && (
+                        <span className="flex items-center gap-1.5 text-[#5A2F59] font-bold">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Compiling query with selected metric...</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compact Interpretation Panel */}
+                {msg.interpretation && !msg.canceled && (
+                  <div className="bg-[#FFFDFC] border border-[#E8DED3] rounded-xl p-3 text-left text-xs shadow-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[#5A2F59] font-bold text-[11px]">
+                        <Sliders className="w-3.5 h-3.5 text-[#BDA37A]" />
+                        <span>Query Interpretation</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {msg.interpretation.metric_name && (
+                          <button
+                            onClick={() => handleSaveMetricFromInterpretation(idx, msg.interpretation)}
+                            disabled={msg.saved_as_metric || savingMetricIdx === idx}
+                            className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg border transition cursor-pointer ${
+                              msg.saved_as_metric
+                                ? "bg-[#3E8E5B]/10 text-[#3E8E5B] border-[#3E8E5B]/30"
+                                : "bg-[#5A2F59]/5 hover:bg-[#5A2F59]/10 text-[#5A2F59] border-[#5A2F59]/20"
+                            }`}
+                          >
+                            {msg.saved_as_metric ? (
+                              <>
+                                <Check className="w-3 h-3" />
+                                <span>Saved in Registry</span>
+                              </>
+                            ) : (
+                              <>
+                                <Bookmark className="w-3 h-3 text-[#BDA37A]" />
+                                <span>Save as Metric</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (msg.question) {
+                              setQuestion(msg.question);
+                            }
+                          }}
+                          className="text-[10px] text-[#6F6A67] hover:text-[#5A2F59] font-bold transition cursor-pointer underline"
+                          title="Refine query in prompt box"
+                        >
+                          Refine
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-[10.5px]">
+                      <span className="bg-[#F7F2EC] px-2 py-0.5 rounded-md font-semibold text-[#241C20] border border-[#E8DED3]">
+                        Metric: <strong className="text-[#5A2F59]">{msg.interpretation.metric_name}</strong> ({msg.interpretation.aggregation} of <code>{msg.interpretation.expression}</code>)
+                      </span>
+                      {msg.interpretation.dimensions && msg.interpretation.dimensions.length > 0 && (
+                        <span className="bg-[#F7F2EC] px-2 py-0.5 rounded-md font-semibold text-[#241C20] border border-[#E8DED3]">
+                          By: <strong className="text-[#241C20]">{msg.interpretation.dimensions.join(", ")}</strong>
+                        </span>
+                      )}
+                      {msg.interpretation.filters && msg.interpretation.filters.length > 0 && (
+                        <span className="bg-[#F7F2EC] px-2 py-0.5 rounded-md font-semibold text-[#241C20] border border-[#E8DED3]">
+                          Filters: {msg.interpretation.filters.map((f: any) => `${f.column} ${f.operator} ${f.value}`).join(", ")}
+                        </span>
+                      )}
+                    </div>
+
+                    {msg.interpretation.explanation && (
+                      <p className="text-[10.5px] text-[#6F6A67] italic">
+                        "{msg.interpretation.explanation}"
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* SQL Code Block Preview */}
                 {msg.sql && !msg.canceled && (

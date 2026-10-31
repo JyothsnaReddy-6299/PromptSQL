@@ -45,4 +45,7 @@ venv/
 *.local
 
 backend/uploads/
-frontend/dist/
+frontend/dist/ 
+aiven.txt
+active_table.txt
+backend/active_table.txt

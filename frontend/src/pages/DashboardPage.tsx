@@ -8,6 +8,7 @@ import TablePreview from "../components/TablePreview";
 import ReportsManager from "../components/ReportsManager";
 import AuditManager from "../components/AuditManager";
 import DataCleaner from "../components/DataCleaner";
+import MetricsManager from "../components/MetricsManager";
 import { getPreview } from "../services/api";
 import QueryWorkspaceModal from "../components/QueryWorkspaceModal";
 
@@ -214,7 +215,11 @@ export default function DashboardPage() {
         />
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {activeSection === "reports" ? (
+        {activeSection === "metrics" ? (
+          <div id="metrics" className="scroll-mt-24">
+            <MetricsManager />
+          </div>
+        ) : activeSection === "reports" ? (
           <div id="reports" className="scroll-mt-24">
             <ReportsManager />
           </div>

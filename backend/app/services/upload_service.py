@@ -52,10 +52,22 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     df = load_dataset(filepath)
 
     # ------------------------
-    # Preserve ORIGINAL column names
+    # Preserve and sanitize column names
     # ------------------------
 
-    df.columns = df.columns.str.strip()
+    # Clean column names: strip whitespace, handle unnamed, resolve duplicate column names
+    clean_cols = []
+    seen_cols = {}
+    for i, col in enumerate(df.columns.astype(str).str.strip()):
+        col_name = col if col and not col.startswith("Unnamed:") else f"column_{i+1}"
+        col_lower = col_name.lower()
+        if col_lower in seen_cols:
+            seen_cols[col_lower] += 1
+            col_name = f"{col_name}_{seen_cols[col_lower]}"
+        else:
+            seen_cols[col_lower] = 0
+        clean_cols.append(col_name)
+    df.columns = clean_cols
 
     # ------------------------
     # Detect datatypes
@@ -92,9 +104,15 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     # Store in MySQL (Enforce Primary Key creation to support Aiven DB rules)
     # ------------------------
     from sqlalchemy import text
-    
-    col_defs = ["`id` INT AUTO_INCREMENT PRIMARY KEY"]
+
+    # Check if dataset already has an 'id' column (case-insensitive)
+    has_id_col = any(c.lower() == "id" for c in cleaned_df.columns)
+    pk_col = "_row_id" if has_id_col else "id"
+
+    col_defs = [f"`{pk_col}` INT AUTO_INCREMENT PRIMARY KEY"]
     for col in cleaned_df.columns:
+        if col.lower() == pk_col.lower():
+            continue
         t_type = detected_types.get(col, "text")
         if t_type == "numeric":
             db_type = "DOUBLE"
@@ -103,9 +121,9 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
         else:
             db_type = "TEXT"
         col_defs.append(f"`{col}` {db_type} NULL")
-        
+
     sql_create = f"CREATE TABLE `{table_name}` (\n  " + ",\n  ".join(col_defs) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
-    
+
     with engine.begin() as conn:
         conn.execute(text(f"DROP TABLE IF EXISTS `{table_name}`"))
         conn.execute(text(sql_create))

@@ -73,7 +73,7 @@ def get_preview(
 
     try:
         inspector = inspect(engine)
-        col_info = inspector.get_columns(table_name)
+        col_info = [c for c in inspector.get_columns(table_name) if c["name"] != "_row_id"]
         columns = [c["name"] for c in col_info]
         
         # Build live detected types mapping from database column schemas
@@ -185,6 +185,9 @@ def get_preview(
         with engine.connect() as conn:
             res = conn.execute(text(sql_query), params)
             records = [dict(row._mapping) for row in res]
+            if records and "_row_id" in records[0]:
+                for r in records:
+                    r.pop("_row_id", None)
 
         # Get column statistics for numeric columns (computed efficiently in SQL to prevent loading the entire dataset in Python memory)
         column_stats = {}
@@ -345,16 +348,14 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
     physical_table_name = f"{clean_table_name}_{user_id}"
     
     # 2. Build Column Definitions SQL
-    col_definitions = []
-    # Always add an auto-incrementing id column as primary key
-    col_definitions.append("`id` INT AUTO_INCREMENT PRIMARY KEY")
+    has_id = any(re.sub(r'[^a-zA-Z0-9_]', '', col.name).lower() == "id" for col in req.columns)
+    pk_col = "_row_id" if has_id else "id"
+    col_definitions = [f"`{pk_col}` INT AUTO_INCREMENT PRIMARY KEY"]
     
     for col in req.columns:
         clean_col_name = re.sub(r'[^a-zA-Z0-9_]', '', col.name).lower()
-        if not clean_col_name:
+        if not clean_col_name or clean_col_name == pk_col.lower():
             continue
-        if clean_col_name == "id":
-            continue # already added
             
         # Validate data type against a whitelist
         allowed_types = ["VARCHAR(255)", "INT", "DOUBLE", "DATE", "TEXT"]

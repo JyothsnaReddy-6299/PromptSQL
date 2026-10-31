@@ -391,19 +391,24 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db),
 
     try:
         if op == "title":
-            query = f"SELECT `id`, `{col}` FROM `{table_name}`"
+            from sqlalchemy import inspect
+            inspector = inspect(engine)
+            cols = [c["name"] for c in inspector.get_columns(table_name)]
+            pk_col = "_row_id" if "_row_id" in cols else "id"
+
+            query = f"SELECT `{pk_col}`, `{col}` FROM `{table_name}`"
             with engine.connect() as conn:
                 df = pd.read_sql(query, conn)
             
             # Apply Title Case, preserving NULL values
             df[col] = df[col].apply(lambda x: str(x).title() if pd.notna(x) and x is not None else None)
             
-            update_query = f"-- Title case update via Pandas\nUPDATE `{table_name}` SET `{col}` = :val WHERE `id` = :id"
+            update_query = f"-- Title case update via Pandas\nUPDATE `{table_name}` SET `{col}` = :val WHERE `{pk_col}` = :pk_val"
             with engine.begin() as conn:
                 for _, row in df.iterrows():
                     conn.execute(
-                        text(f"UPDATE `{table_name}` SET `{col}` = :val WHERE `id` = :id"),
-                        {"val": row[col], "id": int(row["id"])}
+                        text(f"UPDATE `{table_name}` SET `{col}` = :val WHERE `{pk_col}` = :pk_val"),
+                        {"val": row[col], "pk_val": row[pk_col]}
                     )
                 rows_affected = len(df)
         else:
