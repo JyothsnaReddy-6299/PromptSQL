@@ -82,4 +82,15 @@ class DatasetResolutionTests(unittest.TestCase):
             self.assertEqual(service.query_context('usr_8','Total amount from qa_header_nov01','qa_items_nov01_usr_8')[0],['qa_header_nov01_usr_8'])
         paths.assert_not_called()
 
+    def test_order_output_and_customer_filter_do_not_require_active_ecommerce(self):
+        datasets = [
+            dict(id='orders',name='orders',table_name='orders_usr_8',columns=[{'name':'Order IDs'},{'name':'Customer ID'}]),
+            dict(id='customers',name='customers',table_name='customers_usr_8',columns=[{'name':'Customer ID'},{'name':'Membership'}]),
+            dict(id='commerce',name='ecommerce_sales_dataset',table_name='ecommerce_sales_dataset_usr_8',columns=[{'name':'Order_IDs'},{'name':'Total_Sales'}]),
+        ]
+        with patch.object(service,'catalog',return_value=datasets),patch.object(service,'resolve_paths',return_value=[]) as paths:
+            tables,_=service.query_context('usr_8','Give me order IDs whose membership is Gold.','ecommerce_sales_dataset_usr_8')
+        self.assertEqual(set(tables),{'orders_usr_8','customers_usr_8'})
+        self.assertEqual(set(paths.call_args.args[1]),{'orders_usr_8','customers_usr_8'})
+
 if __name__ == '__main__': unittest.main()

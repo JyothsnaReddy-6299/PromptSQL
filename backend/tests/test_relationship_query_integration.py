@@ -178,7 +178,7 @@ class QueryIntegrationTests(unittest.TestCase):
         with self.engine.begin() as c: c.execute(text('CREATE TABLE other_items_usr_8 (order_key TEXT,quantity REAL)'))
         choice=self.query('Combined amount and quantity totals')
         self.assertTrue(choice['clarification_id'].startswith('ds_'),choice)
-        option=next(o for o in choice['options'] if 'qa_items_nov01' in o['label'])
+        option=next(o for o in choice['options'] if 'qa_header_nov01' in o['label'] and 'qa_items_nov01' in o['label'])
         relation_choice=metrics.resolve_clarification(metrics.ClarificationResolveRequest(clarification_id=choice['clarification_id'],selected_option_id=option['id']),'usr_8')
         self.assertTrue(relation_choice['clarification_id'].startswith('rel_'),relation_choice)
         with patch.object(ask,'generate_sql',return_value=NAIVE):

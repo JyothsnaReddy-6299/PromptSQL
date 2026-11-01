@@ -42,10 +42,56 @@ def mentions(question, term):
     return matches
 
 
+def field_term(name):
+    """Compare identifier spelling, not MySQL value semantics or table names."""
+    return ' '.join({'ids':'id','keys':'key'}.get(token,token)
+                    for token in re.findall(r'[^\W_]+',name.casefold()))
+
+
+def field_mentions(question, term):
+    words = term.split()
+    if not words: return False
+    parts = [r'ids?' if word=='id' else r'keys?' if word=='key' else re.escape(word) for word in words]
+    return bool(re.search(r'(?<!\w)' + r'[\s_]+'.join(parts) + r'(?!\w)',question,re.I))
+
+
+def mask_filter_values(question, datasets):
+    """Filter literals are values, even if another schema uses them as names."""
+    fields = {field_term(c['name']) for d in datasets for c in d['columns']}
+    spans = []
+    for field in fields:
+        parts = [r'ids?' if word=='id' else r'keys?' if word=='key' else re.escape(word) for word in field.split()]
+        if not parts: continue
+        pattern = (r'(?<!\w)' + r'[\s_]+'.join(parts) + r'(?!\w)\s*'
+                   r'(?:is|equals?|equal to|=|like|contains)\s*'
+                   r"""(?P<value>'[^']*'|"[^"]*"|[^\s,;.?!]+)""")
+        spans.extend(match.span('value') for match in re.finditer(pattern,question,re.I))
+    masked = list(question)
+    for start,end in spans: masked[start:end] = ' '*(end-start)
+    return ''.join(masked)
+
+
+def source_affinity(dataset, required, coverage):
+    # A field qualified by an entity ("order IDs") favors the matching dataset
+    # entity ("orders"), when active context alone cannot answer the question.
+    # Do not infer source dependencies from unrelated registered metrics.
+    singular = lambda word: word[:-1] if len(word)>3 and word.endswith('s') and not word.endswith(('ss','us')) else word
+    label = [singular(t) for t in field_term(dataset['name']).split()]
+    score = 0
+    for term in required & coverage:
+        words = term.split()
+        if len(words)>1 and words[-1] in {'id','key'}:
+            entity = [singular(t) for t in words[:-1]]
+            if label == entity: score += 2
+            elif all(t in label for t in entity): score += 1
+    return score
+
+
 def select_datasets(question, active_reference, datasets, selected_ids=None):
     active = canonical_dataset(active_reference, datasets)
     if selected_ids:
         return list(dict.fromkeys(canonical_dataset(ref, datasets)['table_name'] for ref in selected_ids))
+    question = mask_filter_values(question,datasets)
     candidates, spans, explicit = [], [], []
     for d in datasets:
         for alias in {d['name'],d['table_name']}:
@@ -62,13 +108,11 @@ def select_datasets(question, active_reference, datasets, selected_ids=None):
         spans.append((start,end)); explicit.append(d)
     explicit = list({d['id']:d for d in explicit}.values())
     anchor = bool(re.search(r'\b(?:this|active|current)\s+(?:table|dataset)\b',question,re.I))
-    if explicit:
-        if anchor and active not in explicit: explicit.insert(0,active)
-        return [d['table_name'] for d in explicit]
-    if anchor: return [active['table_name']]
+    if anchor and active not in explicit: explicit.insert(0,active)
+    if anchor and len(explicit)==1: return [active['table_name']]
     def columns(d):
-        raw = {c['name'].casefold() for c in d['columns']}
-        normalized = {c.replace('_',' ') for c in raw}
+        raw = {field_term(c['name']) for c in d['columns']}
+        normalized = raw
         quantity = any(any(t in c.split() for t in ('quantity','qty','units')) for c in normalized)
         monetary = any(c in {'total sales','total sales amount','revenue','amount','sales amount'} for c in normalized)
         monetary |= quantity and any(c in {'unit price','price'} for c in normalized)
@@ -76,22 +120,34 @@ def select_datasets(question, active_reference, datasets, selected_ids=None):
                     'quantity':quantity,'amount':monetary,'revenue':monetary}
         # Explicitly quoted columns retain literal schema semantics.
         return raw | {concept for concept,present in concepts.items() if present and not re.search(r'[`"\[]'+concept+r'[`"\]]',question,re.I)}
-    active_cols = columns(active)
-    mentioned = {c['name'].casefold() for d in datasets for c in d['columns']
-                 if c['name'].casefold() not in _SEMANTIC_WORDS and mentions(question,c['name'])}
-    providers = set().union(*(columns(d) for d in datasets))
+    coverage = {d['id']:columns(d) for d in datasets}
+    active_cols = coverage[active['id']]
+    mentioned = {field_term(c['name']) for d in datasets for c in d['columns']
+                 if field_term(c['name']) not in _SEMANTIC_WORDS and field_mentions(question,field_term(c['name']))}
+    providers = set().union(*coverage.values())
     mentioned |= {concept for concept in ('revenue','region','quantity','amount') if concept in providers and mentions(question,concept)}
-    missing = mentioned-active_cols
-    if not missing: return [active['table_name']]
-    # Prefer one dataset that can answer all referenced fields, otherwise minimal
-    # combinations with the active dataset. Never select every available schema.
-    options = [[d] for d in datasets if mentioned.issubset(columns(d))] if not active_cols&mentioned else []
-    if not options:
-        others = [d for d in datasets if d['id']!=active['id'] and columns(d)&missing]
-        for size in range(1,min(3,len(others))+1):
-            for group in combinations(others,size):
-                if missing.issubset(set().union(*(columns(d) for d in group))): options.append([active,*group])
-            if options: break
-    if len(options)>1:
-        raise DatasetChoice([dict(id='datasets_'+str(i),label=' + '.join(d['name'] for d in group),description='Use these datasets for the referenced columns.',dataset_ids=[d['id'] for d in group]) for i,group in enumerate(options[:12])])
-    return [d['table_name'] for d in options[0]] if options else [active['table_name']]
+    if not mentioned: return [d['table_name'] for d in explicit] if explicit else [active['table_name']]
+    if not explicit and mentioned.issubset(active_cols): return [active['table_name']]
+    fixed = explicit
+    fixed_ids = {d['id'] for d in fixed}
+    supplied = set().union(*(coverage[d['id']] for d in fixed)) if fixed else set()
+    if fixed and mentioned.issubset(supplied): return [d['table_name'] for d in fixed]
+    missing = mentioned-supplied
+    candidates = [d for d in datasets if d['id'] not in fixed_ids and coverage[d['id']]&missing]
+    options = []
+    # Search inclusion-minimal covers, without making active context a mandatory
+    # source. Actual bridge datasets are resolved by the approved graph later.
+    for size in range(1,min(3,len(candidates))+1):
+        for group in combinations(candidates,size):
+            ids = {d['id'] for d in group}
+            if any(extra_ids.issubset(ids) for extra_ids,_ in options): continue
+            if missing.issubset(set().union(*(coverage[d['id']] for d in group))):
+                options.append((ids,[*fixed,*group]))
+    groups = [group for _,group in options]
+    if groups:
+        scores = [sum(source_affinity(d,mentioned,coverage[d['id']]) for d in group) for group in groups]
+        best = max(scores)
+        groups = [group for group,score in zip(groups,scores) if score==best]
+    if len(groups)>1:
+        raise DatasetChoice([dict(id='datasets_'+str(i),label=' + '.join(d['name'] for d in group),description='These datasets supply the requested columns, filters and metrics.',dataset_ids=[d['id'] for d in group]) for i,group in enumerate(groups[:12])])
+    return [d['table_name'] for d in groups[0]] if groups else [d['table_name'] for d in fixed] if fixed else [active['table_name']]
