@@ -752,17 +752,17 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                             </p>
                           </div>
                           <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-[#5A2F59] group-hover:underline">
-                            <span>{/^(rel_|ds_)/.test(msg.clarification_id || "") ? (msg.clarification_id?.startsWith("ds_") ? "Use this dataset selection" : "Use this relationship path") : "Apply this definition"} &rarr;</span>
+                            <span>{/^(rel_|ds_|val_)/.test(msg.clarification_id || "") ? (msg.clarification_id?.startsWith("val_") ? "Use this value meaning" : msg.clarification_id?.startsWith("ds_") ? "Use this dataset selection" : "Use this relationship path") : "Apply this definition"} &rarr;</span>
                           </span>
                         </button>
                       ))}
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#E8DED3] text-[11px] text-[#6F6A67]">
-                      {!/^(rel_|ds_)/.test(msg.clarification_id || "") && <label className="flex items-center gap-2 cursor-pointer select-none">
+                      {!/^(rel_|ds_|val_)/.test(msg.clarification_id || "") && <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
-                          disabled={/^(rel_|ds_)/.test(msg.clarification_id || "")}
+                          disabled={/^(rel_|ds_|val_)/.test(msg.clarification_id || "")}
                           checked={saveAsDefaultMap[idx] || false}
                           onChange={(e) => setSaveAsDefaultMap((prev) => ({ ...prev, [idx]: e.target.checked }))}
                           className="rounded accent-[#5A2F59] cursor-pointer"

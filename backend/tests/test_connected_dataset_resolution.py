@@ -60,7 +60,7 @@ class ConnectedResolutionTests(unittest.TestCase):
         self.assertEqual(set(result['resolved_datasets']),{O,C})
         self.assertEqual(result['result'],[{'OrderID':'O1'},{'OrderID':'O3'}])
         self.assertNotIn(E,result['generated_sql'])
-        self.assertIn("'gold'",result['generated_sql'])
+        self.assertIn("'gold'",result['generated_sql'].lower())
 
     def test_identifier_spelling_normalization(self):
         for column in ['OrderID','OrderId','OrderIDs','Order ID','Order IDs','Order_ID','Order_IDs']:

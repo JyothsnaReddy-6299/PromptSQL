@@ -5,6 +5,7 @@ import re
 import json
 from app.services import relationship_service
 from app.services.join_guard import guard_query
+from app.services.value_grounding import resolve_values, validate_bindings, ValueChoice
 
 from app.services.table_manager import get_current_table
 from app.services.sql_generator import generate_sql
@@ -30,6 +31,7 @@ class AskRequest(BaseModel):
     question: str
     relationship_ids: Optional[list[str]] = None
     dataset_ids: Optional[list[str]] = None
+    value_choices: Optional[dict[str,str]] = None
 
 
 MAX_RETRIES = 2  # Additional repair attempts after the initial query
@@ -59,6 +61,7 @@ def ask_question(
         from sqlalchemy import inspect
         from app.services.dataset_resolution import canonical_dataset
         required_tables, approved_path = [table_name], []
+        value_bindings = []
         relationships_ready = inspect(engine).has_table('dataset_references')
         if relationships_ready:
             # Resolve/authorize IDs, logical labels and physical names against the
@@ -67,8 +70,9 @@ def ask_question(
                 table_name = canonical_dataset(table_name,relationship_service.catalog(user_id))['table_name']
             except relationship_service.RelationshipError as exc:
                 raise HTTPException(status_code=403,detail=str(exc)) from exc
+            value_bindings = resolve_values(user_id,payload.question,table_name,payload.value_choices)
             required_tables, approved_path = relationship_service.query_context(
-                user_id,payload.question,table_name,payload.relationship_ids,payload.dataset_ids)
+                user_id,payload.question,table_name,payload.relationship_ids,payload.dataset_ids,value_bindings)
             table_name = required_tables[0]
         elif not table_name.endswith(f"_{user_id}"):
             raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
@@ -78,7 +82,7 @@ def ask_question(
         # -----------------------------------------
         from app.services.query_planner import UnsupportedMetricError
         try:
-            if len(required_tables) > 1:
+            if len(required_tables) > 1 or value_bindings:
                 raise PlanCompilationError('Use the existing generative planner with approved relationships.')
             plan_result = resolve_or_create_plan(payload.question, table_name, user_id)
 
@@ -164,7 +168,7 @@ def ask_question(
         sql_query = generate_sql(
             payload.question,
             table_name,
-            user_id, relationship_ids=selected_relationships, required_tables=user_tables
+            user_id, relationship_ids=selected_relationships, required_tables=user_tables, value_bindings=value_bindings
         )
 
         # Validation and execution share one bounded repair loop. Every repair is
@@ -174,6 +178,7 @@ def ask_question(
         for attempt in range(MAX_RETRIES + 1):
             try:
                 physical_sql = prepare_sql(sql_query, user_tables)
+                physical_sql = validate_bindings(physical_sql,value_bindings)
                 if relationships_ready:
                     physical_sql, join_explanation = guard_query(physical_sql, user_id, selected_relationships, required_tables)
                 else:
@@ -193,7 +198,7 @@ def ask_question(
                 if attempt == MAX_RETRIES:
                     return {"success": False, "error": message}
                 sql_query = regenerate_sql(
-                    payload.question, table_name, sql_query, message, user_id, relationship_ids=selected_relationships, required_tables=user_tables
+                    payload.question, table_name, sql_query, message, user_id, relationship_ids=selected_relationships, required_tables=user_tables, value_bindings=value_bindings
                 )
 
         result_type = interpret_result(sql_query, records)
@@ -240,22 +245,24 @@ def ask_question(
             "result": records,
             "join_explanation": join_explanation,
             "table_name": table_name,
-            "resolved_datasets": required_tables
+            "resolved_datasets": required_tables,
+            "value_bindings": value_bindings
         }
 
-    except (relationship_service.RelationshipChoice, relationship_service.DatasetChoice) as choice:
+    except (relationship_service.RelationshipChoice, relationship_service.DatasetChoice, ValueChoice) as choice:
         import uuid
         from datetime import timedelta
         from app.models.clarification import ClarificationSession
         from app.utils.tz_helper import get_ist_time
         is_dataset_choice = isinstance(choice,relationship_service.DatasetChoice)
-        clar_id = ('ds_' if is_dataset_choice else 'rel_') + uuid.uuid4().hex
+        is_value_choice = isinstance(choice,ValueChoice)
+        clar_id = ('val_' if is_value_choice else 'ds_' if is_dataset_choice else 'rel_') + uuid.uuid4().hex
         with SessionLocal() as db:
             db.add(ClarificationSession(id=clar_id, user_id=user_id,
                 original_question=payload.question, table_name=table_name,
                 clarification_prompt=str(choice), options_json=json.dumps(choice.options),
-                proposed_plan_json=json.dumps({'kind': 'dataset' if is_dataset_choice else 'relationship',
-                    'dataset_ids': payload.dataset_ids, 'relationship_ids': payload.relationship_ids}),
+                proposed_plan_json=json.dumps({'kind': 'value' if is_value_choice else 'dataset' if is_dataset_choice else 'relationship',
+                    'dataset_ids': payload.dataset_ids, 'relationship_ids': payload.relationship_ids,'value_choices':payload.value_choices}),
                 expires_at=get_ist_time()+timedelta(minutes=30)))
             db.commit()
         return dict(success=True, needs_clarification=True, clarification_id=clar_id,

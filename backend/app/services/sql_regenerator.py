@@ -14,12 +14,15 @@ def regenerate_sql(
     error_message,
     user_id=None,
     relationship_ids=None,
-    required_tables=None
+    required_tables=None,
+    value_bindings=None
 ):
     from app.services.sql_generator import query_prompt_context
     schemas_prompt,relationship_prompt,metric_prompt,friendly_name = query_prompt_context(
         question,table_name,user_id,relationship_ids,required_tables)
 
+    from app.services.value_grounding import grounding_prompt
+    value_prompt = grounding_prompt(value_bindings)
     prompt = f"""
 The previous SQL query is invalid.
 
@@ -32,6 +35,7 @@ TABLES & SCHEMAS
 {schemas_prompt}
 {relationship_prompt}
 {metric_prompt}
+{value_prompt}
 
 Active Table: `{friendly_name}`
 
@@ -53,7 +57,7 @@ Rules:
 
 2. Keep the user's intent unchanged.
 
-3. Use ONLY the table names listed above. You can JOIN them using foreign/primary key relationships if needed.
+3. Use ONLY the selected table names and the exact APPROVED join key mappings. Never infer joins from generic primary keys.
 
 4. Use ONLY the columns listed in their respective schemas.
 
@@ -69,7 +73,7 @@ Rules:
 
 10. If the user request asks to 'display all details', 'show all columns', 'everything', 'all records', 'all information', or does not specify particular fields, use `SELECT *` instead of listing all columns individually.
 
-11. If the user's question is ambiguous and does not mention a specific table name, ALWAYS prioritize and default to querying from the Active Table (`{friendly_name}`) rather than other tables. Only query or join other tables if the question explicitly references them or fields unique to them.
+11. Preserve the SELECTED DATASETS and every MEASURED FILTER BINDING. Active Table is context. Do not move a measured name filter to an identifier column.
 
 12. The error may be a database execution error as well as a validation error. Fix its cause while preserving ALL requested filters, dimensions, dates, and metric semantics. Output aliases are not physical schema columns. Totals without a breakdown must not GROUP BY their own measure.
 

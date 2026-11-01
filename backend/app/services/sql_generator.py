@@ -44,10 +44,12 @@ def query_prompt_context(question, table_name, user_id, relationship_ids=None, r
     return schemas_prompt,relationship_prompt,metric_prompt,active
 
 
-def generate_sql(question, table_name, user_id=None, relationship_ids=None, required_tables=None):
+def generate_sql(question, table_name, user_id=None, relationship_ids=None, required_tables=None, value_bindings=None):
     schemas_prompt,relationship_prompt,metric_prompt,friendly_name = query_prompt_context(
         question,table_name,user_id,relationship_ids,required_tables)
 
+    from app.services.value_grounding import grounding_prompt
+    value_prompt = grounding_prompt(value_bindings)
     prompt = f"""
 You are an expert MySQL SQL generator.
 
@@ -60,6 +62,7 @@ TABLES & SCHEMAS
 {schemas_prompt}
 {relationship_prompt}
 {metric_prompt}
+{value_prompt}
 
 Active Table: `{friendly_name}` (This is the table the user is currently viewing).
 
@@ -115,7 +118,7 @@ CREATE
 TRUNCATE
 REPLACE
 
-3. Use ONLY the table names listed above. You can JOIN them using foreign/primary key relationships if needed.
+3. Use ONLY the selected table names and exact APPROVED join mappings above. Never infer a join from generic primary keys or equally named columns.
 
 4. Use ONLY the column names listed in their respective schemas.
 
@@ -219,7 +222,7 @@ Do NOT use markdown.
 
 19. NEVER perform mathematical aggregate operations (like SUM, AVG, MIN, MAX) on columns representing identifiers or codes (e.g., column names containing 'id', 'code', 'zip', 'phone', 'ssn', 'pin', 'card', 'account', 'serial', 'number', 'mobile'). If the user requests calculations on these fields, return INVALID_QUERY or count them using COUNT instead.
 
-20. If the user's question is ambiguous and does not mention a specific table name, ALWAYS prioritize and default to querying from the Active Table (`{friendly_name}`) rather than other tables. Only query or join other tables if the question explicitly references them or fields unique to them.
+20. The SELECTED DATASETS and MEASURED FILTER BINDINGS above are authoritative. Active Table is context, not permission to drop a resolved source. Never guess that an unqualified name is an identifier.
 
 21. A request for a total or average without an explicit breakdown must return a single aggregate row. Do NOT GROUP BY the measure being aggregated. For example, total quantity is SUM(`Quantity Ordered`), not quantity grouped by quantity.
 

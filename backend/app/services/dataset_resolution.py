@@ -57,7 +57,7 @@ def field_term(name):
 def field_mentions(question, term):
     words = term.split()
     if not words: return False
-    parts = [r'ids?' if word=='id' else r'keys?' if word=='key' else re.escape(word) for word in words]
+    parts = [r'ids?' if word=='id' else r'keys?' if word=='key' else re.escape(word)+(r's?' if i==len(words)-1 and len(word)>2 and not word.endswith('s') else '') for i,word in enumerate(words)]
     return bool(re.search(r'(?<!\w)' + r'[\s_]*'.join(parts) + r'(?!\w)',question,re.I))
 
 
@@ -93,7 +93,7 @@ def source_affinity(dataset, required, coverage):
     return score
 
 
-def select_datasets(question, active_reference, datasets, selected_ids=None, plan_is_eligible=None):
+def select_datasets(question, active_reference, datasets, selected_ids=None, plan_is_eligible=None, filter_bindings=None):
     active = canonical_dataset(active_reference, datasets)
     if selected_ids:
         return list(dict.fromkeys(canonical_dataset(ref, datasets)['table_name'] for ref in selected_ids))
@@ -132,9 +132,9 @@ def select_datasets(question, active_reference, datasets, selected_ids=None, pla
                  if field_term(c['name']) not in _SEMANTIC_WORDS and field_mentions(question,field_term(c['name']))}
     providers = set().union(*coverage.values())
     mentioned |= {concept for concept in ('revenue','region','quantity','amount') if concept in providers and mentions(question,concept)}
-    if not mentioned: return [d['table_name'] for d in explicit] if explicit else [active['table_name']]
-    if not explicit and mentioned.issubset(active_cols): return [active['table_name']]
-    fixed = explicit
+    if not mentioned and not filter_bindings: return [d['table_name'] for d in explicit] if explicit else [active['table_name']]
+    if not explicit and not filter_bindings and mentioned.issubset(active_cols): return [active['table_name']]
+    fixed = list({d['id']:d for d in [*explicit,*[canonical_dataset(b['table'],datasets) for b in (filter_bindings or [])]]}.values())
     fixed_ids = {d['id'] for d in fixed}
     supplied = set().union(*(coverage[d['id']] for d in fixed)) if fixed else set()
     if fixed and mentioned.issubset(supplied): return [d['table_name'] for d in fixed]

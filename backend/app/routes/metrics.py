@@ -323,14 +323,15 @@ def resolve_clarification(
             raise HTTPException(status_code=400, detail=f"Option '{req.selected_option_id}' is invalid.")
 
         saved_context = json.loads(session.proposed_plan_json or '{}')
-        if saved_context.get('kind') in ('relationship','dataset'):
+        if saved_context.get('kind') in ('relationship','dataset','value'):
             from app.routes.ask import ask_question, AskRequest
             question, table = session.original_question, session.table_name
             dataset_ids = selected_option.get('dataset_ids',saved_context.get('dataset_ids'))
             relationship_ids = selected_option.get('relationship_ids',saved_context.get('relationship_ids'))
+            value_choices=selected_option.get('value_choices',saved_context.get('value_choices'))
             db.delete(session)
             db.commit()
-            return ask_question(AskRequest(question=question,relationship_ids=relationship_ids,dataset_ids=dataset_ids),table,user_id)
+            return ask_question(AskRequest(question=question,relationship_ids=relationship_ids,dataset_ids=dataset_ids,value_choices=value_choices),table,user_id)
 
         table_name = session.table_name
         original_question = session.original_question

@@ -209,7 +209,7 @@ def resolve_paths(owner, tables, selected=None):
         raise RelationshipChoice([dict(id='path_'+str(i), label=' → '.join(r['name'] for r in p), description='; '.join(str(r['keys']) for r in p), relationship_ids=[r['id'] for r in p]) for i,p in enumerate(paths)])
     return paths[0]
 
-def query_context(owner, question, active_table, selected=None, dataset_ids=None):
+def query_context(owner, question, active_table, selected=None, dataset_ids=None, filter_bindings=None):
     from app.services.dataset_resolution import select_datasets
     checked_paths = {}
     def eligible(tables):
@@ -223,7 +223,7 @@ def query_context(owner, question, active_table, selected=None, dataset_ids=None
             return True
         except RelationshipError:
             return False
-    required = select_datasets(question,active_table,catalog(owner),dataset_ids,eligible)
+    required = select_datasets(question,active_table,catalog(owner),dataset_ids,eligible,filter_bindings)
     if len(required)<2: return required, []
     path = checked_paths.get(tuple(required))
     return required, path if path is not None else resolve_paths(owner,required,selected)
