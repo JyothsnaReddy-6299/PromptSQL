@@ -13,3 +13,4 @@ pyjwt
 bcrypt
 groq
 httpx
+sqlglot>=28,<29

@@ -36,8 +36,17 @@ def check_and_add_undo_column():
                     conn.execute(text("ALTER TABLE query_history ADD COLUMN undo_sql TEXT NULL"))
                     conn.execute(text("COMMIT"))
                 print("[STARTUP] 'undo_sql' column added successfully!")
+        if "business_metrics" in inspector.get_table_names():
+            bm_cols = [c["name"] for c in inspector.get_columns("business_metrics")]
+            with engine.connect() as conn:
+                if "is_default" not in bm_cols:
+                    conn.execute(text("ALTER TABLE business_metrics ADD COLUMN is_default BOOLEAN NOT NULL DEFAULT 0"))
+                    conn.execute(text("COMMIT"))
+                if "default_concept" not in bm_cols:
+                    conn.execute(text("ALTER TABLE business_metrics ADD COLUMN default_concept VARCHAR(50) NULL"))
+                    conn.execute(text("COMMIT"))
     except Exception as e:
-        print("[STARTUP] Failed database schema check for undo_sql column:", e)
+        print("[STARTUP] Failed database schema check for columns:", e)
 
 check_and_add_undo_column()
 

@@ -1,19 +1,30 @@
 import { useState, useEffect } from "react";
-import { 
-  Target, 
-  Plus, 
-  Trash2, 
-  Edit3, 
-  Play, 
-  Check, 
-  AlertCircle, 
-  Loader2, 
-  Sparkles, 
-  Database, 
+import {
+  Target,
+  Plus,
+  Trash2,
+  Edit3,
+  Play,
+  Check,
+  AlertCircle,
+  Loader2,
+  Sparkles,
+  Database,
   Tag,
+  Star,
   X
 } from "lucide-react";
-import { getMetrics, createMetric, updateMetric, deleteMetric, testMetric, getDatasets } from "../services/api";
+import {
+  getMetrics,
+  createMetric,
+  updateMetric,
+  deleteMetric,
+  testMetric,
+  getDatasets,
+  getDatasetColumns,
+  setDefaultMetric,
+  resetDefaultMetric
+} from "../services/api";
 
 interface Metric {
   id: number;
@@ -27,6 +38,8 @@ interface Metric {
   optional_filters: any[];
   currency_unit: string;
   version: number;
+  is_default?: boolean;
+  default_concept?: string;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +63,11 @@ export default function MetricsManager() {
   const [formAggregation, setFormAggregation] = useState("SUM");
   const [formAliases, setFormAliases] = useState("");
   const [formUnit, setFormUnit] = useState("");
+  const [formIsDefault, setFormIsDefault] = useState(false);
+
+  // Dataset columns for column picker
+  const [datasetColumns, setDatasetColumns] = useState<string[]>([]);
+  const [loadingCols, setLoadingCols] = useState(false);
 
   // Testing states
   const [testing, setTesting] = useState(false);
@@ -80,6 +98,28 @@ export default function MetricsManager() {
     loadMetrics();
   }, []);
 
+  useEffect(() => {
+    if (formDataset) {
+      loadColumnsForDataset(formDataset);
+    }
+  }, [formDataset]);
+
+  const loadColumnsForDataset = async (ds: string) => {
+    try {
+      setLoadingCols(true);
+      const res = await getDatasetColumns(ds);
+      if (res.success && res.columns) {
+        setDatasetColumns(res.columns);
+      } else {
+        setDatasetColumns([]);
+      }
+    } catch (e) {
+      setDatasetColumns([]);
+    } finally {
+      setLoadingCols(false);
+    }
+  };
+
   const loadMetrics = async (datasetToFilter?: string) => {
     try {
       setLoading(true);
@@ -103,21 +143,34 @@ export default function MetricsManager() {
       setFormDataset(metric.source_dataset);
       setFormExpression(metric.expression);
       setFormAggregation(metric.supported_aggregation);
-      setFormAliases((metric.approved_aliases || []).join(", "));
+      // Deduplicate aliases for form
+      const uniqueAliases = Array.from(new Set(metric.approved_aliases || []));
+      setFormAliases(uniqueAliases.join(", "));
       setFormUnit(metric.currency_unit || "");
+      setFormIsDefault(metric.is_default || false);
     } else {
       setEditingMetric(null);
       setFormName("");
       setFormDescription("");
-      setFormDataset(selectedDataset || (datasets.length > 0 ? datasets[0] : ""));
+      const initialDs = selectedDataset || (datasets.length > 0 ? datasets[0] : "");
+      setFormDataset(initialDs);
       setFormExpression("");
       setFormAggregation("SUM");
       setFormAliases("");
       setFormUnit("USD");
+      setFormIsDefault(false);
     }
     setTestResult(null);
     setTestError(null);
     setIsModalOpen(true);
+  };
+
+  const insertColumnToExpression = (colName: string) => {
+    const formattedCol = `\`${colName}\``;
+    setFormExpression((prev) => {
+      if (!prev.trim()) return formattedCol;
+      return `${prev} ${formattedCol}`;
+    });
   };
 
   const handleTestExpression = async () => {
@@ -153,10 +206,15 @@ export default function MetricsManager() {
       return;
     }
 
-    const aliases = formAliases
-      .split(",")
-      .map((a) => a.trim())
-      .filter((a) => a.length > 0);
+    // Deduplicate and normalize aliases
+    const aliases = Array.from(
+      new Set(
+        formAliases
+          .split(",")
+          .map((a) => a.trim().toLowerCase())
+          .filter((a) => a.length > 0)
+      )
+    );
 
     try {
       setSaving(true);
@@ -170,6 +228,8 @@ export default function MetricsManager() {
         supported_aggregation: formAggregation,
         approved_aliases: aliases,
         currency_unit: formUnit.trim(),
+        is_default: formIsDefault,
+        default_concept: formIsDefault ? "sales" : undefined
       };
 
       if (editingMetric) {
@@ -197,6 +257,19 @@ export default function MetricsManager() {
     }
   };
 
+  const handleToggleDefault = async (metric: Metric) => {
+    try {
+      if (metric.is_default) {
+        await resetDefaultMetric(metric.source_dataset, metric.default_concept || "sales");
+      } else {
+        await setDefaultMetric(metric.id, "sales");
+      }
+      loadMetrics();
+    } catch (err: any) {
+      alert(err.message || "Failed updating default status");
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 text-left">
       {/* Page Header */}
@@ -208,7 +281,7 @@ export default function MetricsManager() {
           </div>
           <h1 className="text-2xl font-black text-[#241C20] tracking-tight">Business Metric Registry</h1>
           <p className="text-xs text-[#6F6A67] mt-1 max-w-xl">
-            Define reusable, validated business metrics (e.g., Revenue, AOV, Volume). PromptSQL uses these trusted definitions to resolve ambiguous questions deterministically.
+            Define reusable, validated business metrics (e.g. Revenue, Order Volume, AOV). PromptSQL uses these trusted definitions to resolve ambiguous questions deterministically without hallucination.
           </p>
         </div>
 
@@ -263,7 +336,7 @@ export default function MetricsManager() {
           </div>
           <h3 className="text-sm font-bold text-[#241C20]">No business metrics defined yet</h3>
           <p className="text-xs text-[#6F6A67] max-w-md mx-auto">
-            Create definitions like "Revenue" or "Order Quantity". When users ask natural language questions like "Highest sales", PromptSQL resolves them using these approved calculations.
+            Create definitions like "Revenue" or "Units Sold". When users ask natural language questions like "Highest sales", PromptSQL resolves them using these approved calculations.
           </p>
           <button
             onClick={() => handleOpenModal()}
@@ -275,93 +348,112 @@ export default function MetricsManager() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {metrics.map((m) => (
-            <div
-              key={m.id}
-              className="bg-[#FFFDFC] border-2 border-[#E8DED3] hover:border-[#5A2F59]/30 p-5 rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4"
-            >
-              <div>
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-sm text-[#241C20]">{m.name}</h3>
-                      <span className="text-[9px] bg-[#5A2F59]/10 text-[#5A2F59] font-black px-1.5 py-0.5 rounded-md">
-                        v{m.version}
+          {metrics.map((m) => {
+            const cleanAliases = Array.from(new Set(m.approved_aliases || []));
+            return (
+              <div
+                key={m.id}
+                className="bg-[#FFFDFC] border-2 border-[#E8DED3] hover:border-[#5A2F59]/30 p-5 rounded-3xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4"
+              >
+                <div>
+                  {/* Header row */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-sm text-[#241C20]">{m.name}</h3>
+                        <span className="text-[9px] bg-[#5A2F59]/10 text-[#5A2F59] font-black px-1.5 py-0.5 rounded-md">
+                          v{m.version}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#8C827A] font-medium flex items-center gap-1">
+                        <Database className="w-3 h-3 text-[#BDA37A]" />
+                        {m.source_dataset.split("_usr_")[0]}
                       </span>
                     </div>
-                    <span className="text-[10px] text-[#8C827A] font-medium flex items-center gap-1">
-                      <Database className="w-3 h-3 text-[#BDA37A]" />
-                      {m.source_dataset.split("_usr_")[0]}
-                    </span>
-                  </div>
 
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] bg-[#3E8E5B]/10 text-[#3E8E5B] border border-[#3E8E5B]/20 font-bold px-2 py-0.5 rounded-lg">
-                      {m.supported_aggregation}
-                    </span>
-                    {m.currency_unit && (
-                      <span className="text-[10px] bg-[#BDA37A]/15 text-[#5A2F59] font-bold px-2 py-0.5 rounded-lg">
-                        {m.currency_unit}
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {m.is_default && (
+                        <span className="text-[9.5px] bg-amber-50 text-amber-700 border border-amber-200 font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          <span>Default</span>
+                        </span>
+                      )}
+                      <span className="text-[10px] bg-[#3E8E5B]/10 text-[#3E8E5B] border border-[#3E8E5B]/20 font-bold px-2 py-0.5 rounded-lg">
+                        {m.supported_aggregation}
                       </span>
-                    )}
+                      {m.currency_unit && (
+                        <span className="text-[10px] bg-[#BDA37A]/15 text-[#5A2F59] font-bold px-2 py-0.5 rounded-lg">
+                          {m.currency_unit}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Description */}
-                {m.description && (
-                  <p className="text-xs text-[#6F6A67] mt-2 line-clamp-2 leading-relaxed">
-                    {m.description}
-                  </p>
-                )}
+                  {/* Description */}
+                  {m.description && (
+                    <p className="text-xs text-[#6F6A67] mt-2 line-clamp-2 leading-relaxed">
+                      {m.description}
+                    </p>
+                  )}
 
-                {/* Expression Formula */}
-                <div className="mt-3 bg-[#F7F2EC] border border-[#E8DED3] p-2.5 rounded-xl font-mono text-[11px] text-[#5A2F59] font-bold">
-                  {m.supported_aggregation}({m.expression})
-                </div>
+                  {/* Expression Formula */}
+                  <div className="mt-3 bg-[#F7F2EC] border border-[#E8DED3] p-2.5 rounded-xl font-mono text-[11px] text-[#5A2F59] font-bold overflow-x-auto">
+                    {m.supported_aggregation}({m.expression})
+                  </div>
 
-                {/* Approved Aliases */}
-                {m.approved_aliases && m.approved_aliases.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] text-[#8C827A] font-bold flex items-center gap-1">
-                      <Tag className="w-2.5 h-2.5" /> Aliases:
-                    </span>
-                    {m.approved_aliases.map((alias) => (
-                      <span
-                        key={alias}
-                        className="text-[9.5px] bg-[#FFFDFC] border border-[#E8DED3] text-[#241C20] px-1.5 py-0.5 rounded-md font-medium"
-                      >
-                        {alias}
+                  {/* Approved Aliases */}
+                  {cleanAliases.length > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-[#8C827A] font-bold flex items-center gap-1">
+                        <Tag className="w-2.5 h-2.5" /> Aliases:
                       </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      {cleanAliases.map((alias) => (
+                        <span
+                          key={alias}
+                          className="text-[9.5px] bg-[#FFFDFC] border border-[#E8DED3] text-[#241C20] px-1.5 py-0.5 rounded-md font-medium"
+                        >
+                          {alias}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-              {/* Bottom Actions */}
-              <div className="pt-3 border-t border-[#E8DED3] flex items-center justify-between text-xs">
-                <span className="text-[10px] text-[#B0A79E]">
-                  Updated {m.updated_at ? new Date(m.updated_at).toLocaleDateString() : ""}
-                </span>
-                <div className="flex items-center gap-2">
+                {/* Bottom Actions */}
+                <div className="pt-3 border-t border-[#E8DED3] flex items-center justify-between text-xs">
                   <button
-                    onClick={() => handleOpenModal(m)}
-                    className="p-1.5 text-[#6F6A67] hover:text-[#5A2F59] hover:bg-[#5A2F59]/5 rounded-lg transition cursor-pointer"
-                    title="Edit metric"
+                    onClick={() => handleToggleDefault(m)}
+                    className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg border transition cursor-pointer ${
+                      m.is_default
+                        ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                        : "bg-[#F7F2EC] text-[#6F6A67] border-[#E8DED3] hover:text-[#5A2F59] hover:bg-[#5A2F59]/10"
+                    }`}
+                    title={m.is_default ? "Clear default status" : "Set as default for sales queries"}
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
+                    <Star className={`w-3 h-3 ${m.is_default ? "fill-amber-500 text-amber-500" : ""}`} />
+                    <span>{m.is_default ? "Reset Default" : "Make Default"}</span>
                   </button>
-                  <button
-                    onClick={() => handleDelete(m.id)}
-                    className="p-1.5 text-[#6F6A67] hover:text-[#D95D39] hover:bg-[#D95D39]/10 rounded-lg transition cursor-pointer"
-                    title="Delete metric"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleOpenModal(m)}
+                      className="p-1.5 text-[#6F6A67] hover:text-[#5A2F59] hover:bg-[#5A2F59]/5 rounded-lg transition cursor-pointer"
+                      title="Edit metric"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(m.id)}
+                      className="p-1.5 text-[#6F6A67] hover:text-[#D95D39] hover:bg-[#D95D39]/10 rounded-lg transition cursor-pointer"
+                      title="Delete metric"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -455,7 +547,7 @@ export default function MetricsManager() {
                 </div>
               </div>
 
-              {/* Expression with Test Button */}
+              {/* Calculation Expression with Column Picker */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-[11px] font-bold text-[#6F6A67] uppercase tracking-wider">
@@ -463,11 +555,12 @@ export default function MetricsManager() {
                   </label>
                   <span className="text-[10px] text-[#8C827A]">Safe arithmetic (+, -, *, /)</span>
                 </div>
+
                 <div className="flex gap-2">
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Total_Sales or Unit_Price * Quantity_Ordered"
+                    placeholder="e.g. `Total Sales Amount` or `Unit Price` * `Quantity Ordered`"
                     value={formExpression}
                     onChange={(e) => setFormExpression(e.target.value)}
                     className="w-full px-3 py-2 bg-[#F7F2EC] border border-[#E8DED3] rounded-xl font-mono text-[11px] focus:outline-none focus:border-[#5A2F59] text-[#241C20]"
@@ -482,6 +575,32 @@ export default function MetricsManager() {
                     <span>Test</span>
                   </button>
                 </div>
+
+                {/* Column Picker Bar */}
+                {loadingCols ? (
+                  <div className="mt-2 text-[10px] text-[#8C827A] flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin text-[#5A2F59]" />
+                    <span>Loading dataset columns...</span>
+                  </div>
+                ) : datasetColumns.length > 0 ? (
+                  <div className="mt-2 bg-[#F7F2EC] p-2 rounded-xl border border-[#E8DED3] space-y-1">
+                    <span className="text-[9.5px] font-bold text-[#6F6A67] block">
+                      Click column to insert reference:
+                    </span>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {datasetColumns.map((col) => (
+                        <button
+                          key={col}
+                          type="button"
+                          onClick={() => insertColumnToExpression(col)}
+                          className="px-2 py-0.5 bg-[#FFFDFC] hover:bg-[#5A2F59]/10 border border-[#E8DED3] hover:border-[#5A2F59]/40 rounded-md text-[10px] font-mono text-[#241C20] transition cursor-pointer"
+                        >
+                          +{col}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {/* Test Result / Error Feedback */}
@@ -496,7 +615,7 @@ export default function MetricsManager() {
                   </div>
                   {testResult.sample_value !== undefined && (
                     <div className="text-[10.5px] text-[#6F6A67]">
-                      Sample aggregate output: <strong>{String(testResult.sample_value)}</strong>
+                      Sample aggregate output: <strong>{testResult.formatted_sample_value || String(testResult.sample_value)}</strong>
                     </div>
                   )}
                 </div>
@@ -508,6 +627,21 @@ export default function MetricsManager() {
                   <span>{testError}</span>
                 </div>
               )}
+
+              {/* Set as default checkbox */}
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formIsDefault}
+                    onChange={(e) => setFormIsDefault(e.target.checked)}
+                    className="rounded accent-[#5A2F59] cursor-pointer"
+                  />
+                  <span className="font-semibold text-[11px] text-[#241C20]">
+                    Set as default definition for "sales" queries on this dataset
+                  </span>
+                </label>
+              </div>
 
               {/* Approved Aliases */}
               <div>
@@ -549,10 +683,10 @@ export default function MetricsManager() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2 bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] rounded-xl font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-[#5A2F59]/20 disabled:opacity-50"
+                  className="px-4 py-2 bg-[#5A2F59] hover:bg-[#4A2549] text-[#FFFDFC] rounded-xl font-bold shadow-md shadow-[#5A2F59]/20 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{editingMetric ? "Update Metric" : "Save Metric"}</span>
+                  <span>{editingMetric ? "Save Changes" : "Create Metric"}</span>
                 </button>
               </div>
             </form>

@@ -110,6 +110,8 @@ Rules:
 
 11. If the user's question is ambiguous and does not mention a specific table name, ALWAYS prioritize and default to querying from the Active Table (`{friendly_name}`) rather than other tables. Only query or join other tables if the question explicitly references them or fields unique to them.
 
+12. The error may be a database execution error as well as a validation error. Fix its cause while preserving ALL requested filters, dimensions, dates, and metric semantics. Output aliases are not physical schema columns. Totals without a breakdown must not GROUP BY their own measure.
+
 Return ONLY SQL.
 """
 

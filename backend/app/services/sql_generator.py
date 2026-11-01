@@ -226,6 +226,12 @@ Do NOT use markdown.
 
 20. If the user's question is ambiguous and does not mention a specific table name, ALWAYS prioritize and default to querying from the Active Table (`{friendly_name}`) rather than other tables. Only query or join other tables if the question explicitly references them or fields unique to them.
 
+21. A request for a total or average without an explicit breakdown must return a single aggregate row. Do NOT GROUP BY the measure being aggregated. For example, total quantity is SUM(`Quantity Ordered`), not quantity grouped by quantity.
+
+22. Result aliases such as `Total Revenue` are output names, not source columns. Derive revenue only from actual revenue/sales amount columns, or unit price times quantity when available. Never substitute revenue for profit or ignore requested filters.
+
+23. Preserve every requested filter, date range, grouping dimension, and aggregation. Use COUNT(*) for row counts and COUNT(DISTINCT column) for distinct entity counts. Use NULLIF for division denominators.
+
 =========================
 QUESTION
 =========================

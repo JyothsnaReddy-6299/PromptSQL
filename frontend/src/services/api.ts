@@ -554,3 +554,37 @@ export async function resolveClarification(data: {
   if (!response.ok) throw new Error(resData.detail || "Failed resolving clarification");
   return resData;
 }
+export async function setDefaultMetric(metricId: number, concept: string = "sales") {
+  const response = await fetch(`${API_URL}/api/metrics/${metricId}/set-default?concept=${encodeURIComponent(concept)}`, {
+    method: "POST",
+  });
+  const resData = await response.json();
+  if (!response.ok) throw new Error(resData.detail || "Failed setting default metric");
+  return resData;
+}
+
+export async function resetDefaultMetric(dataset: string, concept: string = "sales") {
+  const response = await fetch(`${API_URL}/api/metrics/reset-default?dataset=${encodeURIComponent(dataset)}&concept=${encodeURIComponent(concept)}`, {
+    method: "POST",
+  });
+  const resData = await response.json();
+  if (!response.ok) throw new Error(resData.detail || "Failed resetting default metric");
+  return resData;
+}
+
+export async function refineQuery(plan: any, refinements: any, tableName: string) {
+  const response = await fetch(`${API_URL}/api/metrics/refine`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan, refinements, table_name: tableName }),
+  });
+  const resData = await response.json();
+  if (!response.ok) throw new Error(resData.detail || "Failed executing refined query");
+  return resData;
+}
+
+export async function getDatasetColumns(dataset: string) {
+  const response = await fetch(`${API_URL}/api/metrics/columns?dataset=${encodeURIComponent(dataset)}`);
+  if (!response.ok) throw new Error("Failed fetching dataset columns");
+  return response.json();
+}
