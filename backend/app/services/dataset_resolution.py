@@ -44,6 +44,12 @@ def mentions(question, term):
 
 def field_term(name):
     """Compare identifier spelling, not MySQL value semantics or table names."""
+    # Split BEFORE case-folding: OrderID/CustomerID/CustomerName retain word
+    # boundaries which are lost in "orderid". Preserve plural acronym IDs too.
+    name = re.sub(r'(?<=[a-z0-9])ID(s)?\b', r' Id\1', name)
+    name = re.sub(r'(?<![A-Za-z0-9])IDs(?![A-Za-z0-9])', 'Ids', name)
+    name = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', name)
+    name = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', name)
     return ' '.join({'ids':'id','keys':'key'}.get(token,token)
                     for token in re.findall(r'[^\W_]+',name.casefold()))
 
@@ -52,7 +58,7 @@ def field_mentions(question, term):
     words = term.split()
     if not words: return False
     parts = [r'ids?' if word=='id' else r'keys?' if word=='key' else re.escape(word) for word in words]
-    return bool(re.search(r'(?<!\w)' + r'[\s_]+'.join(parts) + r'(?!\w)',question,re.I))
+    return bool(re.search(r'(?<!\w)' + r'[\s_]*'.join(parts) + r'(?!\w)',question,re.I))
 
 
 def mask_filter_values(question, datasets):
@@ -62,7 +68,7 @@ def mask_filter_values(question, datasets):
     for field in fields:
         parts = [r'ids?' if word=='id' else r'keys?' if word=='key' else re.escape(word) for word in field.split()]
         if not parts: continue
-        pattern = (r'(?<!\w)' + r'[\s_]+'.join(parts) + r'(?!\w)\s*'
+        pattern = (r'(?<!\w)' + r'[\s_]*'.join(parts) + r'(?!\w)\s*'
                    r'(?:is|equals?|equal to|=|like|contains)\s*'
                    r"""(?P<value>'[^']*'|"[^"]*"|[^\s,;.?!]+)""")
         spans.extend(match.span('value') for match in re.finditer(pattern,question,re.I))
@@ -87,7 +93,7 @@ def source_affinity(dataset, required, coverage):
     return score
 
 
-def select_datasets(question, active_reference, datasets, selected_ids=None):
+def select_datasets(question, active_reference, datasets, selected_ids=None, plan_is_eligible=None):
     active = canonical_dataset(active_reference, datasets)
     if selected_ids:
         return list(dict.fromkeys(canonical_dataset(ref, datasets)['table_name'] for ref in selected_ids))
@@ -144,7 +150,14 @@ def select_datasets(question, active_reference, datasets, selected_ids=None):
             if missing.issubset(set().union(*(coverage[d['id']] for d in group))):
                 options.append((ids,[*fixed,*group]))
     groups = [group for _,group in options]
-    if groups:
+    connected = [group for group in groups if plan_is_eligible and plan_is_eligible([d['table_name'] for d in group])]
+    if connected:
+        # Connectivity is evidence; the active UI dataset and an entity-name
+        # score cannot silently choose between multiple executable meanings.
+        groups = connected
+    elif groups:
+        # No eligible plan: retain the best semantic interpretation so final path
+        # validation explains the missing/inactive/stale connection. Never execute it.
         scores = [sum(source_affinity(d,mentioned,coverage[d['id']]) for d in group) for group in groups]
         best = max(scores)
         groups = [group for group,score in zip(groups,scores) if score==best]

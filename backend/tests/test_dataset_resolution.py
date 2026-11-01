@@ -13,6 +13,12 @@ DATASETS = [
     dict(id='unrelated-id', name='orders_archive', table_name='orders_archive_usr_8', columns=[{'name':'Amount'},{'name':'revenue'},{'name':'order_key_old'}]),
 ]
 
+def approved_order_customer_path(owner,tables,selected=None):
+    if set(tables)!={'orders_usr_8','customers_usr_8'}:
+        raise service.RelationshipError('No approved connection')
+    return []
+
+
 class DatasetResolutionTests(unittest.TestCase):
     def resolve(self, question, active='qa_header_nov01_usr_8'):
         with patch.object(service, 'catalog', return_value=DATASETS), patch.object(service, 'resolve_paths', return_value=[]) as paths:
@@ -88,9 +94,19 @@ class DatasetResolutionTests(unittest.TestCase):
             dict(id='customers',name='customers',table_name='customers_usr_8',columns=[{'name':'Customer ID'},{'name':'Membership'}]),
             dict(id='commerce',name='ecommerce_sales_dataset',table_name='ecommerce_sales_dataset_usr_8',columns=[{'name':'Order_IDs'},{'name':'Total_Sales'}]),
         ]
-        with patch.object(service,'catalog',return_value=datasets),patch.object(service,'resolve_paths',return_value=[]) as paths:
+        with patch.object(service,'catalog',return_value=datasets),patch.object(service,'resolve_paths',side_effect=approved_order_customer_path) as paths:
             tables,_=service.query_context('usr_8','Give me order IDs whose membership is Gold.','ecommerce_sales_dataset_usr_8')
         self.assertEqual(set(tables),{'orders_usr_8','customers_usr_8'})
-        self.assertEqual(set(paths.call_args.args[1]),{'orders_usr_8','customers_usr_8'})
+        self.assertTrue(any(set(call.args[1])=={'orders_usr_8','customers_usr_8'} for call in paths.call_args_list))
+
+    def test_compact_orderid_does_not_omit_orders(self):
+        datasets=[
+            dict(id='orders',name='orders',table_name='orders_usr_8',columns=[{'name':'OrderID'},{'name':'CustomerID'}]),
+            dict(id='customers',name='customers',table_name='customers_usr_8',columns=[{'name':'CustomerID'},{'name':'Membership'}]),
+            dict(id='commerce',name='ecommerce_sales_dataset',table_name='ecommerce_sales_dataset_usr_8',columns=[{'name':'Order_ID'}]),
+        ]
+        with patch.object(service,'catalog',return_value=datasets),patch.object(service,'resolve_paths',side_effect=approved_order_customer_path) as paths:
+            tables,_=service.query_context('usr_8','Give me order ID whose membership is gold.','ecommerce_sales_dataset_usr_8')
+        self.assertEqual(set(tables),{'orders_usr_8','customers_usr_8'})
 
 if __name__ == '__main__': unittest.main()

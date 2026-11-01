@@ -73,14 +73,15 @@ class OrdersMembershipTests(unittest.TestCase):
         self.assertEqual(set(result['resolved_datasets']),{O,C})
         self.assertEqual(len(result['result']),3)
 
-    def test_only_required_pair_is_passed_to_path_lookup(self):
+    def test_execution_uses_required_pair_after_candidate_path_checks(self):
         real=relationships.resolve_paths
         with patch.object(relationships,'resolve_paths',wraps=real) as lookup:
             result,_=self.query(QUESTION,E)
         self.assertTrue(result['success'],result)
         self.assertTrue(lookup.call_args_list)
-        for call in lookup.call_args_list:
-            self.assertEqual(set(call.args[1]),{O,C})
+        self.assertEqual(set(lookup.call_args.args[1]),{O,C})
+        self.assertEqual(set(result['resolved_datasets']),{O,C})
+        self.assertNotIn(E,result['generated_sql'])
 
     def test_irrelevant_active_table_is_not_in_dataset_clarification(self):
         required,_=relationships.query_context('usr_8',QUESTION,E)

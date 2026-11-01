@@ -176,6 +176,12 @@ class QueryIntegrationTests(unittest.TestCase):
     def test_dataset_choice_can_be_followed_by_relationship_choice(self):
         self.approve()  # second approved meaning for the same pair
         with self.engine.begin() as c: c.execute(text('CREATE TABLE other_items_usr_8 (order_key TEXT,quantity REAL)'))
+        # Dataset ambiguity now requires multiple eligible source plans, not
+        # merely another disconnected schema with overlapping columns.
+        datasets={d['table_name']:d for d in service.catalog('usr_8')}
+        req=routes.RelationshipRequest(name='Alternative item source',left_dataset_id=datasets[self.ds['qa_header_nov01']['table_name']]['id'],right_dataset_id=datasets['other_items_usr_8']['id'],keys=[routes.Key(left='order_key',right='order_key')],approved=True)
+        req.preview_digest=routes.preview('usr_8',req)['preview_digest']
+        routes.create(req,'usr_8')
         choice=self.query('Combined amount and quantity totals')
         self.assertTrue(choice['clarification_id'].startswith('ds_'),choice)
         option=next(o for o in choice['options'] if 'qa_header_nov01' in o['label'] and 'qa_items_nov01' in o['label'])

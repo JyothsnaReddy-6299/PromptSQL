@@ -211,5 +211,19 @@ def resolve_paths(owner, tables, selected=None):
 
 def query_context(owner, question, active_table, selected=None, dataset_ids=None):
     from app.services.dataset_resolution import select_datasets
-    required = select_datasets(question, active_table, catalog(owner), dataset_ids)
-    return required, resolve_paths(owner, required, selected) if len(required)>1 else []
+    checked_paths = {}
+    def eligible(tables):
+        if len(tables)<2: return True
+        key = tuple(tables)
+        try:
+            checked_paths[key] = resolve_paths(owner,tables,selected)
+            return True
+        except RelationshipChoice:
+            # A source set is executable but its join meaning still needs a choice.
+            return True
+        except RelationshipError:
+            return False
+    required = select_datasets(question,active_table,catalog(owner),dataset_ids,eligible)
+    if len(required)<2: return required, []
+    path = checked_paths.get(tuple(required))
+    return required, path if path is not None else resolve_paths(owner,required,selected)

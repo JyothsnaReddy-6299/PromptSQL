@@ -78,3 +78,59 @@ backend-only change. Existing test dependency deprecation warnings remain.
 - `backend/tests/test_orders_membership.py` (new)
 - `backend/tests/test_relationship_query_integration.py`
 - `docs/orders-membership-fix.md` (new)
+
+## Follow-up: compact identifiers and eligible source plans
+
+The singular-wording failure was reproduced before this follow-up: the resolver
+returned Customers + ecommerce and omitted Orders. The earlier regression fixture
+used spaced `Order ID`; the local Orders workbook actually has `OrderID` and
+`CustomerID`. The normalizer case-folded before splitting words, so `OrderID`
+became `orderid` and failed to match the natural-language `order ID`, whereas
+`Order_ID` in ecommerce was recognized. Local workbook header inspection was
+read-only; live production catalog rows were not inspected.
+
+Identifier normalization now splits camel-case/acronym boundaries before
+case-folding and recognizes compact, spaced, underscored and singular/plural
+ID references. This is generic identifier handling, not a special case for a
+membership question or a table name.
+
+The previous resolver also scored column-covering source sets before checking
+whether they had eligible approved paths. It now evaluates candidates using the
+existing ownership-scoped, approved/active/fresh path resolver. A uniquely eligible
+source plan wins over unrelated active context or a name-affinity score. When
+multiple eligible source plans remain, the existing dataset clarification workflow
+asks the user; after choosing a source plan, ambiguous relationship meanings still
+use the existing relationship clarification. Explicit dataset scope remains fixed.
+If no eligible source plan exists, execution still stops with connection diagnostics;
+missing, unapproved, inactive or stale relationships are not bypassed.
+
+Final follow-up verification: **105 backend tests passed**, including eight new
+connected-resolution tests and the previously failing compact-identifier unit
+regression. The singular question, previous plural wording, and explicitly scoped
+version were exercised with each of Orders, Customers and ecommerce active (nine
+question/context combinations), using compact `OrderID` and `CustomerID` schemas.
+
+With only Orders-Customers eligible, every combination selected that pair, retained
+the CustomerID join and membership filter, and returned fixture order IDs O1/O3.
+With both Orders-Customers and ecommerce-Customers eligible, unscoped wording
+returned dataset clarification for all three active contexts; explicitly scoped
+Orders-Customers wording still used the intended pair. Selecting Orders from the
+clarification resumed the query successfully. Inactive/unapproved/stale alternatives,
+a missing eligible plan, and a misleading renamed source label were also tested.
+The SQL guard and authorization checks remain unchanged and enabled.
+
+Full regression command: `python -m unittest discover -s backend/tests -q`.
+`git diff --check` passed. Test SQL uses isolated SQLite fixtures and mocked LLM
+responses; the compact-schema fixture uses case-insensitive membership comparison
+to model the intended Gold/gold behavior. Live Groq, MySQL deployment/collation,
+and Render rollout remain unverified. No frontend or schema migration is needed.
+
+Follow-up changed files:
+
+- `backend/app/services/dataset_resolution.py`
+- `backend/app/services/relationship_service.py`
+- `backend/tests/test_connected_dataset_resolution.py` (new)
+- `backend/tests/test_dataset_resolution.py`
+- `backend/tests/test_orders_membership.py`
+- `backend/tests/test_relationship_query_integration.py`
+- `docs/orders-membership-fix.md`
