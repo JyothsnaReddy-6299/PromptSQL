@@ -8,6 +8,7 @@ import TablePreview from "../components/TablePreview";
 import ReportsManager from "../components/ReportsManager";
 import AuditManager from "../components/AuditManager";
 import DataCleaner from "../components/DataCleaner";
+import RelationshipsManager from "../components/RelationshipsManager";
 import MetricsManager from "../components/MetricsManager";
 import { getPreview } from "../services/api";
 import QueryWorkspaceModal from "../components/QueryWorkspaceModal";
@@ -147,7 +148,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (activeSection === "reports" || activeSection === "audit" || activeSection === "cleaner") return;
+    if (["reports", "audit", "cleaner", "metrics", "relationships"].includes(activeSection)) return;
 
     const sections = ["overview", "preview", "chat"];
     
@@ -215,7 +216,9 @@ export default function DashboardPage() {
         />
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {activeSection === "metrics" ? (
+        {activeSection === "relationships" ? (
+          <RelationshipsManager />
+        ) : activeSection === "metrics" ? (
           <div id="metrics" className="scroll-mt-24">
             <MetricsManager />
           </div>

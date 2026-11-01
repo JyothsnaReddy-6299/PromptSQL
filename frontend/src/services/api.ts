@@ -588,3 +588,22 @@ export async function getDatasetColumns(dataset: string) {
   if (!response.ok) throw new Error("Failed fetching dataset columns");
   return response.json();
 }
+
+// Relationship manager uses logical catalog IDs; physical names are display-only.
+async function relationshipRequest(path: string, method = "GET", body?: unknown) {
+  const response = await fetch(`${API_URL}/api/relationships${path}`, {
+    method, headers: { "Content-Type": "application/json" },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Relationship request failed");
+  return data;
+}
+export const relationshipAPI = {
+  datasets: () => relationshipRequest("/datasets"),
+  list: () => relationshipRequest(""),
+  preview: (data: unknown) => relationshipRequest("/preview", "POST", data),
+  save: (data: unknown, id?: string) => relationshipRequest(id ? `/${id}` : "", id ? "PUT" : "POST", data),
+  deactivate: (id: string) => relationshipRequest(`/${id}/deactivate`, "POST"),
+  suggest: (left: string, right: string) => relationshipRequest(`/suggestions?left_dataset_id=${encodeURIComponent(left)}&right_dataset_id=${encodeURIComponent(right)}`),
+};

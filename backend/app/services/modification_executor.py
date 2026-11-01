@@ -146,6 +146,9 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
             except Exception as select_err:
                 print("Failed pre-fetching records before modification:", select_err)
 
+        from app.services.relationship_service import invalidate_dataset
+        invalidate_dataset(table_name)
+
         # Execute query transactionally
         with engine.begin() as connection:
             result = connection.execute(text(sql))

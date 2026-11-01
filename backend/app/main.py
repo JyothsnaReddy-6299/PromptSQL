@@ -8,6 +8,8 @@ from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.models.metric import BusinessMetric
 from app.models.clarification import ClarificationSession
+from app.migrations.runner import migrate
+from app.routes.relationships import router as relationships_router
 
 from app.routes.upload import router as upload_router
 from app.routes.ask import router as ask_router
@@ -20,7 +22,9 @@ from app.routes.cleaner import router as cleaner_router
 from app.routes.auth import router as auth_router
 from app.routes.metrics import router as metrics_router, clarification_router
 
-# Auto-initialize database tables in MySQL
+# Apply additive versioned relationship migrations, preserving uploaded tables.
+migrate(engine)
+# Auto-initialize existing application tables in MySQL
 Base.metadata.create_all(bind=engine)
 
 # Self-healing database check to automatically add undo_sql column to existing query_history table
@@ -59,6 +63,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(relationships_router)
 app.include_router(auth_router)
 app.include_router(upload_router)
 app.include_router(ask_router)

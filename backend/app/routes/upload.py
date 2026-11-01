@@ -311,6 +311,8 @@ def delete_dataset(table_name: str, user_id: str = Depends(get_current_user_id))
         if table_name not in inspector.get_table_names():
             raise HTTPException(status_code=404, detail="Dataset not found")
             
+        from app.services.relationship_service import invalidate_dataset
+        invalidate_dataset(table_name)
         with engine.begin() as conn:
             conn.execute(text(f"DROP TABLE `{table_name}`"))
             

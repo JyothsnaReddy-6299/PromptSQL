@@ -124,6 +124,8 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
 
     sql_create = f"CREATE TABLE `{table_name}` (\n  " + ",\n  ".join(col_defs) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
 
+    from app.services.relationship_service import invalidate_dataset
+    invalidate_dataset(table_name)
     with engine.begin() as conn:
         conn.execute(text(f"DROP TABLE IF EXISTS `{table_name}`"))
         conn.execute(text(sql_create))

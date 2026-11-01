@@ -13,6 +13,8 @@ from app.services.table_manager import get_current_table
 from sqlalchemy import text
 from app.utils.tz_helper import get_ist_time
 
+from app.services.relationship_service import track_changes
+
 router = APIRouter(prefix="/clean", tags=["Data Cleaner"])
 
 
@@ -58,6 +60,7 @@ class ImputeRequest(BaseModel): # basemodel is imp class of pydantic, define str
 
 
 @router.post("/remove-duplicates")
+@track_changes
 def remove_duplicates(db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
     table_name = ctx.table_name
     user_id = ctx.user_id
@@ -106,6 +109,7 @@ def remove_duplicates(db: Session = Depends(get_db), ctx: ActiveTableContext = D
 
 
 @router.post("/impute")
+@track_changes
 def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
     table_name = ctx.table_name
     user_id = ctx.user_id
@@ -259,6 +263,7 @@ class UpdateCellRequest(BaseModel):
 
 
 @router.post("/update-cell")
+@track_changes
 def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
     table_name = ctx.table_name
     user_id = ctx.user_id
@@ -314,6 +319,7 @@ class ConvertTypeRequest(BaseModel):
 
 
 @router.post("/convert-type")
+@track_changes
 def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
     table_name = ctx.table_name
     user_id = ctx.user_id
@@ -380,6 +386,7 @@ class StandardizeTextRequest(BaseModel):
 
 
 @router.post("/standardize-text")
+@track_changes
 def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
     table_name = ctx.table_name
     user_id = ctx.user_id
@@ -453,6 +460,7 @@ class ExtractNumbersRequest(BaseModel):
 
 
 @router.post("/extract-numbers")
+@track_changes
 def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
     table_name = ctx.table_name
     user_id = ctx.user_id
@@ -541,6 +549,7 @@ class ExtractAndConvertRequest(BaseModel):
 
 
 @router.post("/extract-and-convert")
+@track_changes
 def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get_db), ctx: ActiveTableContext = Depends(get_active_context)):
     table_name = ctx.table_name
     user_id = ctx.user_id

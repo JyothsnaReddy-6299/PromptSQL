@@ -26,6 +26,7 @@ const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
   { id: "preview", name: "Data Table", icon: Database },
   { id: "chat", name: "Ask AI", icon: MessageSquare },
+  { id: "relationships", name: "Relationships", icon: FolderOpen },
   { id: "metrics", name: "Business Metrics", icon: Target },
   { id: "reports", name: "Reports", icon: FileText },
   { id: "audit", name: "Audit Logs", icon: ClipboardList },

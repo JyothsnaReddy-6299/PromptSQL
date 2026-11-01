@@ -12,7 +12,8 @@ def regenerate_sql(
     table_name,
     previous_sql,
     error_message,
-    user_id=None
+    user_id=None,
+    relationship_ids=None
 ):
     from app.database.connection import engine
     from sqlalchemy import inspect
@@ -53,6 +54,25 @@ def regenerate_sql(
                 if table_matched or column_matched:
                     user_tables.append(t)
         
+    from app.services.relationship_service import relationships
+    approved = [r for r in relationships(user_id) if r['active'] and r['approved'] and not r['needs_revalidation']] if user_id else []
+    if relationship_ids:
+        approved = [r for r in approved if r['id'] in relationship_ids]
+    relationship_prompt = "\nAPPROVED ANALYTICAL RELATIONSHIPS (not database foreign keys):\n"
+    for rel in approved:
+        a,b = rel['left_table'],rel['right_table']
+        for t in (a,b):
+            if t not in user_tables: user_tables.append(t)
+        relationship_prompt += f"{rel['name']}: {a.split('_usr_')[0]} {rel['join_type']} JOIN {b.split('_usr_')[0]} ON {rel['keys']}; cardinality {rel['profile']['cardinality']}\n"
+    relationship_prompt += "Use only these approved equality joins. Do not invent keys. Keep SUM/AVG/COUNT inputs owned by one dataset. Do not fix fanout with SUM(DISTINCT amount). For source-level metrics, select no detail-side dimensions unless an allocation is defined.\n"
+
+    from app.services.metric_service import list_metrics
+    metric_prompt = "\nREGISTERED METRICS (preserve their source record grain and approved definitions):\n"
+    if user_id:
+        for t in user_tables:
+            for m in list_metrics(user_id, t):
+                metric_prompt += f"{m['name']} ({m.get('approved_aliases', [])}): source {t.split('_usr_')[0]}, {m['supported_aggregation']}({m['expression']}), filters {m.get('optional_filters', [])}\n"
+
     schemas_prompt = ""
     for t in user_tables:
         friendly_tbl = t.split("_usr_")[0]
@@ -71,6 +91,8 @@ TABLES & SCHEMAS
 =========================
 
 {schemas_prompt}
+{relationship_prompt}
+{metric_prompt}
 
 Active Table: `{friendly_name}`
 

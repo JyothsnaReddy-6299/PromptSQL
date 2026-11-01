@@ -744,26 +744,27 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                             </p>
                           </div>
                           <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-[#5A2F59] group-hover:underline">
-                            <span>Apply this definition &rarr;</span>
+                            <span>{msg.clarification_id?.startsWith("rel_") ? "Use this relationship path" : "Apply this definition"} &rarr;</span>
                           </span>
                         </button>
                       ))}
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#E8DED3] text-[11px] text-[#6F6A67]">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                      {!msg.clarification_id?.startsWith("rel_") && <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
+                          disabled={msg.clarification_id?.startsWith("rel_")}
                           checked={saveAsDefaultMap[idx] || false}
                           onChange={(e) => setSaveAsDefaultMap((prev) => ({ ...prev, [idx]: e.target.checked }))}
                           className="rounded accent-[#5A2F59] cursor-pointer"
                         />
                         <span>Save chosen metric as default for future questions</span>
-                      </label>
+                      </label>}
                       {msg.is_clarifying && (
                         <span className="flex items-center gap-1.5 text-[#5A2F59] font-bold">
                           <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Compiling query with selected metric...</span>
+                          <span>Compiling query with your selection...</span>
                         </span>
                       )}
                     </div>

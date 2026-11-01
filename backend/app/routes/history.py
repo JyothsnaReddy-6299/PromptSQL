@@ -107,6 +107,8 @@ def undo_history_item(
         # Split by semicolon and run each query separately (required for execute multi-statement support)
         queries = [q.strip() for q in item.undo_sql.split(";") if q.strip()]
         
+        from app.services.relationship_service import invalidate_dataset
+        invalidate_dataset(item.table_name)
         with engine.begin() as conn:
             for q in queries:
                 conn.execute(text(q))

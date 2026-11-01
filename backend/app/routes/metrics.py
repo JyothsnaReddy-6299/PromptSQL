@@ -322,6 +322,14 @@ def resolve_clarification(
         if not selected_option:
             raise HTTPException(status_code=400, detail=f"Option '{req.selected_option_id}' is invalid.")
 
+        if json.loads(session.proposed_plan_json or '{}').get('kind') == 'relationship':
+            from app.routes.ask import ask_question, AskRequest
+            question, table = session.original_question, session.table_name
+            relationship_ids = selected_option['relationship_ids']
+            db.delete(session)
+            db.commit()
+            return ask_question(AskRequest(question=question, relationship_ids=relationship_ids), table, user_id)
+
         table_name = session.table_name
         original_question = session.original_question
 
