@@ -6,6 +6,55 @@ from sqlalchemy import inspect
 from app.services import relationship_service as service
 
 
+def reduce_combined_grains(tree, verified, aggregates, sources, metric_sources):
+    """Group additive detail measures to unique parent keys before combining totals.
+
+    Parent values are retained per original parent record, including equal amounts.
+    Detail AVG carries SUM+COUNT, never an unweighted average of averages.
+    """
+    if len(verified)!=1 or len(metric_sources)!=2: return []
+    join,rel = verified[0]
+    lp,rp = rel['profile']['left'],rel['profile']['right']
+    if lp['maximum_key_frequency']<=1 and rp['maximum_key_frequency']>1:
+        parent,detail,detail_side = rel['left_table'],rel['right_table'],'right'
+    elif rp['maximum_key_frequency']<=1 and lp['maximum_key_frequency']>1:
+        parent,detail,detail_side = rel['right_table'],rel['left_table'],'left'
+    else: return []  # one-to-one needs no reduction; many-to-many is ambiguous.
+    detail_alias = next(alias for alias,t in sources.items() if t==detail)
+    for col in tree.find_all(exp.Column):
+        if col.table==detail_alias and col.find_ancestor(exp.Join) is None and col.find_ancestor(exp.AggFunc) is None:
+            raise service.RelationshipError('Combined source totals cannot select, group or filter detail fields without an allocation rule.')
+    keys = [k[detail_side] for k in rel['keys']]
+    fields = [exp.alias_(exp.column(k,table=detail_alias,quoted=True),k,quoted=True) for k in keys]
+    reserved = set(keys)
+    def column_name():
+        name = '_promptsql_grain_' + str(len(reserved))
+        while name in reserved: name += '_'
+        reserved.add(name)
+        return name
+    def outer_sum(name):
+        return exp.Sum(this=exp.column(name,table=detail_alias,quoted=True))
+    for agg in aggregates:
+        if not any(sources.get(c.table)==detail for c in agg.find_all(exp.Column)): continue
+        name = column_name()
+        if isinstance(agg,exp.Avg):
+            count_name = column_name()
+            fields += [exp.alias_(exp.Sum(this=agg.this.copy()),name,quoted=True),
+                       exp.alias_(exp.Count(this=agg.this.copy()),count_name,quoted=True)]
+            replacement = exp.Div(this=exp.Mul(this=outer_sum(name),expression=exp.Literal.number("1.0")),expression=exp.Nullif(this=outer_sum(count_name),expression=exp.Literal.number(0)))
+        else:
+            fields.append(exp.alias_(agg.copy(),name,quoted=True))
+            if isinstance(agg,exp.Count):
+                replacement = exp.Coalesce(this=outer_sum(name),expressions=[exp.Literal.number(0)])
+            elif isinstance(agg,exp.Sum): replacement=outer_sum(name)
+            else: replacement=type(agg)(this=exp.column(name,table=detail_alias,quoted=True))
+        agg.replace(replacement)
+    detail_table = next(t for t in tree.find_all(exp.Table) if t.name==detail)
+    reduction = exp.select(*fields).from_(detail_table.copy()).group_by(*[exp.column(k,table=detail_alias,quoted=True) for k in keys])
+    detail_table.replace(exp.Subquery(this=reduction,alias=exp.TableAlias(this=exp.to_identifier(detail_alias,quoted=True))))
+    return [dict(dataset=detail,keys=keys,strategy='Pre-aggregate detail metrics per approved parent key; retain each original parent value once. AVG carries detail sums and counts.')]
+
+
 def guard_query(sql, owner, selected=None, required_tables=None):
     tree = sqlglot.parse_one(sql, read='mysql')
     tables = list(dict.fromkeys(t.name for t in tree.find_all(exp.Table)))
@@ -16,6 +65,10 @@ def guard_query(sql, owner, selected=None, required_tables=None):
     actual_sources = [src for scope in traverse_scope(tree) for src in scope.sources.values() if isinstance(src, exp.Table)]
     if any(src.name not in physical or src.db or src.catalog for src in actual_sources):
         raise service.RelationshipError('A query dataset is not owned by the authenticated user.')
+    if required_tables:
+        from app.services.dataset_resolution import canonical_dataset
+        datasets = service.catalog(owner)
+        required_tables = [canonical_dataset(t,datasets)['table_name'] for t in required_tables]
     if required_tables and not set(required_tables).issubset(used):
         raise service.RelationshipError('Generated SQL omitted a required dataset. Rephrase the question with the required metric source and dataset names.')
     if len(used) < 2:
@@ -93,7 +146,9 @@ def guard_query(sql, owner, selected=None, required_tables=None):
             raise service.RelationshipError('This cross-dataset aggregation is not supported safely yet.')
         metrics.append(dict(source=source, expression=agg.sql(dialect='mysql'), grain='One original record in '+source, ownership='Dataset owning the aggregate input columns'))
     metric_sources = {m['source'] for m in metrics}
-    for join, rel in verified:
+    combined_reduction = reduce_combined_grains(tree,verified,aggregates,sources,metric_sources)
+    preaggregation.extend(combined_reduction)
+    for join, rel in ([] if combined_reduction else verified):
         a,b = rel['left_table'],rel['right_table']
         for source in metric_sources:
             if source not in (a,b):

@@ -11,6 +11,11 @@ from app.utils.tz_helper import get_ist_time
 class RelationshipError(ValueError):
     pass
 
+class DatasetChoice(RelationshipError):
+    def __init__(self, options):
+        super().__init__('Which dataset selection should answer this question?')
+        self.options = options
+
 class RelationshipChoice(RelationshipError):
     def __init__(self, options):
         super().__init__('Multiple approved relationship paths have different meanings. Choose one.')
@@ -178,11 +183,15 @@ def save(owner, data, relationship_id=None):
         return serialize(rel, db)
 
 def resolve_paths(owner, tables, selected=None):
-    rels = [r for r in relationships(owner) if r['active'] and r['approved'] and not r['needs_revalidation']]
+    from app.services.dataset_resolution import canonical_dataset, path_error
+    datasets = catalog(owner)
+    tables = list(dict.fromkeys(canonical_dataset(t, datasets)['table_name'] for t in tables))
+    all_rels = relationships(owner)
+    rels = [r for r in all_rels if r['active'] and r['approved'] and not r['needs_revalidation']]
     if selected:
         rels = [r for r in rels if r['id'] in selected]
-        if len(rels) != len(set(selected)): raise RelationshipError('Selected relationships are unavailable or require revalidation.')
-    if len(tables) < 2: return rels
+        if len(rels) != len(set(selected)): raise path_error(tables, all_rels, selected)
+    if len(tables) < 2: return []
     paths = []
     def visit(at, edges, visited):
         if set(tables).issubset(visited):
@@ -195,17 +204,12 @@ def resolve_paths(owner, tables, selected=None):
     visit(tables[0], [], {tables[0]})
     unique = {tuple(r['id'] for r in p): p for p in paths}
     paths = list(unique.values())
-    if not paths: raise RelationshipError('No active approved relationship path connects these datasets. Create or revalidate it in Relationships first.')
+    if not paths: raise path_error(tables, all_rels, selected)
     if len(paths) > 1:
         raise RelationshipChoice([dict(id='path_'+str(i), label=' → '.join(r['name'] for r in p), description='; '.join(str(r['keys']) for r in p), relationship_ids=[r['id'] for r in p]) for i,p in enumerate(paths)])
     return paths[0]
 
-def query_context(owner, question, active_table, selected=None):
-    datasets = catalog(owner)
-    required = [active_table]
-    for d in datasets:
-        import re
-        label = d['name'].replace('_', ' ')
-        if d['table_name'] != active_table and (re.search(r'\b'+re.escape(label)+r'\b', question.replace('_',' '), re.I) or any(c['name'].lower() in question.lower() for c in d['columns'] if len(c['name']) > 5 and not any(c['name'] == a['name'] for ds in datasets if ds['table_name']==active_table for a in ds['columns']))):
-            required.append(d['table_name'])
+def query_context(owner, question, active_table, selected=None, dataset_ids=None):
+    from app.services.dataset_resolution import select_datasets
+    required = select_datasets(question, active_table, catalog(owner), dataset_ids)
     return required, resolve_paths(owner, required, selected) if len(required)>1 else []

@@ -279,6 +279,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           question: currentQuestion,
           sql: data.generated_sql || "",
           records: data.result || [],
+          table_name: data.table_name,
           interpretation: data.interpretation,
           plan: data.plan,
           activeTab: "table",
@@ -325,10 +326,17 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       finalized[msgIdx].is_clarifying = false;
       finalized[msgIdx].needs_clarification = false;
 
-      if (result.success) {
+      if (result.success && result.needs_clarification) {
+        finalized[msgIdx].text = result.prompt;
+        finalized[msgIdx].needs_clarification = true;
+        finalized[msgIdx].clarification_id = result.clarification_id;
+        finalized[msgIdx].clarification_options = result.options;
+        finalized[msgIdx].error = undefined;
+      } else if (result.success) {
         finalized[msgIdx].text = result.summary || "Here are the retrieved records based on your clarified metric.";
         finalized[msgIdx].sql = result.generated_sql || "";
         finalized[msgIdx].records = result.result || [];
+        finalized[msgIdx].table_name = result.table_name;
         finalized[msgIdx].interpretation = result.interpretation;
         finalized[msgIdx].plan = result.plan;
         finalized[msgIdx].activeTab = "table";
@@ -584,7 +592,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       setSavingReport(true);
       await createReport(
         reportTitle.trim(),
-        activeTableName,
+        msg.table_name || activeTableName,
         msg.question || "Query",
         msg.sql || "",
         msg.text,
@@ -744,17 +752,17 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                             </p>
                           </div>
                           <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-[#5A2F59] group-hover:underline">
-                            <span>{msg.clarification_id?.startsWith("rel_") ? "Use this relationship path" : "Apply this definition"} &rarr;</span>
+                            <span>{/^(rel_|ds_)/.test(msg.clarification_id || "") ? (msg.clarification_id?.startsWith("ds_") ? "Use this dataset selection" : "Use this relationship path") : "Apply this definition"} &rarr;</span>
                           </span>
                         </button>
                       ))}
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[#E8DED3] text-[11px] text-[#6F6A67]">
-                      {!msg.clarification_id?.startsWith("rel_") && <label className="flex items-center gap-2 cursor-pointer select-none">
+                      {!/^(rel_|ds_)/.test(msg.clarification_id || "") && <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
-                          disabled={msg.clarification_id?.startsWith("rel_")}
+                          disabled={/^(rel_|ds_)/.test(msg.clarification_id || "")}
                           checked={saveAsDefaultMap[idx] || false}
                           onChange={(e) => setSaveAsDefaultMap((prev) => ({ ...prev, [idx]: e.target.checked }))}
                           className="rounded accent-[#5A2F59] cursor-pointer"

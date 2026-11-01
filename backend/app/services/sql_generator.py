@@ -7,72 +7,46 @@ from app.services.llm_service import call_llm
 load_dotenv()
 
 
-def generate_sql(question, table_name, user_id=None, relationship_ids=None):
+def query_prompt_context(question, table_name, user_id, relationship_ids=None, required_tables=None):
+    """Share the selected scope with generation AND repair; context is not selection."""
+    from app.services import relationship_service as relationships
+    from app.services.dataset_resolution import canonical_dataset
+    from app.services.metric_service import list_metrics
     from app.database.connection import engine
     from sqlalchemy import inspect
-
-    inspector = inspect(engine)
-    all_tables = inspector.get_table_names()
-    suffix = f"_{user_id}" if user_id else ""
-    
-    user_tables = [table_name]
-    if suffix:
-        all_user_tables = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
-        question_lower = question.lower()
-        for t in all_user_tables:
-            if t != table_name:
-                friendly_tbl = t.split("_usr_")[0].lower()
-                friendly_clean = friendly_tbl.rstrip('s')
-                
-                table_matched = (
-                    friendly_tbl in question_lower or 
-                    friendly_tbl.replace("_", " ") in question_lower or
-                    (len(friendly_clean) > 3 and friendly_clean in question_lower) or
-                    any(word in friendly_tbl for word in question_lower.split() if len(word) > 3)
-                )
-                
-                column_matched = False
-                if not table_matched:
-                    try:
-                        for col in inspector.get_columns(t):
-                            col_name = col["name"].lower()
-                            if col_name in ["id", "key", "date", "name", "city", "email", "status", "type"]:
-                                continue
-                            if any(word in col_name for word in question_lower.split() if len(word) > 3):
-                                column_matched = True
-                                break
-                    except Exception:
-                        pass
-                
-                if table_matched or column_matched:
-                    user_tables.append(t)
-        
-    from app.services.relationship_service import relationships
-    approved = [r for r in relationships(user_id) if r['active'] and r['approved'] and not r['needs_revalidation']] if user_id else []
-    if relationship_ids:
-        approved = [r for r in approved if r['id'] in relationship_ids]
-    relationship_prompt = "\nAPPROVED ANALYTICAL RELATIONSHIPS (not database foreign keys):\n"
-    for rel in approved:
-        a,b = rel['left_table'],rel['right_table']
-        for t in (a,b):
-            if t not in user_tables: user_tables.append(t)
-        relationship_prompt += f"{rel['name']}: {a.split('_usr_')[0]} {rel['join_type']} JOIN {b.split('_usr_')[0]} ON {rel['keys']}; cardinality {rel['profile']['cardinality']}\n"
-    relationship_prompt += "Use only these approved equality joins. Do not invent keys. Keep SUM/AVG/COUNT inputs owned by one dataset. Do not fix fanout with SUM(DISTINCT amount). For source-level metrics, select no detail-side dimensions unless an allocation is defined.\n"
-
-    from app.services.metric_service import list_metrics
-    metric_prompt = "\nREGISTERED METRICS (preserve their source record grain and approved definitions):\n"
+    catalog_ready = inspect(engine).has_table('dataset_references')
+    if user_id and catalog_ready:
+        datasets = relationships.catalog(user_id)
+        active = canonical_dataset(table_name,datasets)['table_name']
+        if required_tables is None:
+            required_tables,path = relationships.query_context(user_id,question,active,relationship_ids)
+        else:
+            required_tables = [canonical_dataset(t,datasets)['table_name'] for t in required_tables]
+            path = relationships.resolve_paths(user_id,required_tables,relationship_ids) if len(required_tables)>1 else []
+        user_tables = list(dict.fromkeys(required_tables + [t for r in path for t in (r['left_table'],r['right_table'])]))
+    else:
+        active, user_tables, path = table_name, [table_name], []
+        if user_id and (not active.endswith('_'+user_id) or active not in inspect(engine).get_table_names()):
+            raise relationships.RelationshipError('Active dataset not found or access denied.')
+    schemas_prompt = ''
+    for t in user_tables:
+        schemas_prompt += f"Table: `{t}`\nColumns:\n{schema_to_prompt(t)}\n"
+    relationship_prompt = "SELECTED DATASETS (use only these physical identifiers): " + ', '.join(user_tables) + "\n"
+    relationship_prompt += "Available schemas are context, not permission to add datasets. Never invent a join.\nAPPROVED ANALYTICAL RELATIONSHIPS (not database foreign keys):\n"
+    for r in path:
+        relationship_prompt += f"{r['name']}: {r['left_table']} {r['join_type']} JOIN {r['right_table']} ON {r['keys']}; cardinality {r['profile']['cardinality']}\n"
+    relationship_prompt += "Use only these approved equality keys, directions and join types. Keep each aggregate's inputs owned by one dataset. For combined source totals, generate separate SUM(source.value) expressions; the grain guard pre-aggregates supported detail measures. Never use SUM(DISTINCT amount) to fix fanout.\n"
+    metric_prompt = "REGISTERED METRICS (preserve source-record grain and approved definitions):\n"
     if user_id:
         for t in user_tables:
-            for m in list_metrics(user_id, t):
-                metric_prompt += f"{m['name']} ({m.get('approved_aliases', [])}): source {t.split('_usr_')[0]}, {m['supported_aggregation']}({m['expression']}), filters {m.get('optional_filters', [])}\n"
+            for m in list_metrics(user_id,t):
+                metric_prompt += f"{m['name']} ({m.get('approved_aliases', [])}): source {t}, {m['supported_aggregation']}({m['expression']}), filters {m.get('optional_filters', [])}\n"
+    return schemas_prompt,relationship_prompt,metric_prompt,active
 
-    schemas_prompt = ""
-    for t in user_tables:
-        friendly_tbl = t.split("_usr_")[0]
-        tbl_schema = schema_to_prompt(t)
-        schemas_prompt += f"Table: `{friendly_tbl}`\nColumns:\n{tbl_schema}\n"
 
-    friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
+def generate_sql(question, table_name, user_id=None, relationship_ids=None, required_tables=None):
+    schemas_prompt,relationship_prompt,metric_prompt,friendly_name = query_prompt_context(
+        question,table_name,user_id,relationship_ids,required_tables)
 
     prompt = f"""
 You are an expert MySQL SQL generator.

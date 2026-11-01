@@ -172,7 +172,7 @@ def extract_dimensions_and_grouping(
     3. Strict separation: Measure columns (e.g. Total Sales Amount, Unit Price) are NEVER
        added as dimensions unless explicitly requested as a dimension.
     """
-    q_lower = question.lower().rstrip(" ?.!;")
+    q_lower = re.sub(r"\bacross\s+(?:all\s+)?(?:orders|records|rows)\b", "", question.lower()).rstrip(" ?.!;")
     dimensions = []
     measure_cols_lower = [m.lower() for m in (measure_columns or [])]
 
@@ -604,7 +604,8 @@ def resolve_or_create_plan(
     # 6. Extract grouping dimensions strictly separating measures from dimensions
     dimensions = extract_dimensions_and_grouping(question, columns, measure_columns=measure_cols)
 
-    if re.search(r"\b(?:by|per|across|for each|grouped by|group by)\s+", question, re.IGNORECASE) and not dimensions:
+    grouping_question = re.sub(r"\bacross\s+(?:all\s+)?(?:orders|records|rows)\b", "", question, flags=re.IGNORECASE)
+    if re.search(r"\b(?:by|per|across|for each|grouped by|group by)\s+", grouping_question, re.IGNORECASE) and not dimensions:
         raise PlanCompilationError("Requested grouping could not be resolved reliably.")
 
     # Metric naming hygiene (NEVER label as generic "Metric")

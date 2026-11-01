@@ -29,6 +29,7 @@ router = APIRouter()
 class AskRequest(BaseModel):
     question: str
     relationship_ids: Optional[list[str]] = None
+    dataset_ids: Optional[list[str]] = None
 
 
 MAX_RETRIES = 2  # Additional repair attempts after the initial query
@@ -53,16 +54,24 @@ def ask_question(
                 "error": "Please upload a dataset first."
             }
 
-        # Authorization must also reject system tables and unscoped names.
-        if not table_name.endswith(f"_{user_id}"):
-            raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
-
+        if table_name in {'users','query_history','saved_reports','audit_logs','business_metrics','clarification_sessions','dataset_references','dataset_relationships','promptsql_migrations'}:
+            raise HTTPException(status_code=403,detail='System tables are not query datasets.')
         from sqlalchemy import inspect
+        from app.services.dataset_resolution import canonical_dataset
         required_tables, approved_path = [table_name], []
         relationships_ready = inspect(engine).has_table('dataset_references')
         if relationships_ready:
+            # Resolve/authorize IDs, logical labels and physical names against the
+            # same owned catalog used by the relationship workspace and graph.
+            try:
+                table_name = canonical_dataset(table_name,relationship_service.catalog(user_id))['table_name']
+            except relationship_service.RelationshipError as exc:
+                raise HTTPException(status_code=403,detail=str(exc)) from exc
             required_tables, approved_path = relationship_service.query_context(
-                user_id, payload.question, table_name, payload.relationship_ids)
+                user_id,payload.question,table_name,payload.relationship_ids,payload.dataset_ids)
+            table_name = required_tables[0]
+        elif not table_name.endswith(f"_{user_id}"):
+            raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
 
         # -----------------------------------------
         # 1. Structured Metrics & Ambiguity / Clarification Engine
@@ -120,6 +129,8 @@ def ask_question(
                     "count": len(records),
                     "result": records,
                     "plan": plan,
+                    "table_name": table_name,
+                    "resolved_datasets": required_tables,
                     "interpretation": {
                         "metric_name": plan["metric_name"],
                         "expression": plan["metric_expression"],
@@ -145,17 +156,15 @@ def ask_question(
         # -----------------------------------------
         # 2. Generative SQL Pipeline (Fallback for complex/custom shapes)
         # -----------------------------------------
-        from sqlalchemy import inspect
-        inspector = inspect(engine)
-        all_tables = inspector.get_table_names()
-        suffix = f"_{user_id}"
-        all_user_tables = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
-
-        user_tables = list(dict.fromkeys([table_name] + all_user_tables))
+        # SQL validation and generation receive only the resolved source/path
+        # scope, never every uploaded dataset or every approved relationship.
+        user_tables = list(dict.fromkeys(required_tables + [
+            t for rel in approved_path for t in (rel['left_table'],rel['right_table'])]))
+        selected_relationships = [r['id'] for r in approved_path] or payload.relationship_ids
         sql_query = generate_sql(
             payload.question,
             table_name,
-            user_id, relationship_ids=payload.relationship_ids
+            user_id, relationship_ids=selected_relationships, required_tables=user_tables
         )
 
         # Validation and execution share one bounded repair loop. Every repair is
@@ -166,7 +175,7 @@ def ask_question(
             try:
                 physical_sql = prepare_sql(sql_query, user_tables)
                 if relationships_ready:
-                    physical_sql, join_explanation = guard_query(physical_sql, user_id, payload.relationship_ids, required_tables)
+                    physical_sql, join_explanation = guard_query(physical_sql, user_id, selected_relationships, required_tables)
                 else:
                     import sqlglot
                     from sqlglot import exp
@@ -184,7 +193,7 @@ def ask_question(
                 if attempt == MAX_RETRIES:
                     return {"success": False, "error": message}
                 sql_query = regenerate_sql(
-                    payload.question, table_name, sql_query, message, user_id, relationship_ids=payload.relationship_ids
+                    payload.question, table_name, sql_query, message, user_id, relationship_ids=selected_relationships, required_tables=user_tables
                 )
 
         result_type = interpret_result(sql_query, records)
@@ -229,26 +238,31 @@ def ask_question(
             "generated_sql": sql_query,
             "count": len(records),
             "result": records,
-            "join_explanation": join_explanation
+            "join_explanation": join_explanation,
+            "table_name": table_name,
+            "resolved_datasets": required_tables
         }
 
-    except relationship_service.RelationshipChoice as choice:
+    except (relationship_service.RelationshipChoice, relationship_service.DatasetChoice) as choice:
         import uuid
         from datetime import timedelta
         from app.models.clarification import ClarificationSession
         from app.utils.tz_helper import get_ist_time
-        clar_id = 'rel_' + uuid.uuid4().hex
+        is_dataset_choice = isinstance(choice,relationship_service.DatasetChoice)
+        clar_id = ('ds_' if is_dataset_choice else 'rel_') + uuid.uuid4().hex
         with SessionLocal() as db:
             db.add(ClarificationSession(id=clar_id, user_id=user_id,
                 original_question=payload.question, table_name=table_name,
                 clarification_prompt=str(choice), options_json=json.dumps(choice.options),
-                proposed_plan_json=json.dumps({'kind': 'relationship'}),
+                proposed_plan_json=json.dumps({'kind': 'dataset' if is_dataset_choice else 'relationship',
+                    'dataset_ids': payload.dataset_ids, 'relationship_ids': payload.relationship_ids}),
                 expires_at=get_ist_time()+timedelta(minutes=30)))
             db.commit()
         return dict(success=True, needs_clarification=True, clarification_id=clar_id,
                     prompt=str(choice), options=choice.options, original_question=payload.question)
     except relationship_service.RelationshipError as exc:
-        return {'success': False, 'error': str(exc), 'relationship_limitation': True}
+        return {'success': False, 'error': str(exc), 'relationship_limitation': True,
+                'resolved_datasets': getattr(exc,'resolved_datasets',locals().get('required_tables', []))}
     except HTTPException:
         raise
     except Exception as e:

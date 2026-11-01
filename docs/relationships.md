@@ -178,3 +178,14 @@ Complete added-file list:
 - `backend/tests/test_relationships.py`
 - `frontend/src/components/RelationshipsManager.tsx`
 - `docs/relationships.md`
+
+## Dataset-resolution and combined-total repair
+
+See [Relationship-to-query integration repair](relationship-query-fix.md) for the
+verified root cause, complete file list, supported combined-grain pre-aggregation,
+and current validation. Generation/repair now use only resolved datasets and their
+approved path. Single-table queries do not require relationships. Supported
+unique-parent/detail combined totals are pre-aggregated at the approved keys;
+the earlier limitation on *all* mixed-grain totals is superseded for this case.
+The current full suite passes 86 tests in this workspace; ecommerce snapshot tests
+are conditional on the existing local CSV and do not read production data.
