@@ -81,7 +81,7 @@ function formatMessageText(text: string): string {
   escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
   // 3. Parse inline code snippets: `code` -> <code class="...">code</code>
-  escaped = escaped.replace(/`(.*?)`/g, '<code class="bg-[#5A2F59]/10 text-[#5A2F59] px-1.5 py-0.5 rounded font-mono text-[10px] font-bold">$1</code>');
+  escaped = escaped.replace(/`(.*?)`/g, '<code class="bg-[#76ABAE]/10 text-[#76ABAE] px-1.5 py-0.5 rounded font-mono text-[10px] font-bold">$1</code>');
 
   // 4. Parse line-by-line bullet points
   const lines = escaped.split("\n");
@@ -89,7 +89,7 @@ function formatMessageText(text: string): string {
     const trimmed = line.trim();
     if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       const content = trimmed.substring(2);
-      return `<li class="list-disc ml-4 mt-0.5 text-[#241C20]">${content}</li>`;
+      return `<li class="list-disc ml-4 mt-0.5 text-[#303841]">${content}</li>`;
     }
     return line;
   });
@@ -424,17 +424,17 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   };
 
   return (
-    <div id="chat" className="bg-[#0D0D0F] border border-white/[0.06] rounded-2xl p-4 shadow-sm flex flex-col h-[520px]">
-      <div className="border-b border-white/[0.06] pb-3 mb-3 flex items-center justify-between">
+    <div id="chat" className="bg-white border border-gray-200/80 rounded-2xl p-4 shadow-sm flex flex-col h-[520px]">
+      <div className="border-b border-gray-200 pb-3 mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="bg-terracotta-50 border border-terracotta-100 p-2 rounded-xl text-terracotta-600">
-            <Brain size={18} className="animate-pulse text-terracotta-500" />
+          <div className="bg-[#76ABAE]/10 border border-[#76ABAE]/20 p-2 rounded-xl text-[#76ABAE]">
+            <Brain size={18} className="animate-pulse text-[#76ABAE]" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-zinc-100">
+            <h2 className="text-base font-bold text-[#303841]">
               AI Analytics Chat
             </h2>
-            <p className="text-zinc-400 text-[10px] mt-0.5 font-semibold">
+            <p className="text-[#4A5568] text-[10px] mt-0.5 font-semibold">
               Ask questions to query database, generate tables & charts
             </p>
           </div>
@@ -444,8 +444,8 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           onClick={() => setShowHistory(!showHistory)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold cursor-pointer transition ${
             showHistory 
-              ? "bg-terracotta-50 border-terracotta-200 text-terracotta-700" 
-              : "bg-[#0D0D0F] border-warmgray-150 hover:bg-[#111113] text-warmgray-600"
+              ? "bg-[#FF5722] text-white border-[#FF5722] shadow-sm shadow-[#FF5722]/30" 
+              : "bg-white border-[#FF5722]/50 text-[#FF5722] hover:bg-[#FF5722]/10"
           }`}
         >
           <History size={12} />
@@ -461,7 +461,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
               className={`flex gap-3 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               {msg.sender === "ai" && (
-                <div className="w-8 h-8 bg-[#5A2F59] text-[#BDA37A] border border-[#BDA37A]/20 rounded-xl flex items-center justify-center shadow-md shadow-[#5A2F59]/20 shrink-0">
+                <div className="w-8 h-8 bg-[#76ABAE] text-white rounded-xl flex items-center justify-center shadow-md shadow-[#76ABAE]/20 shrink-0">
                   <Brain size={15} />
                 </div>
               )}
@@ -471,10 +471,10 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                 <div
                   className={`p-3.5 px-4 rounded-2xl text-xs leading-relaxed ${
                     msg.sender === "user"
-                      ? "bg-[#FFFDFC] text-[#241C20] border-2 border-[#E8DED3] rounded-tr-sm shadow-sm"
+                      ? "bg-white text-[#303841] border border-gray-200 rounded-tr-sm shadow-sm"
                       : msg.canceled
-                      ? "bg-[#F7F2EC] text-zinc-400 border border-[#E8DED3] border-dashed"
-                      : "bg-[#F7F2EC] text-[#241C20] rounded-tl-sm border border-[#E8DED3] shadow-sm"
+                      ? "bg-gray-50 text-gray-400 border border-gray-200 border-dashed"
+                      : "bg-white text-[#303841] rounded-tl-sm border border-gray-200 shadow-sm"
                   }`}
                 >
                   <p className="whitespace-pre-wrap font-medium text-left" dangerouslySetInnerHTML={{ __html: formatMessageText(msg.text) }} />
@@ -529,9 +529,9 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
                 {/* SQL Code Block Preview */}
                 {msg.sql && !msg.canceled && (
-                  <div className="bg-[#18181B] rounded-xl border border-warmgray-900 overflow-hidden shadow-inner text-left font-mono text-[11px]">
-                    <div className="bg-warmgray-900 px-3.5 py-1.5 border-b border-warmgray-950 flex justify-between items-center text-zinc-500">
-                      <span className="flex items-center gap-1 font-bold text-[9px] tracking-wide uppercase text-terracotta-400">
+                  <div className="bg-[#303841] rounded-xl border border-gray-700 overflow-hidden shadow-inner text-left font-mono text-[11px]">
+                    <div className="bg-[#242c34] px-3.5 py-1.5 border-b border-gray-700/60 flex justify-between items-center text-gray-300">
+                      <span className="flex items-center gap-1 font-bold text-[9px] tracking-wide uppercase text-[#76ABAE]">
                         <Database size={10} /> SQL Statement Preview
                       </span>
                       <button
@@ -542,7 +542,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                         <span>{copiedSql === msg.sql ? "Copied" : "Copy"}</span>
                       </button>
                     </div>
-                    <pre className="p-3 text-terracotta-300 overflow-x-auto whitespace-pre">
+                    <pre className="p-3 text-gray-100 overflow-x-auto whitespace-pre">
                       <code>{msg.sql}</code>
                     </pre>
                   </div>
@@ -580,8 +580,8 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
                 {/* SQL statements actions bar */}
                 {msg.sql && !msg.canceled && (
-                  <div className="border border-white/[0.06]/80 rounded-xl bg-[#0D0D0F] overflow-hidden shadow-sm text-left">
-                    <div className="bg-[#111113] border-b border-white/[0.06] px-3 py-2 flex items-center justify-between flex-wrap gap-2">
+                  <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm text-left">
+                    <div className="bg-[#F5F5F5] border-b border-gray-200 px-3 py-2 flex items-center justify-between flex-wrap gap-2">
                       <div className="flex gap-1.5">
                         {msg.records && msg.records.length > 0 && (
                           <button
@@ -720,15 +720,15 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
         {/* History sidebar drawer */}
         {showHistory && (
-          <div className="w-60 border-l border-white/[0.06] pl-3 flex flex-col h-full shrink-0 overflow-hidden animate-fade-in">
-            <div className="flex justify-between items-center pb-2 border-b border-white/[0.06] mb-2">
-              <span className="text-[10px] font-bold text-zinc-100 flex items-center gap-1 uppercase tracking-wide">
-                <History size={12} className="text-terracotta-500" /> Query History
+          <div className="w-60 border-l border-gray-200 pl-3 flex flex-col h-full shrink-0 overflow-hidden animate-fade-in bg-white">
+            <div className="flex justify-between items-center pb-2 border-b border-gray-200 mb-2">
+              <span className="text-[10px] font-bold text-[#303841] flex items-center gap-1 uppercase tracking-wide">
+                <History size={12} className="text-[#FF5722]" /> Query History
               </span>
               {historyList.length > 0 && (
                 <button
                   onClick={handleClearAllHistory}
-                  className="text-[9px] font-bold text-red-500 hover:text-red-650 cursor-pointer"
+                  className="text-[9px] font-bold text-[#FF5722] hover:text-[#e04815] cursor-pointer"
                 >
                   Clear All
                 </button>
@@ -750,10 +750,10 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                   <div
                     key={item.id}
                     onClick={() => handleReopenHistory(item)}
-                    className="p-2 bg-[#111113] hover:bg-terracotta-50/20 border border-white/[0.06] hover:border-terracotta-200 rounded-lg cursor-pointer transition text-left relative group/item"
+                    className="p-2 bg-[#F5F5F5] hover:bg-white border border-gray-200 hover:border-[#76ABAE]/50 rounded-lg cursor-pointer transition text-left relative group/item"
                     title="Click to reopen query results instantly"
                   >
-                    <p className="text-[10px] font-bold text-zinc-100 line-clamp-2 pr-4 leading-tight">
+                    <p className="text-[10px] font-bold text-[#303841] line-clamp-2 pr-4 leading-tight">
                       {item.question}
                     </p>
                     <div className="flex justify-between items-center mt-1.5 text-[8.5px] text-warmgray-450 font-bold">
@@ -763,7 +763,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
                     <button
                       onClick={(e) => handleDeleteHistory(e, item.id)}
-                      className="absolute top-1 right-1 p-0.5 rounded hover:bg-red-50 text-zinc-500 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition cursor-pointer"
+                      className="absolute top-1 right-1 p-0.5 rounded hover:bg-red-50 text-gray-400 hover:text-[#FF5722] opacity-0 group-hover/item:opacity-100 transition cursor-pointer"
                       title="Delete log"
                     >
                       <Trash2 size={10} />
@@ -782,7 +782,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           e.preventDefault();
           askAI();
         }}
-        className="border border-white/[0.06] rounded-xl p-2 bg-[#111113]/50 flex gap-2 items-center focus-within:border-terracotta-500 transition-colors"
+        className="border border-gray-200 rounded-xl p-2 bg-[#F5F5F5] flex gap-2 items-center focus-within:border-[#76ABAE] transition-colors"
       >
         <textarea
           value={question}
@@ -795,13 +795,13 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           }}
           placeholder="Ask anything about your data..."
           rows={1}
-          className="flex-1 bg-transparent resize-none focus:outline-none pl-2.5 pr-2 py-1.5 text-xs text-zinc-100 placeholder-warmgray-400 font-semibold"
+          className="flex-1 bg-transparent resize-none focus:outline-none pl-2.5 pr-2 py-1.5 text-xs text-[#303841] placeholder-gray-400 font-semibold"
         />
 
         <button
           type="submit"
           disabled={loading || !question.trim()}
-          className="bg-terracotta-500 hover:bg-terracotta-600 text-white p-2.5 rounded-lg transition duration-200 disabled:opacity-40 disabled:scale-100 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+          className="bg-[#76ABAE] hover:bg-[#639396] text-white p-2.5 rounded-lg transition duration-200 disabled:opacity-40 disabled:scale-100 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
         >
           <Send size={14} />
         </button>
@@ -839,27 +839,27 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full bg-slate-50 border border-white/[0.06] rounded-md pl-7 pr-2 py-1 text-[10px] focus:outline-none focus:border-terracotta-400 focus:bg-[#0D0D0F] text-zinc-100 font-semibold"
+            className="w-full bg-[#F5F5F5] border border-gray-200 rounded-md pl-7 pr-2 py-1 text-[10px] focus:outline-none focus:border-[#76ABAE] focus:bg-white text-[#303841] font-semibold"
           />
         </div>
       )}
 
-      <div className="overflow-x-auto border border-white/[0.06]/50 rounded-lg">
-        <table className="min-w-full text-[10px] text-warmgray-850">
-          <thead className="bg-[#111113] border-b border-white/[0.06]/40">
+      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+        <table className="min-w-full text-[10px] text-[#303841]">
+          <thead className="bg-[#F5F5F5] border-b border-gray-200">
             <tr>
               {columns.map(c => (
-                <th key={c} className="px-2.5 py-1.5 font-bold text-warmgray-905 text-left uppercase whitespace-nowrap text-[9px]">
+                <th key={c} className="px-2.5 py-1.5 font-bold text-[#303841] text-left uppercase whitespace-nowrap text-[9px]">
                   {c}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-warmgray-50/50 bg-[#0D0D0F]">
+          <tbody className="divide-y divide-gray-100 bg-white">
             {paginated.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-[#111113]/30">
+              <tr key={rIdx} className="hover:bg-[#76ABAE]/5">
                 {columns.map(c => (
-                  <td key={c} className="px-2.5 py-1.5 text-zinc-100 font-semibold truncate max-w-[150px]">
+                  <td key={c} className="px-2.5 py-1.5 text-[#303841] font-medium truncate max-w-[150px]">
                     {row[c] === null ? "null" : formatDateValue(row[c])}
                   </td>
                 ))}

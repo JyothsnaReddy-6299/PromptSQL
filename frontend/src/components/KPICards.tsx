@@ -50,44 +50,40 @@ export default function KPICards({
       value: <CountUp end={rows} />,
       desc: `${rows > 1000 ? (rows / 1000).toFixed(1) + "k" : rows} records`,
       icon: <Layers size={16} />,
-      iconColor: "text-indigo-400",
-      iconBg: "bg-indigo-500/10 border-indigo-500/20",
-      accent: "from-indigo-500/8",
+      iconColor: "text-[#76ABAE]",
+      iconBg: "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: "Loaded",
-      badgeColor: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+      badgeColor: "text-[#76ABAE] bg-[#76ABAE]/10 border-[#76ABAE]/30",
     },
     {
       title: "Schema Columns",
       value: <CountUp end={columns} />,
       desc: `${numCols} numeric · ${textCols} text` + (dateCols > 0 ? ` · ${dateCols} date` : ""),
       icon: <Grid size={16} />,
-      iconColor: "text-violet-400",
-      iconBg: "bg-violet-500/10 border-violet-500/20",
-      accent: "from-violet-500/8",
+      iconColor: "text-[#76ABAE]",
+      iconBg: "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: `${columns} fields`,
-      badgeColor: "text-violet-400 bg-violet-500/10 border-violet-500/20",
+      badgeColor: "text-[#76ABAE] bg-[#76ABAE]/10 border-[#76ABAE]/30",
     },
     {
       title: "Missing Cells",
       value: <CountUp end={missing} />,
       desc: missing > 0 ? `${((missing / (rows * columns || 1)) * 100).toFixed(1)}% empty` : "No nulls found",
       icon: <AlertTriangle size={16} />,
-      iconColor: missing > 0 ? "text-amber-400" : "text-emerald-400",
-      iconBg: missing > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20",
-      accent: missing > 0 ? "from-amber-500/8" : "from-emerald-500/8",
+      iconColor: missing > 0 ? "text-[#FF5722]" : "text-[#76ABAE]",
+      iconBg: missing > 0 ? "bg-[#FF5722]/10 border-[#FF5722]/20" : "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: missing > 0 ? "Needs cleaning" : "Complete",
-      badgeColor: missing > 0 ? "text-amber-400 bg-amber-500/10 border-amber-500/20" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+      badgeColor: missing > 0 ? "text-[#FF5722] bg-[#FF5722]/10 border-[#FF5722]/30" : "text-[#76ABAE] bg-[#76ABAE]/10 border-[#76ABAE]/30",
     },
     {
       title: "Data Footprint",
       value: size || "N/A",
       desc: "In-memory dataset size",
       icon: <Cpu size={16} />,
-      iconColor: "text-sky-400",
-      iconBg: "bg-sky-500/10 border-sky-500/20",
-      accent: "from-sky-500/8",
+      iconColor: "text-[#76ABAE]",
+      iconBg: "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: "Optimized",
-      badgeColor: "text-sky-400 bg-sky-500/10 border-sky-500/20",
+      badgeColor: "text-[#76ABAE] bg-[#76ABAE]/10 border-[#76ABAE]/30",
     },
   ];
 
@@ -96,10 +92,10 @@ export default function KPICards({
       {cardData.map((card, idx) => (
         <div
           key={idx}
-          className={`relative bg-[#111113] border border-white/[0.06] rounded-xl p-5 hover:border-white/[0.12] transition-all duration-300 overflow-hidden bg-gradient-to-br ${card.accent} to-transparent`}
+          className="relative bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
         >
           <div className="flex justify-between items-start mb-4">
-            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+            <p className="text-[11px] font-semibold text-[#4A5568] uppercase tracking-wider">
               {card.title}
             </p>
             <div className={`w-8 h-8 ${card.iconBg} border rounded-lg flex items-center justify-center ${card.iconColor}`}>
@@ -107,12 +103,12 @@ export default function KPICards({
             </div>
           </div>
 
-          <h2 className="text-3xl font-bold text-[#241C20] tracking-tight leading-none mb-3">
+          <h2 className="text-3xl font-bold text-[#303841] tracking-tight leading-none mb-3">
             {card.value}
           </h2>
 
           <div className="flex items-center justify-between">
-            <span className="text-xs text-zinc-500">{card.desc}</span>
+            <span className="text-xs text-[#4A5568]">{card.desc}</span>
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${card.badgeColor}`}>
               {card.badge}
             </span>

@@ -33,17 +33,17 @@ export default function DashboardNavbar({
   }, []);
 
   return (
-    <div className="bg-[#FFFDFC] border-b border-[#E8DED3] px-6 py-3.5 flex items-center justify-between sticky top-0 z-40">
+    <div className="bg-white border-b border-gray-200/80 px-6 py-3.5 flex items-center justify-between sticky top-0 z-20">
       {/* File Info */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-[#5A2F59]/8 border border-[#5A2F59]/20 rounded-lg flex items-center justify-center">
-          <FileSpreadsheet size={15} className="text-[#5A2F59]" />
+        <div className="w-8 h-8 bg-[#76ABAE]/10 border border-[#76ABAE]/25 rounded-lg flex items-center justify-center">
+          <FileSpreadsheet size={15} className="text-[#76ABAE]" />
         </div>
         <div>
-          <span className="text-[10px] font-bold text-[#BDA37A] uppercase tracking-wider block">
+          <span className="text-[10px] font-bold text-[#76ABAE] uppercase tracking-wider block">
             Active Dataset
           </span>
-          <span className="text-sm font-bold text-[#241C20] truncate max-w-xs md:max-w-md block leading-tight">
+          <span className="text-sm font-bold text-[#303841] truncate max-w-xs md:max-w-md block leading-tight">
             {fileName}
           </span>
         </div>
@@ -55,7 +55,7 @@ export default function DashboardNavbar({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="p-2 text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/5 border border-[#E8DED3] rounded-lg transition-all cursor-pointer disabled:opacity-40"
+            className="p-2 text-[#4A5568] hover:text-[#303841] hover:bg-gray-100 border border-gray-200 rounded-lg transition-all cursor-pointer disabled:opacity-40"
             title="Refresh preview data"
           >
             <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} />
@@ -66,7 +66,7 @@ export default function DashboardNavbar({
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 bg-[#5A2F59] hover:bg-[#4A2549] text-white px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm shadow-[#5A2F59]/10 transition-all cursor-pointer"
+            className="flex items-center gap-2 bg-[#76ABAE] hover:bg-[#639396] text-white px-3.5 py-2 rounded-lg text-xs font-semibold shadow-sm shadow-[#76ABAE]/20 transition-all cursor-pointer"
           >
             <Plus size={13} />
             <span>New Dataset</span>
@@ -74,7 +74,7 @@ export default function DashboardNavbar({
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-[#FFFDFC] border border-[#E8DED3] rounded-xl shadow-xl shadow-[#5A2F59]/8 py-1.5 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl shadow-black/5 py-1.5 z-50 text-left animate-in fade-in slide-in-from-top-2 duration-150">
               <button
                 onClick={() => {
                   setDropdownOpen(false);
@@ -84,9 +84,9 @@ export default function DashboardNavbar({
                     navigate("/upload");
                   }
                 }}
-                className="w-full text-left px-4 py-2 text-xs text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/5 transition-colors cursor-pointer flex items-center gap-2 font-medium"
+                className="w-full text-left px-4 py-2 text-xs text-[#303841] hover:text-[#76ABAE] hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2 font-medium"
               >
-                <Upload size={13} className="text-[#5A2F59]" />
+                <Upload size={13} className="text-[#76ABAE]" />
                 <span>Upload Dataset File</span>
               </button>
               <button
@@ -96,9 +96,9 @@ export default function DashboardNavbar({
                     onCreateTableClick();
                   }
                 }}
-                className="w-full text-left px-4 py-2 text-xs text-[#6F6A67] hover:text-[#241C20] hover:bg-[#5A2F59]/5 transition-colors cursor-pointer border-t border-[#E8DED3]/60 pt-2 mt-1.5 flex items-center gap-2 font-medium"
+                className="w-full text-left px-4 py-2 text-xs text-[#303841] hover:text-[#76ABAE] hover:bg-gray-50 transition-colors cursor-pointer border-t border-gray-100 pt-2 mt-1.5 flex items-center gap-2 font-medium"
               >
-                <PlusCircle size={13} className="text-[#BDA37A]" />
+                <PlusCircle size={13} className="text-[#76ABAE]" />
                 <span>Create Custom Table</span>
               </button>
             </div>

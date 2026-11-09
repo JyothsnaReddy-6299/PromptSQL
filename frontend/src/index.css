@@ -3,12 +3,15 @@
 
 /*
   ╔══════════════════════════════════════════════════════╗
-  ║         PROMPTSQL DESIGN SYSTEM — COLOR TOKENS       ║
-  ║  Background  #F7F2EC   Card      #FFFDFC             ║
-  ║  Sidebar     #34182F   Primary   #5A2F59             ║
-  ║  Secondary   #BDA37A   Border    #E8DED3             ║
-  ║  Heading     #241C20   Body      #6F6A67             ║
-  ║  Success     #3E8E5B   Danger    #D95D39             ║
+  ║         PROMPTSQL DESIGN SYSTEM — MODERN PALETTE     ║
+  ║  Sidebar (Dark Slate)       #303841                  ║
+  ║  Active / Primary (Teal)    #76ABAE                  ║
+  ║  Main Background            #F5F5F5                  ║
+  ║  Cards & Bubbles (White)    #FFFFFF                  ║
+  ║  Accent Action (Orange)     #FF5722                  ║
+  ║  Primary Text (Dark Slate)  #303841                  ║
+  ║  Muted Text                 #4A5568                  ║
+  ║  Borders                    #E2E8F0                  ║
   ╚══════════════════════════════════════════════════════╝
 */
 
@@ -16,32 +19,32 @@
   --animate-spin-slow: spin 12s linear infinite;
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 
-  /* Primary palette mapped to sleek slate blue */
-  --color-terracotta-50:  #F2F4F4;
-  --color-terracotta-100: #E5E8E8;
-  --color-terracotta-200: #CCD1D1;
-  --color-terracotta-300: #A6ACAF;
-  --color-terracotta-400: #7F8C8D;
-  --color-terracotta-500: #34495E;  /* Primary */
-  --color-terracotta-600: #2C3E50;  /* Hover primary */
-  --color-terracotta-700: #273746;
-  --color-terracotta-800: #212F3D;
-  --color-terracotta-900: #1B2631;
+  /* Primary palette mapped to Teal */
+  --color-terracotta-50:  #f0f7f7;
+  --color-terracotta-100: #dbeef0;
+  --color-terracotta-200: #b5dde0;
+  --color-terracotta-300: #8ecbd0;
+  --color-terracotta-400: #76ABAE;
+  --color-terracotta-500: #76ABAE;  /* Primary Teal */
+  --color-terracotta-600: #639396;  /* Hover Teal */
+  --color-terracotta-700: #527c7f;
+  --color-terracotta-800: #3f6062;
+  --color-terracotta-900: #2d4546;
 
-  /* Neutrals mapped to cool gray and white cards */
-  --color-warmgray-50:  #F4F6F7;  /* Page background */
+  /* Neutrals mapped to Dark Slate, Cool Gray, and White */
+  --color-warmgray-50:  #F5F5F5;  /* Page background */
   --color-warmgray-100: #FFFFFF;  /* Card surface */
-  --color-warmgray-200: #EBF0F2;  /* Subtle hover */
-  --color-warmgray-300: #BDC3C7;  /* Border */
-  --color-warmgray-400: #95A5A6;  /* Placeholder / muted icons */
-  --color-warmgray-450: #566573;  /* Body text */
-  --color-warmgray-500: #566573;  /* Body text */
-  --color-warmgray-600: #34495E;  /* Darker body */
-  --color-warmgray-850: #2C3E50;
-  --color-warmgray-900: #2C3E50;  /* Heading */
-  --color-warmgray-950: #1C2833;
+  --color-warmgray-200: #EEEEEE;  /* Subtle hover */
+  --color-warmgray-300: #E2E8F0;  /* Border */
+  --color-warmgray-400: #A0AEC0;  /* Placeholder / muted icons */
+  --color-warmgray-450: #4A5568;  /* Body text */
+  --color-warmgray-500: #4A5568;  /* Body text */
+  --color-warmgray-600: #303841;  /* Dark Slate */
+  --color-warmgray-850: #303841;
+  --color-warmgray-900: #303841;  /* Heading */
+  --color-warmgray-950: #242c34;
 
-  /* Success / Danger */
+  /* Success / Orange Accent */
   --color-sand-50:  #EBF6EF;
   --color-sand-100: #C8E8D3;
   --color-sand-200: #3E8E5B;  /* Success */
@@ -56,8 +59,8 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(90, 47, 89, 0.15); }
-  50%       { box-shadow: 0 0 40px rgba(90, 47, 89, 0.35); }
+  0%, 100% { box-shadow: 0 0 20px rgba(118, 171, 174, 0.15); }
+  50%       { box-shadow: 0 0 40px rgba(118, 171, 174, 0.35); }
 }
 
 @keyframes float-slow {
@@ -107,8 +110,8 @@
 }
 
 @keyframes border-glow {
-  0%, 100% { border-color: rgba(90, 47, 89, 0.15); }
-  50%       { border-color: rgba(90, 47, 89, 0.45); }
+  0%, 100% { border-color: rgba(118, 171, 174, 0.2); }
+  50%       { border-color: rgba(118, 171, 174, 0.5); }
 }
 
 /* === UTILITY ANIMATION CLASSES === */
@@ -127,28 +130,28 @@
 .animate-moving-border { background-size: 200% 200%; animation: moving-border 5s linear infinite; }
 .animate-fade-in       { animation: fade-in 0.6s ease forwards; }
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(90, 47, 89, 0.06), transparent);
+  background: linear-gradient(90deg, transparent, rgba(118, 171, 174, 0.1), transparent);
   background-size: 200% auto;
   animation: shimmer 2s linear infinite;
 }
 
 /* Glass card */
 .glass-card {
-  background: rgba(255, 253, 252, 0.92);
-  border: 1px solid rgba(232, 222, 211, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.8);
   backdrop-filter: blur(20px);
 }
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #241C20 0%, #5A2F59 100%);
+  background: linear-gradient(135deg, #303841 0%, #76ABAE 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .gradient-text-purple {
-  background: linear-gradient(135deg, #5A2F59 0%, #BDA37A 100%);
+  background: linear-gradient(135deg, #76ABAE 0%, #303841 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -166,11 +169,11 @@
 
 /* Scrollbar */
 ::-webkit-scrollbar       { width: 6px; }
-::-webkit-scrollbar-track { background: #F4F6F7; }
-::-webkit-scrollbar-thumb { background: #BDC3C7; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #34495E; }
+::-webkit-scrollbar-track { background: #F5F5F5; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #76ABAE; }
 
-/* Sidebar specific scrollbar to prevent extra background color stripes */
+/* Sidebar specific scrollbar */
 .sidebar-scrollbar::-webkit-scrollbar-track,
 .sidebar-scrollbar *::-webkit-scrollbar-track,
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -179,49 +182,49 @@
 .sidebar-scrollbar::-webkit-scrollbar-thumb,
 .sidebar-scrollbar *::-webkit-scrollbar-thumb,
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(93, 173, 226, 0.25) !important; /* Muted Accent matching theme */
+  background: rgba(118, 171, 174, 0.3) !important;
   border-radius: 3px;
 }
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover,
 .sidebar-scrollbar *::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(93, 173, 226, 0.45) !important;
+  background: rgba(118, 171, 174, 0.6) !important;
 }
 
 /* ── Global ─────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
-  background-color: #F4F6F7;
+  background-color: #F5F5F5;
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F4F6F7;
-  color: #566573;
+  background-color: #F5F5F5;
+  color: #303841;
 }
 
 *:focus-visible {
-  outline: 2px solid rgba(90, 47, 89, 0.5);
+  outline: 2px solid rgba(118, 171, 174, 0.5);
   outline-offset: 2px;
 }
 
 /* ╔═══════════════════════════════════════════════════════╗
-   ║   HARDCODED TAILWIND CLASS OVERRIDES — FULL PALETTE  ║
+   ║   GLOBAL THEME OVERRIDES FOR PALETTE CONSISTENCY     ║
    ╚═══════════════════════════════════════════════════════╝ */
 
-/* ── 1. PAGE BACKGROUNDS ─────────────────────────────── */
+/* ── 1. PAGE BACKGROUNDS (#F5F5F5) ───────────────────── */
 .bg-\[\#09090B\],
 .bg-\[\#070708\],
 .bg-\[\#09090b\],
 .bg-\[\#09090B\]\/90,
 .bg-zinc-950,
 .bg-black\/20 {
-  background-color: #F4F6F7 !important;
+  background-color: #F5F5F5 !important;
 }
 
-/* ── 2. CARD / PANEL SURFACES ────────────────────────── */
+/* ── 2. CARD / PANEL SURFACES (#FFFFFF) ──────────────── */
 .bg-\[\#111113\],
 .bg-\[\#0D0D0F\],
 .bg-\[\#0d0d11\],
@@ -236,18 +239,18 @@ body {
 .bg-\[\#111113\]\/90,
 .bg-\[\#0D0D0F\]\/90,
 .bg-\[\#0d0d11\]\/90 {
-  background-color: rgba(255, 255, 255, 0.92) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
 }
 .bg-\[\#111113\]\/80,
 .bg-\[\#0D0D11\]\/80,
 .bg-\[\#0d0d11\]\/80,
 .bg-\[\#0D0D0F\]\/80 {
-  background-color: rgba(255, 255, 255, 0.85) !important;
+  background-color: rgba(255, 255, 255, 0.90) !important;
 }
 .bg-\[\#111113\]\/50,
 .bg-\[\#0d0d11\]\/50,
 .bg-\[\#0D0D0F\]\/50 {
-  background-color: rgba(255, 255, 255, 0.6) !important;
+  background-color: rgba(255, 255, 255, 0.7) !important;
 }
 
 /* ── 4. SECONDARY PANELS ─────────────────────────────── */
@@ -256,9 +259,8 @@ body {
 .bg-zinc-800,
 .bg-white\/\[0\.04\],
 .bg-white\/\[0\.05\],
-.bg-white\/10,
-.bg-\[\#0D0D0F\] {
-  background-color: #F4F6F7 !important;
+.bg-white\/10 {
+  background-color: #F5F5F5 !important;
 }
 
 /* ── 5. MARQUEE CARD BACKGROUNDS ─────────────────────── */
@@ -267,44 +269,41 @@ body {
 .bg-black\/40,
 .bg-black\/60 {
   background-color: #FFFFFF !important;
-  border-color: #BDC3C7 !important;
+  border-color: #E2E8F0 !important;
 }
 
-/* ── 6. PRIMARY BRAND COLOR ──────────────────────────── */
+/* ── 6. PRIMARY BRAND COLOR (TEAL #76ABAE) ───────────── */
 .bg-violet-600,
 .bg-indigo-600,
 .bg-indigo-500,
 .bg-violet-500 {
-  background-color: #34495E !important;
+  background-color: #76ABAE !important;
 }
 .hover\:bg-violet-500:hover,
 .hover\:bg-indigo-500:hover,
 .hover\:bg-violet-600:hover,
 .hover\:bg-indigo-600:hover {
-  background-color: #2C3E50 !important;
+  background-color: #639396 !important;
 }
 .hover\:bg-zinc-100:hover,
 .hover\:bg-zinc-50:hover {
-  background-color: #EBF0F2 !important;
+  background-color: #EEEEEE !important;
 }
 
-/* WHITE CTA BUTTONS → Primary Slate */
+/* WHITE CTA BUTTONS */
 .bg-white {
-  background-color: #34495E !important;
-  color: #FFFFFF !important;
-}
-.hover\:bg-zinc-50:hover,
-.hover\:bg-zinc-100:hover {
-  background-color: #2C3E50 !important;
+  background-color: #FFFFFF !important;
 }
 
-/* ── 7. TEXT COLORS ──────────────────────────────────── */
+/* ── 7. TEXT COLORS (DARK SLATE #303841) ─────────────── */
 .text-zinc-100,
 .text-zinc-200,
 .text-zinc-300,
 .text-warmgray-900,
-.text-warmgray-950 {
-  color: #2C3E50 !important;
+.text-warmgray-950,
+.text-zinc-900,
+.text-zinc-950 {
+  color: #303841 !important;
 }
 
 .text-zinc-400,
@@ -313,12 +312,7 @@ body {
 .text-warmgray-500,
 .text-warmgray-600,
 .text-warmgray-850 {
-  color: #566573 !important;
-}
-
-.text-zinc-900,
-.text-zinc-950 {
-  color: #2C3E50 !important;
+  color: #4A5568 !important;
 }
 
 /* Brand text */
@@ -326,16 +320,15 @@ body {
 .text-indigo-400,
 .text-violet-500,
 .text-indigo-500 {
-  color: #34495E !important;
+  color: #76ABAE !important;
 }
 
-/* Hover text */
 .hover\:text-zinc-100:hover,
 .hover\:text-zinc-200:hover,
 .hover\:text-zinc-300:hover,
 .hover\:text-indigo-300:hover,
 .hover\:text-violet-300:hover {
-  color: #34495E !important;
+  color: #76ABAE !important;
 }
 
 /* ── 8. BORDER COLORS ────────────────────────────────── */
@@ -345,11 +338,11 @@ body {
 .border-white\/\[0\.12\],
 .border-white\/10,
 .border-zinc-800 {
-  border-color: #BDC3C7 !important;
+  border-color: #E2E8F0 !important;
 }
 
 .divide-white\/\[0\.04\] > * + * {
-  border-color: #BDC3C7 !important;
+  border-color: #E2E8F0 !important;
 }
 
 /* ── 9. ACCENT BADGES ────────────────────────────────── */
@@ -357,9 +350,9 @@ body {
 .bg-indigo-500\/10,
 .bg-violet-500\/10,
 .bg-violet-500\/15 {
-  background-color: rgba(52, 73, 94, 0.08) !important;
-  color: #34495E !important;
-  border-color: rgba(52, 73, 94, 0.2) !important;
+  background-color: rgba(118, 171, 174, 0.12) !important;
+  color: #76ABAE !important;
+  border-color: rgba(118, 171, 174, 0.25) !important;
 }
 
 /* ── 10. INPUTS ──────────────────────────────────────── */
@@ -367,132 +360,142 @@ input[type="text"],
 input[type="password"],
 textarea {
   background-color: #FFFFFF !important;
-  color: #2C3E50 !important;
-  border-color: #BDC3C7 !important;
+  color: #303841 !important;
+  border-color: #E2E8F0 !important;
 }
 
 input[type="text"]::placeholder,
 input[type="password"]::placeholder,
 textarea::placeholder {
-  color: #95A5A6 !important;
+  color: #A0AEC0 !important;
 }
 
 /* ── 11. CODE / TERMINAL BLOCKS ──────────────────────── */
 code, pre {
-  background-color: #1F2D3D !important;
+  background-color: #303841 !important;
   color: #FFFFFF !important;
 }
 
-/* ── 12. SUCCESS / DANGER STATES ─────────────────────── */
+/* ── 12. SUCCESS / ORANGE ACCENT STATES ──────────────── */
 .text-emerald-400, .text-green-400  { color: #3E8E5B !important; }
-.text-red-400, .text-rose-400        { color: #D95D39 !important; }
+.text-red-400, .text-rose-400        { color: #FF5722 !important; }
 .bg-emerald-500\/10, .bg-green-500\/10 { background-color: rgba(62,142,91,0.1) !important; }
-.bg-red-500\/10, .bg-rose-500\/10      { background-color: rgba(217,93,57,0.1) !important; }
+.bg-red-500\/10, .bg-rose-500\/10      { background-color: rgba(255,87,34,0.1) !important; }
 .border-emerald-500\/20  { border-color: rgba(62,142,91,0.25) !important; }
-.border-red-500\/20      { border-color: rgba(217,93,57,0.25) !important; }
+.border-red-500\/20      { border-color: rgba(255,87,34,0.25) !important; }
 
-/* ── 13. ACCENT / SKY BLUE ACCENTS ───────────────────── */
+/* ── 13. ACCENT TEAL ACCENTS ─────────────────────────── */
 .text-amber-300, .text-amber-400, .text-yellow-400 {
-  color: #5DADE2 !important;
+  color: #76ABAE !important;
 }
 .bg-amber-500\/10, .bg-amber-50 {
-  background-color: rgba(93,173,226,0.12) !important;
+  background-color: rgba(118,171,174,0.12) !important;
 }
 .border-amber-500\/20, .border-amber-200 {
-  border-color: rgba(93,173,226,0.3) !important;
+  border-color: rgba(118,171,174,0.3) !important;
 }
 
 /* ── 14. GRADIENT TEXT UPDATES ───────────────────────── */
 .from-indigo-500, .from-violet-500 {
-  --tw-gradient-from: #34495E !important;
+  --tw-gradient-from: #303841 !important;
 }
 .to-violet-500, .to-indigo-500 {
-  --tw-gradient-to: #5DADE2 !important;
+  --tw-gradient-to: #76ABAE !important;
 }
 .via-indigo-500 {
-  --tw-gradient-via: #34495E !important;
+  --tw-gradient-via: #76ABAE !important;
 }
 
 /* ========================================================
-   PROMPTSQL GLOBAL THEME OVERRIDES (SLATE, SKY-BLUE, COOL GRAY)
+   PROMPTSQL GLOBAL THEME OVERRIDES (EXACT PALETTE: FF5722, 303841, 76ABAE, F5F5F5)
    ======================================================== */
 
-/* ── 1. PRIMARY COLOR OVERRIDES (#34495E) ──────────────── */
-.bg-\[\#5A2F59\] { background-color: #34495E !important; }
-.text-\[\#5A2F59\] { color: #34495E !important; }
-.border-\[\#5A2F59\] { border-color: #34495E !important; }
-.border-\[\#5A2F59\]\/15 { border-color: rgba(52, 73, 94, 0.15) !important; }
-.border-\[\#5A2F59\]\/20 { border-color: rgba(52, 73, 94, 0.20) !important; }
-.border-\[\#5A2F59\]\/30 { border-color: rgba(52, 73, 94, 0.30) !important; }
-.bg-\[\#5A2F59\]\/8 { background-color: rgba(52, 73, 94, 0.08) !important; }
-.bg-\[\#5A2F59\]\/10 { background-color: rgba(52, 73, 94, 0.10) !important; }
-.bg-\[\#5A2F59\]\/3 { background-color: rgba(52, 73, 94, 0.03) !important; }
-.bg-\[\#5A2F59\]\/4 { background-color: rgba(52, 73, 94, 0.04) !important; }
-.bg-\[\#5A2F59\]\/5 { background-color: rgba(52, 73, 94, 0.05) !important; }
-.bg-\[\#5A2F59\]\/30 { background-color: rgba(52, 73, 94, 0.30) !important; }
-.bg-\[\#5A2F59\]\/40 { background-color: rgba(52, 73, 94, 0.40) !important; }
-.bg-\[\#5A2F59\]\/50 { background-color: rgba(52, 73, 94, 0.50) !important; }
-.bg-\[\#5A2F59\]\/60 { background-color: rgba(52, 73, 94, 0.60) !important; }
-.bg-\[\#5A2F59\]\/80 { background-color: rgba(52, 73, 94, 0.80) !important; }
-.hover\:bg-\[\#5A2F59\]\/5:hover { background-color: rgba(52, 73, 94, 0.05) !important; }
-.hover\:bg-\[\#5A2F59\]\/3:hover { background-color: rgba(52, 73, 94, 0.03) !important; }
-.hover\:bg-\[\#5A2F59\]\/6:hover { background-color: rgba(52, 73, 94, 0.06) !important; }
-.hover\:bg-\[\#5A2F59\]\/10:hover { background-color: rgba(52, 73, 94, 0.10) !important; }
-.hover\:bg-\[\#5A2F59\]\/60:hover { background-color: rgba(52, 73, 94, 0.60) !important; }
-.hover\:border-\[\#5A2F59\]\/25:hover { border-color: rgba(52, 73, 94, 0.25) !important; }
-.hover\:border-\[\#5A2F59\]\/30:hover { border-color: rgba(52, 73, 94, 0.30) !important; }
-.hover\:border-\[\#5A2F59\]\/50:hover { border-color: rgba(52, 73, 94, 0.50) !important; }
-.hover\:border-\[\#5A2F59\]\/80:hover { border-color: rgba(52, 73, 94, 0.80) !important; }
-.group-hover\:text-\[\#5A2F59\] { color: #34495E !important; }
-.shadow-\[\#5A2F59\]\/8 { --tw-shadow-color: rgba(52, 73, 94, 0.08) !important; }
-.shadow-\[\#5A2F59\]\/10 { --tw-shadow-color: rgba(52, 73, 94, 0.10) !important; }
-.shadow-\[\#5A2F59\]\/20 { --tw-shadow-color: rgba(52, 73, 94, 0.20) !important; }
-.shadow-\[\#5A2F59\]\/35 { --tw-shadow-color: rgba(52, 73, 94, 0.35) !important; }
-.group-hover\:shadow-\[\#5A2F59\]\/5:hover { --tw-shadow-color: rgba(52, 73, 94, 0.05) !important; }
-.focus\:border-\[\#5A2F59\]:focus { border-color: #34495E !important; }
-.focus\:border-\[\#5A2F59\]\/40:focus { border-color: rgba(52, 73, 94, 0.40) !important; }
-.focus\:ring-\[\#5A2F59\]\/15:focus { --tw-ring-color: rgba(52, 73, 94, 0.15) !important; }
+/* ── 1. PRIMARY TEAL OVERRIDES (#76ABAE) ──────────────── */
+.bg-\[\#5A2F59\] { background-color: #76ABAE !important; }
+.text-\[\#5A2F59\] { color: #76ABAE !important; }
+.border-\[\#5A2F59\] { border-color: #76ABAE !important; }
+.border-\[\#5A2F59\]\/15 { border-color: rgba(118, 171, 174, 0.15) !important; }
+.border-\[\#5A2F59\]\/20 { border-color: rgba(118, 171, 174, 0.20) !important; }
+.border-\[\#5A2F59\]\/30 { border-color: rgba(118, 171, 174, 0.30) !important; }
+.bg-\[\#5A2F59\]\/8 { background-color: rgba(118, 171, 174, 0.08) !important; }
+.bg-\[\#5A2F59\]\/10 { background-color: rgba(118, 171, 174, 0.10) !important; }
+.bg-\[\#5A2F59\]\/3 { background-color: rgba(118, 171, 174, 0.03) !important; }
+.bg-\[\#5A2F59\]\/4 { background-color: rgba(118, 171, 174, 0.04) !important; }
+.bg-\[\#5A2F59\]\/5 { background-color: rgba(118, 171, 174, 0.05) !important; }
+.bg-\[\#5A2F59\]\/30 { background-color: rgba(118, 171, 174, 0.30) !important; }
+.bg-\[\#5A2F59\]\/40 { background-color: rgba(118, 171, 174, 0.40) !important; }
+.bg-\[\#5A2F59\]\/50 { background-color: rgba(118, 171, 174, 0.50) !important; }
+.bg-\[\#5A2F59\]\/60 { background-color: rgba(118, 171, 174, 0.60) !important; }
+.bg-\[\#5A2F59\]\/80 { background-color: rgba(118, 171, 174, 0.80) !important; }
+.hover\:bg-\[\#5A2F59\]\/5:hover { background-color: rgba(118, 171, 174, 0.05) !important; }
+.hover\:bg-\[\#5A2F59\]\/3:hover { background-color: rgba(118, 171, 174, 0.03) !important; }
+.hover\:bg-\[\#5A2F59\]\/6:hover { background-color: rgba(118, 171, 174, 0.06) !important; }
+.hover\:bg-\[\#5A2F59\]\/10:hover { background-color: rgba(118, 171, 174, 0.10) !important; }
+.hover\:bg-\[\#5A2F59\]\/60:hover { background-color: rgba(118, 171, 174, 0.60) !important; }
+.hover\:border-\[\#5A2F59\]\/25:hover { border-color: rgba(118, 171, 174, 0.25) !important; }
+.hover\:border-\[\#5A2F59\]\/30:hover { border-color: rgba(118, 171, 174, 0.30) !important; }
+.hover\:border-\[\#5A2F59\]\/50:hover { border-color: rgba(118, 171, 174, 0.50) !important; }
+.hover\:border-\[\#5A2F59\]\/80:hover { border-color: rgba(118, 171, 174, 0.80) !important; }
+.group-hover\:text-\[\#5A2F59\] { color: #76ABAE !important; }
+.shadow-\[\#5A2F59\]\/8 { --tw-shadow-color: rgba(118, 171, 174, 0.08) !important; }
+.shadow-\[\#5A2F59\]\/10 { --tw-shadow-color: rgba(118, 171, 174, 0.10) !important; }
+.shadow-\[\#5A2F59\]\/20 { --tw-shadow-color: rgba(118, 171, 174, 0.20) !important; }
+.shadow-\[\#5A2F59\]\/35 { --tw-shadow-color: rgba(118, 171, 174, 0.35) !important; }
+.group-hover\:shadow-\[\#5A2F59\]\/5:hover { --tw-shadow-color: rgba(118, 171, 174, 0.05) !important; }
+.focus\:border-\[\#5A2F59\]:focus { border-color: #76ABAE !important; }
+.focus\:border-\[\#5A2F59\]\/40:focus { border-color: rgba(118, 171, 174, 0.40) !important; }
+.focus\:ring-\[\#5A2F59\]\/15:focus { --tw-ring-color: rgba(118, 171, 174, 0.15) !important; }
 
-/* ── 2. HOVER SHADES OVERRIDES (#2C3E50) ─────────────────── */
-.bg-\[\#4A2549\] { background-color: #2C3E50 !important; }
-.hover\:bg-\[\#4A2549\]:hover { background-color: #2C3E50 !important; }
+/* ── 2. HOVER SHADES OVERRIDES (#639396) ─────────────────── */
+.bg-\[\#4A2549\] { background-color: #639396 !important; }
+.hover\:bg-\[\#4A2549\]:hover { background-color: #639396 !important; }
 
-/* ── 3. SIDEBAR SHADES OVERRIDES (#1F2D3D) ───────────────── */
-.bg-\[\#34182F\] { background-color: #1F2D3D !important; }
-.border-\[\#34182F\] { border-color: #1F2D3D !important; }
-.hover\:bg-\[\#34182F\]:hover { background-color: #1F2D3D !important; }
-.border-\[\#34182F\]\/40 { border-color: rgba(31, 45, 61, 0.40) !important; }
-.border-\[\#34182F\]\/30 { border-color: rgba(31, 45, 61, 0.30) !important; }
-.bg-\[\#34182F\]\/80 { background-color: rgba(31, 45, 61, 0.80) !important; }
+/* ── 3. SIDEBAR SHADES OVERRIDES (DARK SLATE #303841) ────── */
+.bg-\[\#34182F\] { background-color: #303841 !important; }
+.border-\[\#34182F\] { border-color: #303841 !important; }
+.hover\:bg-\[\#34182F\]:hover { background-color: #303841 !important; }
+.border-\[\#34182F\]\/40 { border-color: rgba(48, 56, 65, 0.40) !important; }
+.border-\[\#34182F\]\/30 { border-color: rgba(48, 56, 65, 0.30) !important; }
+.bg-\[\#34182F\]\/80 { background-color: rgba(48, 56, 65, 0.80) !important; }
 
-/* ── 4. ACCENT COLOR OVERRIDES (#5DADE2) ─────────────────── */
-.text-\[\#BDA37A\] { color: #5DADE2 !important; }
-.bg-\[\#BDA37A\] { background-color: #5DADE2 !important; }
-.border-\[\#BDA37A\] { border-color: #5DADE2 !important; }
-.border-\[\#BDA37A\]\/20 { border-color: rgba(93, 173, 226, 0.20) !important; }
-.border-\[\#BDA37A\]\/30 { border-color: rgba(93, 173, 226, 0.30) !important; }
-.bg-\[\#BDA37A\]\/10 { background-color: rgba(93, 173, 226, 0.10) !important; }
-.bg-\[\#BDA37A\]\/15 { background-color: rgba(93, 173, 226, 0.15) !important; }
-.bg-\[\#BDA37A\]\/8 { background-color: rgba(93, 173, 226, 0.08) !important; }
-.group-hover\:text-\[\#BDA37A\] { color: #5DADE2 !important; }
-.hover\:text-\[\#BDA37A\]:hover { color: #5DADE2 !important; }
+/* ── 4. SECONDARY ACCENTS (TEAL #76ABAE) ─────────────────── */
+.text-\[\#BDA37A\] { color: #76ABAE !important; }
+.bg-\[\#BDA37A\] { background-color: #76ABAE !important; }
+.border-\[\#BDA37A\] { border-color: #76ABAE !important; }
+.border-\[\#BDA37A\]\/20 { border-color: rgba(118, 171, 174, 0.20) !important; }
+.border-\[\#BDA37A\]\/30 { border-color: rgba(118, 171, 174, 0.30) !important; }
+.bg-\[\#BDA37A\]\/10 { background-color: rgba(118, 171, 174, 0.10) !important; }
+.bg-\[\#BDA37A\]\/15 { background-color: rgba(118, 171, 174, 0.15) !important; }
+.bg-\[\#BDA37A\]\/8 { background-color: rgba(118, 171, 174, 0.08) !important; }
+.group-hover\:text-\[\#BDA37A\] { color: #76ABAE !important; }
+.hover\:text-\[\#BDA37A\]:hover { color: #76ABAE !important; }
 
-/* ── 5. BACKGROUND OVERRIDES (#F4F6F7) ───────────────────── */
-.bg-\[\#F7F2EC\] { background-color: #F4F6F7 !important; }
-.bg-\[\#F5EFEB\] { background-color: #EBF0F2 !important; }
-.bg-\[\#FAF6F0\] { background-color: #F4F6F7 !important; }
-.bg-\[\#F7F2EC\]\/50 { background-color: rgba(244, 246, 247, 0.50) !important; }
+/* ── 5. MAIN BACKGROUND OVERRIDES (#F5F5F5) ──────────────── */
+.bg-\[\#F7F2EC\] { background-color: #F5F5F5 !important; }
+.bg-\[\#F5EFEB\] { background-color: #EEEEEE !important; }
+.bg-\[\#FAF6F0\] { background-color: #F5F5F5 !important; }
+.bg-\[\#F7F2EC\]\/50 { background-color: rgba(245, 245, 245, 0.50) !important; }
 
-/* ── 6. CARD OVERRIDES (WHITE #FFFFFF) ───────────────────── */
+/* ── 6. CARDS & PANELS (PURE WHITE #FFFFFF) ──────────────── */
 .bg-\[\#FFFDFC\] { background-color: #FFFFFF !important; }
 .bg-\[\#FFFDFD\] { background-color: #FFFFFF !important; }
 .bg-\[\#FFFDFC\]\/95 { background-color: rgba(255, 255, 255, 0.95) !important; }
 
-/* ── 7. BORDER OVERRIDES (#BDC3C7) ───────────────────────── */
-.border-\[\#E8DED3\] { border-color: #BDC3C7 !important; }
-.border-\[\#E8DED3\]\/60 { border-color: rgba(189, 195, 199, 0.60) !important; }
-.divide-\[\#E8DED3\] > * + * { border-color: #BDC3C7 !important; }
+/* ── 7. BORDER OVERRIDES (#E2E8F0) ───────────────────────── */
+.border-\[\#E8DED3\] { border-color: #E2E8F0 !important; }
+.border-\[\#E8DED3\]\/60 { border-color: rgba(226, 232, 240, 0.60) !important; }
+.divide-\[\#E8DED3\] > * + * { border-color: #E2E8F0 !important; }
 
-/* ── 8. TEXT OVERRIDES (#2C3E50 / #566573) ────────────────── */
-.text-\[\#241C20\] { color: #2C3E50 !important; }
-.text-\[\#6F6A67\] { color: #566573 !important; }
+/* ── 8. PRIMARY TEXT (DARK SLATE #303841) ────────────────── */
+.text-\[\#241C20\] { color: #303841 !important; }
+.text-\[\#6F6A67\] { color: #4A5568 !important; }
+
+/* ── 9. ACCENT ORANGE OVERRIDES (#FF5722) ────────────────── */
+.text-\[\#D95D39\] { color: #FF5722 !important; }
+.bg-\[\#D95D39\] { background-color: #FF5722 !important; }
+.border-\[\#D95D39\] { border-color: #FF5722 !important; }
+.hover\:text-\[\#D95D39\]:hover { color: #FF5722 !important; }
+.hover\:bg-\[\#D95D39\]\/10:hover { background-color: rgba(255, 87, 34, 0.10) !important; }
+.bg-\[\#D95D39\]\/5 { background-color: rgba(255, 87, 34, 0.05) !important; }
+.bg-\[\#D95D39\]\/10 { background-color: rgba(255, 87, 34, 0.10) !important; }
+.border-\[\#D95D39\]\/20 { border-color: rgba(255, 87, 34, 0.20) !important; }

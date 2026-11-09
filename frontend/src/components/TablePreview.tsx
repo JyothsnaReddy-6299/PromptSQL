@@ -94,13 +94,13 @@ export default function TablePreview({
   };
 
   return (
-    <div id="preview" className="bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-5 shadow-sm shadow-[#5A2F59]/5">
+    <div id="preview" className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
-          <h2 className="text-base font-bold text-[#241C20] flex items-center gap-2">
+          <h2 className="text-base font-bold text-[#303841] flex items-center gap-2">
             Dataset Explorer
           </h2>
-          <p className="text-[10px] text-[#6F6A67] mt-0.5">
+          <p className="text-[10px] text-[#4A5568] mt-0.5">
             Double click any cell to edit data inline.
           </p>
         </div>
@@ -108,7 +108,7 @@ export default function TablePreview({
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* Local search input */}
           <div className="relative flex-1 sm:flex-none">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0A79E] w-3.5 h-3.5" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
             <input
               type="text"
               placeholder='Search text or "col:null"...'
@@ -117,19 +117,19 @@ export default function TablePreview({
                 onSearchChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-[#F7F2EC] border border-[#E8DED3] rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#5A2F59] w-full sm:w-60 focus:bg-[#FFFDFC] transition-all text-[#241C20] font-medium placeholder-[#B0A79E]"
+              className="bg-[#F5F5F5] border border-gray-200 rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#76ABAE] w-full sm:w-60 focus:bg-white transition-all text-[#303841] font-medium placeholder-gray-400"
             />
           </div>
 
           <button
             onClick={handleExportCSV}
             disabled={records.length === 0 || exportingCSV || exportingExcel}
-            className="flex items-center gap-1.5 border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/5 px-3.5 py-1.5 rounded-xl text-[#6F6A67] hover:text-[#241C20] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
+            className="flex items-center gap-1.5 border border-gray-200 hover:border-[#76ABAE]/50 hover:bg-[#76ABAE]/5 px-3.5 py-1.5 rounded-xl text-[#4A5568] hover:text-[#303841] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
           >
             {exportingCSV ? (
-              <Loader2 size={12} className="text-[#5A2F59] animate-spin" />
+              <Loader2 size={12} className="text-[#76ABAE] animate-spin" />
             ) : (
-              <Download size={12} className="text-[#5A2F59]" />
+              <Download size={12} className="text-[#76ABAE]" />
             )}
             <span>Export CSV</span>
           </button>
@@ -137,12 +137,12 @@ export default function TablePreview({
           <button
             onClick={handleExportExcel}
             disabled={records.length === 0 || exportingCSV || exportingExcel}
-            className="flex items-center gap-1.5 border border-[#E8DED3] hover:border-[#5A2F59]/30 hover:bg-[#5A2F59]/5 px-3.5 py-1.5 rounded-xl text-[#6F6A67] hover:text-[#241C20] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
+            className="flex items-center gap-1.5 border border-gray-200 hover:border-[#76ABAE]/50 hover:bg-[#76ABAE]/5 px-3.5 py-1.5 rounded-xl text-[#4A5568] hover:text-[#303841] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
           >
             {exportingExcel ? (
-              <Loader2 size={12} className="text-[#5A2F59] animate-spin" />
+              <Loader2 size={12} className="text-[#76ABAE] animate-spin" />
             ) : (
-              <Download size={12} className="text-[#5A2F59]" />
+              <Download size={12} className="text-[#76ABAE]" />
             )}
             <span>Export Excel</span>
           </button>
@@ -150,36 +150,36 @@ export default function TablePreview({
       </div>
 
       {loading ? (
-        <div className="h-48 flex items-center justify-center text-zinc-550">
+        <div className="h-48 flex items-center justify-center text-gray-500">
           <div className="flex flex-col items-center gap-2">
-            <div className="w-6 h-6 border-2 border-[#5A2F59] border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-semibold text-[#6F6A67]">Fetching preview...</span>
+            <div className="w-6 h-6 border-2 border-[#76ABAE] border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-semibold text-[#4A5568]">Fetching preview...</span>
           </div>
         </div>
       ) : columns.length === 0 ? (
-        <div className="h-48 flex items-center justify-center text-zinc-500 border border-dashed border-[#E8DED3] rounded-xl bg-[#F7F2EC]/30">
+        <div className="h-48 flex items-center justify-center text-gray-500 border border-dashed border-gray-200 rounded-xl bg-[#F5F5F5]/50">
           <div className="text-center p-4">
-            <p className="text-xs font-bold text-[#6F6A67]">No active dataset loaded.</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">Please upload a dataset or create a table to begin.</p>
+            <p className="text-xs font-bold text-[#303841]">No active dataset loaded.</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Please upload a dataset or create a table to begin.</p>
           </div>
         </div>
       ) : (
         <div>
           {/* Table Container */}
-          <div className="overflow-x-auto border border-[#E8DED3] rounded-xl max-h-[350px]">
-            <table className="min-w-full border-collapse text-left text-[11px] text-[#241C20]">
-              <thead className="bg-[#5A2F59]/6 sticky top-0 border-b border-[#E8DED3] z-10">
+          <div className="overflow-x-auto border border-gray-200 rounded-xl max-h-[350px]">
+            <table className="min-w-full border-collapse text-left text-[11px] text-[#303841]">
+              <thead className="bg-[#F5F5F5] sticky top-0 border-b border-gray-200 z-10">
                 <tr>
                   {columns.map((col) => (
                     <th
                       key={col}
                       onClick={() => handleHeaderClick(col)}
-                      className="px-3.5 py-3 font-bold text-[#5A2F59] bg-[#F7F2EC] select-none whitespace-nowrap text-[10px] uppercase border-r border-[#E8DED3] last:border-0 cursor-pointer hover:bg-[#5A2F59]/8 transition-all duration-200"
+                      className="px-3.5 py-3 font-bold text-[#303841] bg-[#F5F5F5] select-none whitespace-nowrap text-[10px] uppercase border-r border-gray-200 last:border-0 cursor-pointer hover:bg-gray-200/60 transition-all duration-200"
                     >
                       <span className="flex items-center gap-1.5">
                         <span>{col}</span>
                         {sortCol === col && (
-                          <span className="text-[8px] text-[#5A2F59] font-bold font-mono">
+                          <span className="text-[8px] text-[#76ABAE] font-bold font-mono">
                             {sortDir === "ASC" ? "▲" : "▼"}
                           </span>
                         )}
@@ -188,16 +188,16 @@ export default function TablePreview({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E8DED3] bg-[#FFFDFC] border-t border-[#E8DED3]">
+              <tbody className="divide-y divide-gray-100 bg-white border-t border-gray-200">
                 {records.length === 0 ? (
                   <tr>
-                    <td colSpan={columns.length} className="px-6 py-12 text-center text-xs font-semibold text-[#6F6A67]">
+                    <td colSpan={columns.length} className="px-6 py-12 text-center text-xs font-semibold text-[#4A5568]">
                       No records found. This table is currently empty. Use the chat box assistant below to insert records!
                     </td>
                   </tr>
                 ) : (
                   paginatedRecords.map((row, rowIdx) => (
-                    <tr key={rowIdx} className="hover:bg-[#5A2F59]/3 transition">
+                    <tr key={rowIdx} className="hover:bg-[#76ABAE]/5 transition">
                       {columns.map((col) => {
                         const globalIdx = startIndex + rowIdx;
                         const isEditing = editingCell?.globalRowIdx === globalIdx && editingCell?.colName === col;
@@ -208,7 +208,7 @@ export default function TablePreview({
                               setEditingCell({ globalRowIdx: globalIdx, colName: col });
                               setEditValue(row[col] === null || row[col] === undefined ? "" : String(row[col]));
                             }}
-                            className={`px-3.5 py-2.5 border-r border-[#E8DED3]/60 last:border-0 font-medium text-[#241C20] max-w-xs truncate cursor-pointer hover:bg-[#5A2F59]/5 ${isEditing ? "p-1" : ""}`}
+                            className={`px-3.5 py-2.5 border-r border-gray-100 last:border-0 font-medium text-[#303841] max-w-xs truncate cursor-pointer hover:bg-[#76ABAE]/10 ${isEditing ? "p-1" : ""}`}
                             title={row[col] !== null ? String(row[col]) : "Double click to edit cell"}
                           >
                             {isEditing ? (
@@ -218,14 +218,14 @@ export default function TablePreview({
                                 onChange={(e) => setEditValue(e.target.value)}
                                 onBlur={() => saveEdit(globalIdx, col)}
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveEdit(globalIdx, col);
-                                  if (e.key === "Escape") setEditingCell(null);
+                                   if (e.key === "Enter") saveEdit(globalIdx, col);
+                                   if (e.key === "Escape") setEditingCell(null);
                                 }}
                                 autoFocus
-                                className="w-full bg-[#FFFDFC] border border-[#5A2F59] rounded px-2 py-1 text-xs text-[#241C20] font-medium focus:outline-none focus:ring-1 focus:ring-[#5A2F59]"
+                                className="w-full bg-white border border-[#76ABAE] rounded px-2 py-1 text-xs text-[#303841] font-medium focus:outline-none focus:ring-1 focus:ring-[#76ABAE]"
                               />
                             ) : row[col] === null || row[col] === undefined ? (
-                              <span className="text-[#5A2F59]/50 font-mono text-[9px] italic bg-[#5A2F59]/5 px-1.5 py-0.5 rounded border border-[#E8DED3]/40">null</span>
+                              <span className="text-[#303841]/50 font-mono text-[9px] italic bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">null</span>
                             ) : (
                               formatDateValue(row[col])
                             )}
@@ -241,13 +241,13 @@ export default function TablePreview({
 
           {/* Footer Controls */}
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px]">
-            <span className="text-[#6F6A67] font-medium">
+            <span className="text-[#4A5568] font-medium">
               Showing {totalItems} out of {totalRows || totalItems} entries
               {searchTerm && " (filtered)"}
             </span>
 
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-[#6F6A67] font-medium">
+              <div className="flex items-center gap-1.5 text-[#4A5568] font-medium">
                 <span>Show</span>
                 <select
                   value={itemsPerPage}
@@ -255,7 +255,7 @@ export default function TablePreview({
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="bg-[#F7F2EC] border border-[#E8DED3] rounded-md px-1.5 py-0.5 focus:outline-none focus:border-[#5A2F59] text-[#241C20] font-semibold text-[10px]"
+                  className="bg-[#F5F5F5] border border-gray-200 rounded-md px-1.5 py-0.5 focus:outline-none focus:border-[#76ABAE] text-[#303841] font-semibold text-[10px]"
                 >
                   <option value={5}>5</option>
                   <option value={10}>10</option>
@@ -269,17 +269,17 @@ export default function TablePreview({
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                   disabled={currentPage === 1 || totalPages === 0}
-                  className="p-1 border border-[#E8DED3] rounded-md text-[#6F6A67] hover:bg-[#5A2F59]/5 hover:text-[#241C20] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="p-1 border border-gray-200 rounded-md text-[#4A5568] hover:bg-[#76ABAE]/10 hover:text-[#303841] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <ChevronLeft size={12} />
                 </button>
-                <span className="font-semibold px-2.5 flex items-center border border-[#E8DED3] rounded-md bg-[#F7F2EC] text-[#241C20]">
+                <span className="font-semibold px-2.5 flex items-center border border-gray-200 rounded-md bg-[#F5F5F5] text-[#303841]">
                   Page {currentPage} of {totalPages || 1}
                 </span>
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages || totalPages === 0}
-                  className="p-1 border border-[#E8DED3] rounded-md text-[#6F6A67] hover:bg-[#5A2F59]/5 hover:text-[#241C20] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="p-1 border border-gray-200 rounded-md text-[#4A5568] hover:bg-[#76ABAE]/10 hover:text-[#303841] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <ChevronRight size={12} />
                 </button>

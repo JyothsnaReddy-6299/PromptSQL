@@ -195,7 +195,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#09090B] text-zinc-100">
+    <div className="flex min-h-screen bg-[#F5F5F5] text-[#303841]">
       {/* Left Sidebar */}
       <DashboardSidebar
         activeSection={activeSection}
@@ -213,7 +213,7 @@ export default function DashboardPage() {
           onCreateTableClick={() => { setModalView("create"); setIsModalOpen(true); }}
         />
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F5F5F5]">
         {activeSection === "reports" ? (
           <div id="reports" className="scroll-mt-24">
             <ReportsManager />
