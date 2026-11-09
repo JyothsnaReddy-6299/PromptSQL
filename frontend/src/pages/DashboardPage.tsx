@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardSidebar from "../components/DashboardSidebar";
 import DashboardNavbar from "../components/DashboardNavbar";
@@ -15,6 +15,9 @@ export default function DashboardPage() {
   const navigate = useNavigate();
 
   const [activeSection, setActiveSection] = useState("overview");
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+  const isManualNavRef = useRef(false);
+
   const [previewColumns, setPreviewColumns] = useState<string[]>([]);
   const [previewRecords, setPreviewRecords] = useState<Record<string, any>[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -145,53 +148,57 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Precise scroll spy that accurately tracks which section is currently active
   useEffect(() => {
-    if (activeSection === "reports" || activeSection === "audit" || activeSection === "cleaner") return;
+    const container = contentScrollRef.current;
+    if (!container) return;
 
-    const sections = ["overview", "preview", "chat"];
-    
-    const observerOptions = {
-      root: null,
-      rootMargin: "-15% 0px -75% 0px",
-      threshold: 0
+    const handleScroll = () => {
+      if (isManualNavRef.current) return;
+      if (activeSection === "reports" || activeSection === "audit" || activeSection === "cleaner") return;
+
+      const scrollPos = container.scrollTop + 140;
+
+      const chatEl = document.getElementById("chat");
+      const previewEl = document.getElementById("preview");
+      const overviewEl = document.getElementById("overview");
+
+      if (chatEl && scrollPos >= chatEl.offsetTop) {
+        setActiveSection("chat");
+      } else if (previewEl && scrollPos >= previewEl.offsetTop) {
+        setActiveSection("preview");
+      } else if (overviewEl) {
+        setActiveSection("overview");
+      }
     };
 
-    const observerCallback = (entries: IntersectionObserverEntry[]) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          setActiveSection(entry.target.id);
-        }
-      });
-    };
-
-    const observer = new IntersectionObserver(observerCallback, observerOptions);
-
-    sections.forEach((id) => {
-      const element = document.getElementById(id);
-      if (element) observer.observe(element);
-    });
-
-    return () => {
-      sections.forEach((id) => {
-        const element = document.getElementById(id);
-        if (element) observer.unobserve(element);
-      });
-    };
-  }, [previewRecords, activeSection]);
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [activeSection]);
 
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);
-    if (sectionId !== "reports" && sectionId !== "audit") {
-      setTimeout(() => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-          element.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-          });
-        }
-      }, 50);
+    if (sectionId === "reports" || sectionId === "audit" || sectionId === "cleaner") {
+      return;
     }
+
+    isManualNavRef.current = true;
+    setTimeout(() => {
+      const element = document.getElementById(sectionId);
+      const container = contentScrollRef.current;
+      if (element && container) {
+        const elementTop = element.offsetTop;
+        container.scrollTo({
+          top: Math.max(0, elementTop - 16),
+          behavior: "smooth"
+        });
+      }
+    }, 10);
+
+    // Release lock once smooth scrolling completes
+    setTimeout(() => {
+      isManualNavRef.current = false;
+    }, 800);
   };
 
   return (
@@ -213,7 +220,8 @@ export default function DashboardPage() {
           onCreateTableClick={() => { setModalView("create"); setIsModalOpen(true); }}
         />
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F5F5F5]">
+        {/* Content container - reduced padding to eliminate zoomed look */}
+        <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#F5F5F5]">
         {activeSection === "reports" ? (
           <div id="reports" className="scroll-mt-24">
             <ReportsManager />

@@ -1,4 +1,5 @@
-import { ArrowRight, Sparkles, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import WorkflowMarquee from "./WorkflowMarquee";
 
@@ -14,6 +15,57 @@ interface HeroProps {
 
 export default function Hero({ onStartQuery }: HeroProps) {
   const navigate = useNavigate();
+
+  // Typewriter effect state for "Natural Language Meets SQL Intelligence"
+  const fullTextLine1 = "Natural Language";
+  const fullTextLine2 = "Meets SQL Intelligence";
+  const [displayText1, setDisplayText1] = useState("");
+  const [displayText2, setDisplayText2] = useState("");
+  const [typingPhase, setTypingPhase] = useState<"line1" | "line2" | "done">("line1");
+
+  useEffect(() => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (prefersReducedMotion) {
+      setDisplayText1(fullTextLine1);
+      setDisplayText2(fullTextLine2);
+      setTypingPhase("done");
+      return;
+    }
+
+    let timer: ReturnType<typeof setTimeout>;
+
+    if (typingPhase === "line1") {
+      if (displayText1.length < fullTextLine1.length) {
+        timer = setTimeout(() => {
+          setDisplayText1(fullTextLine1.slice(0, displayText1.length + 1));
+        }, 42);
+      } else {
+        timer = setTimeout(() => {
+          setTypingPhase("line2");
+        }, 160);
+      }
+    } else if (typingPhase === "line2") {
+      if (displayText2.length < fullTextLine2.length) {
+        timer = setTimeout(() => {
+          setDisplayText2(fullTextLine2.slice(0, displayText2.length + 1));
+        }, 42);
+      } else {
+        timer = setTimeout(() => {
+          setTypingPhase("done");
+        }, 450);
+      }
+    }
+    // Only runs on initial page load / reload, does not repeatedly loop
+
+    return () => clearTimeout(timer);
+  }, [displayText1, displayText2, typingPhase]);
+
+  // Split line 2 into "Meets " and "SQL Intelligence" for styling
+  const meetsPrefix = displayText2.slice(0, 6); // "Meets "
+  const sqlSuffix = displayText2.slice(6); // "SQL Intelligence"
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-visible py-12 bg-[#F7F2EC]">
@@ -34,37 +86,39 @@ export default function Hero({ onStartQuery }: HeroProps) {
       />
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center pt-10 pb-6">
-        {/* Announcement badge */}
-        <a
-          href="#features"
-          className="inline-flex items-center gap-2 bg-[#5A2F59]/8 border border-[#5A2F59]/20 hover:border-[#5A2F59]/40 px-4 py-1.5 rounded-full text-xs font-medium text-[#5A2F59] hover:text-[#4A2549] transition-all duration-300 mb-4 group cursor-pointer"
-        >
-          <div className="w-1.5 h-1.5 bg-[#5A2F59] rounded-full animate-pulse" />
-          <span>Introducing AI-Powered Data Cleaning Suite</span>
-          <ChevronRight size={12} className="text-[#BDA37A] group-hover:translate-x-0.5 transition-all" />
-        </a>
-
-        {/* Main heading */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-center leading-[1.15] md:leading-[1.18] mb-6">
+        {/* Main heading with Typewriter Design (scaled to balanced, comfortable font size) */}
+        <h1 className="text-3xl sm:text-4xl md:text-[46px] font-extrabold tracking-tight text-center leading-[1.18] md:leading-[1.2] mb-5 min-h-[105px] sm:min-h-[120px] md:min-h-[140px] flex flex-col justify-center">
           <span className="block text-[#34434C]">
-            Natural Language
+            {displayText1}
+            {typingPhase === "line1" && (
+              <span className="inline-block w-1 sm:w-1.5 h-[0.82em] bg-[#70A9AA] ml-1.5 animate-pulse align-middle" />
+            )}
           </span>
-          <span className="block mt-1 sm:mt-2 text-[#34434C]">
-            Meets{" "}
-            <span className="text-[#70A9AA] bg-gradient-to-r from-[#70A9AA] via-[#5EA2A4] to-[#4D8C8E] bg-clip-text text-transparent">
-              SQL Intelligence
-            </span>
+          <span className="block mt-1 sm:mt-1.5 text-[#34434C]">
+            {meetsPrefix}
+            {sqlSuffix && (
+              <span className="text-[#70A9AA] bg-gradient-to-r from-[#70A9AA] via-[#5EA2A4] to-[#4D8C8E] bg-clip-text text-transparent">
+                {sqlSuffix}
+              </span>
+            )}
+            {(typingPhase === "line2" || typingPhase === "done") && (
+              <span className="inline-block w-1 sm:w-1.5 h-[0.82em] bg-[#70A9AA] ml-1.5 animate-pulse align-middle" />
+            )}
           </span>
           {/* Short, thin teal underline below the second line */}
-          <span className="block w-20 sm:w-28 h-0.5 sm:h-1 bg-[#70A9AA] rounded-full mx-auto mt-4" />
+          <span
+            className={`block w-16 sm:w-24 h-0.5 sm:h-1 bg-[#70A9AA] rounded-full mx-auto mt-3.5 transition-opacity duration-700 ${
+              typingPhase === "done" ? "opacity-100" : "opacity-0"
+            }`}
+          />
         </h1>
 
         {/* Subtitle */}
-        <p className="text-base md:text-lg text-[#566573] max-w-2xl mx-auto leading-relaxed mb-8 font-normal">
+        <p className="text-sm sm:text-base text-[#566573] max-w-xl mx-auto leading-relaxed mb-7 font-normal">
           Upload any dataset and interrogate it with plain English. PromptSQL maps your schema and generates optimized SQL — no query writing needed.
         </p>
 
-        {/* CTA button */}
+        {/* CTA button with Video 2 Liquid Wave Wipe Style */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-6">
           <button
             onClick={() => {
@@ -74,11 +128,15 @@ export default function Hero({ onStartQuery }: HeroProps) {
                 navigate("/upload");
               }
             }}
-            className="group relative w-full sm:w-auto bg-[#34495E] hover:bg-[#2C3E50] border border-[#5DADE2]/30 hover:border-[#5DADE2]/60 text-white font-semibold px-7 py-3.5 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer shadow-lg shadow-[#34495E]/15"
+            className="group relative overflow-hidden w-full sm:w-auto bg-[#70A9AA] border border-[#5EA2A4] text-white font-semibold px-8 py-3.5 rounded-2xl text-sm transition-all duration-300 flex items-center justify-center gap-2.5 cursor-pointer shadow-lg shadow-[#70A9AA]/25 hover:shadow-xl hover:shadow-black/10 active:scale-95"
           >
-            <Sparkles size={15} className="text-[#5DADE2]" />
-            <span>Start Querying </span>
-            <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+            {/* Liquid curved wave wipe */}
+            <span className="absolute -top-[50%] -left-[10%] w-[120%] h-[200%] bg-[#FFFDFC] rounded-b-[50%] -translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out pointer-events-none" />
+            <span className="relative z-10 flex items-center gap-2.5 transition-colors duration-300 group-hover:text-[#241C20]">
+              <Sparkles size={16} className="text-[#E1F0EF] group-hover:text-[#70A9AA] transition-colors" />
+              <span>Start Querying</span>
+              <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+            </span>
           </button>
         </div>
 

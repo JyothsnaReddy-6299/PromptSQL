@@ -1,154 +1,146 @@
-import { Brain, BarChart3, FileText, Wand2, Shield, Zap, Database } from "lucide-react";
+import { Brain, Database, Wand2, ShieldCheck, History, Sparkles } from "lucide-react";
 import ScrollFloat from "./ScrollFloat";
-
-const features = [
-  {
-    icon: <Brain size={20} />,
-    title: "Natural Language Queries",
-    desc: "Ask questions in plain English. Our AI maps your schema and generates optimized MySQL queries in seconds.",
-    badge: "Core",
-    iconBg: "bg-[#5A2F59]",
-    iconText: "text-[#BDA37A]",
-  },
-  {
-    icon: <Wand2 size={20} />,
-    title: "AI Data Cleaning Suite",
-    desc: "Industry-grade preprocessing: imputation, text standardization, and type conversion — all automated.",
-    badge: "New",
-    iconBg: "bg-[#5A2F59]/80",
-    iconText: "text-[#BDA37A]",
-  },
-  {
-    icon: <BarChart3 size={20} />,
-    title: "Editable Preview Table",
-    desc: "Edit your table by a double click on any data which you want to update or add.",
-    badge: "Edit",
-    iconBg: "bg-[#BDA37A]/80",
-    iconText: "text-[#34182F]",
-  },
-  {
-    icon: <FileText size={20} />,
-    title: "AI-Generated Reports",
-    desc: "Export polished PDF and Excel reports with natural-language summaries and tables.",
-    badge: "Export",
-    iconBg: "bg-[#3E8E5B]",
-    iconText: "text-[#FFFDFC]",
-  },
-  {
-    icon: <Database size={20} />,
-    title: "Smart Schema Mapping",
-    desc: "Automatically detects column types, maps relationships, and prepares your dataset for intelligent querying.",
-    badge: "Engine",
-    iconBg: "bg-[#BDA37A]",
-    iconText: "text-[#34182F]",
-  },
-  {
-    icon: <Shield size={20} />,
-    title: "Audit Trail",
-    desc: "Every operation is logged — query history, cell edits, data transforms — giving you complete governance.",
-    badge: "Security",
-    iconBg: "bg-[#D95D39]",
-    iconText: "text-[#FFFDFC]",
-  },
-];
-
-const HOW_IT_WORKS = [
-  { step: "01", title: "Upload your dataset", desc: "Drop a CSV, XLS, or XLSX file. We load it into a secure MySQL session automatically." },
-  { step: "02", title: "Ask in plain English", desc: "Type your question — 'Show sales by region' or 'Find top 10 customers' — and hit enter." },
-  { step: "03", title: "Get instant results", desc: "SQL is generated, executed, and visualized as tables and AI summaries in under a second." },
-];
+import BentoCard from "./bento/BentoCard";
+import NaturalLanguageSQLCard from "./bento/NaturalLanguageSQLCard";
+import SchemaUnderstandingCard from "./bento/SchemaUnderstandingCard";
+import DataCleaningCard from "./bento/DataCleaningCard";
+import QueryValidationCard from "./bento/QueryValidationCard";
+import QueryHistoryCard from "./bento/QueryHistoryCard";
+import HowItWorks from "./HowItWorks";
 
 export default function Features() {
   return (
     <>
-      {/* Features Section */}
-      <section id="features" className="py-28 bg-[#F7F2EC] relative overflow-hidden">
-        {/* Background glow */}
+      {/* ── Soft Pastel Bento Grid Features Section (#EDF3F5) ── */}
+      <section id="features" className="py-16 sm:py-20 bg-gradient-to-b from-[#EAF2F5] via-[#EDF3F5] to-[#F5F1FA] relative overflow-hidden text-[#34434C]">
+        {/* Soft atmospheric pastel radial glows */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#5A2F59]/4 rounded-full blur-[80px]" />
+          <div className="absolute top-1/6 left-1/3 -translate-x-1/2 w-[650px] h-[450px] bg-[#70A9AA]/10 rounded-full blur-[140px]" />
+          <div className="absolute top-1/2 right-1/10 w-[450px] h-[350px] bg-[#DCCEF2]/25 rounded-full blur-[150px]" />
+          <div className="absolute bottom-1/6 left-1/10 w-[400px] h-[350px] bg-[#FCE9E3]/35 rounded-full blur-[140px]" />
         </div>
 
-        <div className="max-w-6xl mx-auto px-6">
+        {/* Faint decorative grid pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.035] pointer-events-none"
+          style={{
+            backgroundImage: `linear-gradient(rgba(52,67,76,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(52,67,76,0.18) 1px, transparent 1px)`,
+            backgroundSize: "64px 64px",
+          }}
+        />
+
+        <div className="max-w-5xl lg:max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {/* Section Introduction */}
           <ScrollFloat>
-            <div className="text-center max-w-2xl mx-auto mb-16">
-              <div className="inline-flex items-center gap-2 bg-[#5A2F59]/8 border border-[#5A2F59]/20 px-3.5 py-1.5 rounded-full text-[#5A2F59] text-xs font-medium mb-5">
-                <Zap size={11} />
-                <span>Everything you need</span>
+            <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
+              {/* Eyebrow badge */}
+              <div className="inline-flex items-center gap-2 bg-[#E1F0EF] border border-[#C2E4E2] px-3.5 py-1 rounded-full text-[#2B5758] text-[11px] font-semibold tracking-wider uppercase mb-3.5 shadow-2xs">
+                <Sparkles size={12} className="text-[#70A9AA]" />
+                <span>WHAT MAKES PROMPTSQL DIFFERENT</span>
               </div>
-              <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-[#241C20] mb-4">
-                Built for analysts,
-                <span className="block gradient-text-purple">powered by AI</span>
+
+              {/* Main Heading */}
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#34434C] leading-[1.15] mb-3">
+                Everything you need to{" "}
+                <span className="text-[#70A9AA] bg-gradient-to-r from-[#70A9AA] via-[#5BA0A2] to-[#458B8D] bg-clip-text text-transparent">
+                  understand your data.
+                </span>
               </h2>
-              <p className="text-[#6F6A67] text-lg leading-relaxed">
-                PromptSQL turns raw data into actionable intelligence. Upload any tabular dataset and our AI handles the rest.
+
+              {/* Supporting Text */}
+              <p className="text-sm sm:text-base text-[#687985] max-w-xl mx-auto leading-relaxed font-normal">
+                From raw datasets to meaningful insights, explore a smarter way to work with your data.
               </p>
             </div>
           </ScrollFloat>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map((feature, index) => (
-              <ScrollFloat key={index} delay={index * 80}>
-                <div className="group relative bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl p-6 hover:border-[#5A2F59]/25 hover:shadow-lg hover:shadow-[#5A2F59]/5 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
-                  {/* Hover tint */}
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-[#5A2F59]/[0.015] rounded-2xl" />
-
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`p-2.5 ${feature.iconBg} rounded-xl shadow-sm ${feature.iconText}`}>
-                        {feature.icon}
-                      </div>
-                      <span className="text-[10px] font-semibold text-[#6F6A67] bg-[#F7F2EC] px-2.5 py-1 rounded-full border border-[#E8DED3]">
-                        {feature.badge}
-                      </span>
-                    </div>
-                    <h3 className="text-base font-semibold text-[#241C20] mb-2 group-hover:text-[#5A2F59] transition-colors duration-200">
-                      {feature.title}
-                    </h3>
-                    <p className="text-sm text-[#6F6A67] leading-relaxed">{feature.desc}</p>
-                  </div>
-                </div>
+          {/* 5-Feature Balanced Bento Grid — Side-by-side from md: upwards */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-5 items-stretch">
+            {/* ── ROW 1: CARD 1 — Natural Language to SQL (~2/3 width, 7-8 cols) ── */}
+            <div className="col-span-1 md:col-span-7 lg:col-span-8 flex flex-col">
+              <ScrollFloat delay={40}>
+                <BentoCard
+                  accentColor="teal"
+                  badge="Core Engine"
+                  title="Natural Language to SQL"
+                  description="Ask questions in plain English and let AI translate them into optimized, production-grade SQL queries."
+                  icon={<Brain size={18} />}
+                  className="h-full"
+                >
+                  <NaturalLanguageSQLCard />
+                </BentoCard>
               </ScrollFloat>
-            ))}
+            </div>
+
+            {/* ── ROW 1: CARD 2 — Intelligent Schema Understanding (~1/3 width, 4-5 cols) ── */}
+            <div className="col-span-1 md:col-span-5 lg:col-span-4 flex flex-col">
+              <ScrollFloat delay={100}>
+                <BentoCard
+                  accentColor="blue"
+                  badge="Relational Mapping"
+                  title="Intelligent Schema Understanding"
+                  description="Automatically understand your dataset structure, column data types, and primary keys."
+                  icon={<Database size={18} />}
+                  className="h-full"
+                >
+                  <SchemaUnderstandingCard />
+                </BentoCard>
+              </ScrollFloat>
+            </div>
+
+            {/* ── ROW 2: CARD 3 — AI-Powered Data Cleaning (1/2 width, 6 cols) ── */}
+            <div className="col-span-1 md:col-span-6 lg:col-span-6 flex flex-col">
+              <ScrollFloat delay={160}>
+                <BentoCard
+                  accentColor="peach"
+                  badge="Quality Suite"
+                  title="AI-Powered Data Cleaning"
+                  description="Identify missing values, duplicate records, and inconsistent data formats before analysis."
+                  icon={<Wand2 size={18} />}
+                  className="h-full"
+                >
+                  <DataCleaningCard />
+                </BentoCard>
+              </ScrollFloat>
+            </div>
+
+            {/* ── ROW 2: CARD 4 — Query Validation and Safe Execution (1/2 width, 6 cols) ── */}
+            <div className="col-span-1 md:col-span-6 lg:col-span-6 flex flex-col">
+              <ScrollFloat delay={220}>
+                <BentoCard
+                  accentColor="lavender"
+                  badge="Safety Guardrails"
+                  title="Query Validation and Safe Execution"
+                  description="Validate generated SQL before execution and handle invalid queries gracefully with read-only sandbox constraints."
+                  icon={<ShieldCheck size={18} />}
+                  className="h-full"
+                >
+                  <QueryValidationCard />
+                </BentoCard>
+              </ScrollFloat>
+            </div>
+
+            {/* ── ROW 3: CARD 5 — Query History and Export (Full width, 12 cols) ── */}
+            <div className="col-span-1 md:col-span-12 lg:col-span-12 flex flex-col">
+              <ScrollFloat delay={280}>
+                <BentoCard
+                  accentColor="slate"
+                  badge="Audit & Reporting"
+                  title="Query History and Export"
+                  description="Revisit previous analyses, verify execution runtimes, and export useful results for reporting in clean CSV or PDF formats."
+                  icon={<History size={18} />}
+                  className="h-full"
+                >
+                  <QueryHistoryCard />
+                </BentoCard>
+              </ScrollFloat>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section id="how-it-works" className="py-28 bg-[#FFFDFC] border-t border-[#E8DED3]">
-        <div className="max-w-6xl mx-auto px-6">
-          <ScrollFloat>
-            <div className="text-center max-w-xl mx-auto mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-[#241C20] mb-4">
-                Up and running{" "}
-                <span className="gradient-text-purple">in seconds</span>
-              </h2>
-              <p className="text-[#6F6A67] text-lg">
-                Three simple steps to turn raw data into insight.
-              </p>
-            </div>
-          </ScrollFloat>
-
-          <div className="relative">
-            {/* Connecting line */}
-            <div className="hidden md:block absolute top-8 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#5A2F59]/20 to-transparent" />
-
-            <div className="grid md:grid-cols-3 gap-8">
-              {HOW_IT_WORKS.map((item, i) => (
-                <ScrollFloat key={i} delay={i * 120}>
-                  <div className="relative group text-center">
-                    <div className="relative inline-flex w-16 h-16 bg-[#FFFDFC] border border-[#E8DED3] rounded-2xl items-center justify-center mb-6 mx-auto group-hover:border-[#5A2F59]/30 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-[#5A2F59]/8">
-                      <span className="text-2xl font-black gradient-text-purple">{item.step}</span>
-                      <div className="absolute -inset-px bg-[#5A2F59]/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-[#241C20] mb-2">{item.title}</h3>
-                    <p className="text-sm text-[#6F6A67] leading-relaxed">{item.desc}</p>
-                  </div>
-                </ScrollFloat>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* ── Horizontal Process Timeline How It Works Section ── */}
+      <HowItWorks />
     </>
   );
 }

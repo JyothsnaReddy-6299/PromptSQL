@@ -46,3 +46,7 @@ venv/
 
 backend/uploads/
 frontend/dist/
+
+aiven.txt
+active_table.txt
+backend/active_table.txt

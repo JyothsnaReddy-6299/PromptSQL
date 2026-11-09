@@ -49,7 +49,7 @@ export default function KPICards({
       title: "Total Rows",
       value: <CountUp end={rows} />,
       desc: `${rows > 1000 ? (rows / 1000).toFixed(1) + "k" : rows} records`,
-      icon: <Layers size={16} />,
+      icon: <Layers size={14} />,
       iconColor: "text-[#76ABAE]",
       iconBg: "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: "Loaded",
@@ -59,7 +59,7 @@ export default function KPICards({
       title: "Schema Columns",
       value: <CountUp end={columns} />,
       desc: `${numCols} numeric · ${textCols} text` + (dateCols > 0 ? ` · ${dateCols} date` : ""),
-      icon: <Grid size={16} />,
+      icon: <Grid size={14} />,
       iconColor: "text-[#76ABAE]",
       iconBg: "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: `${columns} fields`,
@@ -69,7 +69,7 @@ export default function KPICards({
       title: "Missing Cells",
       value: <CountUp end={missing} />,
       desc: missing > 0 ? `${((missing / (rows * columns || 1)) * 100).toFixed(1)}% empty` : "No nulls found",
-      icon: <AlertTriangle size={16} />,
+      icon: <AlertTriangle size={14} />,
       iconColor: missing > 0 ? "text-[#FF5722]" : "text-[#76ABAE]",
       iconBg: missing > 0 ? "bg-[#FF5722]/10 border-[#FF5722]/20" : "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: missing > 0 ? "Needs cleaning" : "Complete",
@@ -79,7 +79,7 @@ export default function KPICards({
       title: "Data Footprint",
       value: size || "N/A",
       desc: "In-memory dataset size",
-      icon: <Cpu size={16} />,
+      icon: <Cpu size={14} />,
       iconColor: "text-[#76ABAE]",
       iconBg: "bg-[#76ABAE]/10 border-[#76ABAE]/20",
       badge: "Optimized",
@@ -88,28 +88,28 @@ export default function KPICards({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       {cardData.map((card, idx) => (
         <div
           key={idx}
-          className="relative bg-white border border-gray-200/80 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+          className="relative bg-white border border-gray-200/80 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
         >
-          <div className="flex justify-between items-start mb-4">
-            <p className="text-[11px] font-semibold text-[#4A5568] uppercase tracking-wider">
+          <div className="flex justify-between items-start mb-2">
+            <p className="text-[10px] font-semibold text-[#4A5568] uppercase tracking-wider">
               {card.title}
             </p>
-            <div className={`w-8 h-8 ${card.iconBg} border rounded-lg flex items-center justify-center ${card.iconColor}`}>
+            <div className={`w-7 h-7 ${card.iconBg} border rounded-lg flex items-center justify-center ${card.iconColor}`}>
               {card.icon}
             </div>
           </div>
 
-          <h2 className="text-3xl font-bold text-[#303841] tracking-tight leading-none mb-3">
+          <h2 className="text-xl sm:text-2xl font-bold text-[#303841] tracking-tight leading-none mb-2">
             {card.value}
           </h2>
 
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#4A5568]">{card.desc}</span>
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${card.badgeColor}`}>
+            <span className="text-[11px] text-[#4A5568]">{card.desc}</span>
+            <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border ${card.badgeColor}`}>
               {card.badge}
             </span>
           </div>

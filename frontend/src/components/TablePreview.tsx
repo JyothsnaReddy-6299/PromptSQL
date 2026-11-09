@@ -94,10 +94,10 @@ export default function TablePreview({
   };
 
   return (
-    <div id="preview" className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+    <div id="preview" className="bg-white border border-gray-200/80 rounded-xl p-4 sm:p-4.5 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5">
         <div>
-          <h2 className="text-base font-bold text-[#303841] flex items-center gap-2">
+          <h2 className="text-sm sm:text-base font-bold text-[#303841] flex items-center gap-2">
             Dataset Explorer
           </h2>
           <p className="text-[10px] text-[#4A5568] mt-0.5">
@@ -117,14 +117,14 @@ export default function TablePreview({
                 onSearchChange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-[#F5F5F5] border border-gray-200 rounded-xl pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#76ABAE] w-full sm:w-60 focus:bg-white transition-all text-[#303841] font-medium placeholder-gray-400"
+              className="bg-[#F5F5F5] border border-gray-200 rounded-full pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#76ABAE] focus:ring-1 focus:ring-[#76ABAE]/20 w-full sm:w-60 focus:bg-white transition-all text-[#303841] font-medium placeholder-gray-400"
             />
           </div>
 
           <button
             onClick={handleExportCSV}
             disabled={records.length === 0 || exportingCSV || exportingExcel}
-            className="flex items-center gap-1.5 border border-gray-200 hover:border-[#76ABAE]/50 hover:bg-[#76ABAE]/5 px-3.5 py-1.5 rounded-xl text-[#4A5568] hover:text-[#303841] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
+            className="flex items-center gap-1.5 border border-gray-200 hover:border-[#76ABAE]/50 hover:bg-[#76ABAE]/5 px-3 py-1.5 rounded-full text-[#4A5568] hover:text-[#303841] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
           >
             {exportingCSV ? (
               <Loader2 size={12} className="text-[#76ABAE] animate-spin" />
@@ -137,7 +137,7 @@ export default function TablePreview({
           <button
             onClick={handleExportExcel}
             disabled={records.length === 0 || exportingCSV || exportingExcel}
-            className="flex items-center gap-1.5 border border-gray-200 hover:border-[#76ABAE]/50 hover:bg-[#76ABAE]/5 px-3.5 py-1.5 rounded-xl text-[#4A5568] hover:text-[#303841] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
+            className="flex items-center gap-1.5 border border-gray-200 hover:border-[#76ABAE]/50 hover:bg-[#76ABAE]/5 px-3 py-1.5 rounded-full text-[#4A5568] hover:text-[#303841] font-semibold text-[10px] cursor-pointer disabled:opacity-40 transition duration-200"
           >
             {exportingExcel ? (
               <Loader2 size={12} className="text-[#76ABAE] animate-spin" />

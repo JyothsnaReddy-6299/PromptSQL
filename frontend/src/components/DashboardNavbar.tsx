@@ -33,7 +33,7 @@ export default function DashboardNavbar({
   }, []);
 
   return (
-    <div className="bg-white border-b border-gray-200/80 px-6 py-3.5 flex items-center justify-between sticky top-0 z-20">
+    <div className="bg-white border-b border-gray-200/80 px-5 py-2.5 flex items-center justify-between sticky top-0 z-20">
       {/* File Info */}
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 bg-[#76ABAE]/10 border border-[#76ABAE]/25 rounded-lg flex items-center justify-center">

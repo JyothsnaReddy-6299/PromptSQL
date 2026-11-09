@@ -15,37 +15,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Redirect logged-in users away from auth pages
-function AuthRoute({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem("promptsql_token");
-  if (token) {
-    return <Navigate to="/" replace />;
-  }
-  return <>{children}</>;
-}
-
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         
-        <Route 
-          path="/login" 
-          element={
-            <AuthRoute>
-              <LoginPage />
-            </AuthRoute>
-          } 
-        />
-        <Route 
-          path="/signup" 
-          element={
-            <AuthRoute>
-              <SignupPage />
-            </AuthRoute>
-          } 
-        />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
 
         <Route 
           path="/upload" 

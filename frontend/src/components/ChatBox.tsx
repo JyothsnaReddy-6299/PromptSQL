@@ -424,7 +424,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   };
 
   return (
-    <div id="chat" className="bg-white border border-gray-200/80 rounded-2xl p-4 shadow-sm flex flex-col h-[520px]">
+    <div id="chat" className="bg-white border border-gray-200/80 rounded-xl p-3.5 sm:p-4 shadow-sm flex flex-col h-[500px]">
       <div className="border-b border-gray-200 pb-3 mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="bg-[#76ABAE]/10 border border-[#76ABAE]/20 p-2 rounded-xl text-[#76ABAE]">
@@ -776,13 +776,13 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
         )}
       </div>
 
-      {/* Input Form */}
+      {/* Input Form - Rounded search bar without inner box */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           askAI();
         }}
-        className="border border-gray-200 rounded-xl p-2 bg-[#F5F5F5] flex gap-2 items-center focus-within:border-[#76ABAE] transition-colors"
+        className="border border-[#76ABAE]/35 hover:border-[#76ABAE] focus-within:border-[#76ABAE] focus-within:ring-2 focus-within:ring-[#76ABAE]/20 rounded-full p-1.5 pl-4 bg-white flex gap-2 items-center transition-all shadow-sm"
       >
         <textarea
           value={question}
@@ -795,15 +795,16 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           }}
           placeholder="Ask anything about your data..."
           rows={1}
-          className="flex-1 bg-transparent resize-none focus:outline-none pl-2.5 pr-2 py-1.5 text-xs text-[#303841] placeholder-gray-400 font-semibold"
+          style={{ border: "none", outline: "none", boxShadow: "none", background: "transparent" }}
+          className="no-border flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 resize-none p-0 text-xs text-[#303841] placeholder-gray-400 font-semibold"
         />
 
         <button
           type="submit"
           disabled={loading || !question.trim()}
-          className="bg-[#76ABAE] hover:bg-[#639396] text-white p-2.5 rounded-lg transition duration-200 disabled:opacity-40 disabled:scale-100 hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+          className="bg-[#76ABAE] hover:bg-[#639396] text-white w-8 h-8 rounded-full flex items-center justify-center transition duration-200 disabled:opacity-40 disabled:scale-100 hover:scale-105 active:scale-95 cursor-pointer shrink-0 shadow-sm"
         >
-          <Send size={14} />
+          <Send size={13} />
         </button>
       </form>
     </div>

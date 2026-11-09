@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 /*
@@ -356,12 +356,19 @@ body {
 }
 
 /* ── 10. INPUTS ──────────────────────────────────────── */
-input[type="text"],
-input[type="password"],
-textarea {
+input[type="text"]:not(.no-border),
+input[type="password"]:not(.no-border),
+textarea:not(.no-border) {
   background-color: #FFFFFF !important;
   color: #303841 !important;
   border-color: #E2E8F0 !important;
+}
+
+.no-border {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 input[type="text"]::placeholder,

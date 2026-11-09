@@ -445,25 +445,75 @@ export async function locateMissingCells(columnName: string) {
 }
 
 export async function login(username: string, password: string) {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.detail || "Login failed");
-  return data;
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch (err: any) {
+    throw new Error("Unable to connect to the backend server. Please verify the server is running.");
+  }
+
+  const text = await response.text();
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Non-JSON response (e.g. proxy HTML or gateway error)
+    }
+  }
+
+  if (!response.ok) {
+    const errorMsg =
+      data?.detail ||
+      data?.message ||
+      (response.status === 401
+        ? "Invalid username or password"
+        : response.status === 502 || response.status === 504 || response.status === 500
+        ? "Backend service unavailable. Please check backend connection."
+        : `Login failed (Status: ${response.status})`);
+    throw new Error(errorMsg);
+  }
+
+  return data || {};
 }
 
 export async function signup(username: string, password: string) {
-  const response = await fetch(`${API_URL}/auth/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.detail || "Signup failed");
-  return data;
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch (err: any) {
+    throw new Error("Unable to connect to the backend server. Please verify the server is running.");
+  }
+
+  const text = await response.text();
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Non-JSON response
+    }
+  }
+
+  if (!response.ok) {
+    const errorMsg =
+      data?.detail ||
+      data?.message ||
+      (response.status === 502 || response.status === 504 || response.status === 500
+        ? "Backend service unavailable. Please check backend connection."
+        : `Signup failed (Status: ${response.status})`);
+    throw new Error(errorMsg);
+  }
+
+  return data || {};
 }
 
 export async function downloadRawCSV() {

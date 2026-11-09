@@ -1,4 +1,3 @@
-import { Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface FooterProps {
@@ -35,13 +34,11 @@ export default function Footer({ onStartQuery }: FooterProps) {
           <div className="md:col-span-2">
             <div
               onClick={() => navigate("/")}
-              className="flex items-center gap-2.5 cursor-pointer group mb-4"
+              className="flex items-center cursor-pointer group mb-4"
             >
-              <div className="w-8 h-8 bg-[#5A2F59] border border-[#BDA37A]/20 rounded-lg flex items-center justify-center">
-                <Database size={16} className="text-[#BDA37A]" />
-              </div>
-              <span className="text-base font-bold text-[#FFFDFC] group-hover:text-[#BDA37A] transition-colors">
-                PromptSQL
+              <span className="font-black italic tracking-tighter text-xl sm:text-2xl select-none">
+                <span className="text-[#FFFDFC]">Prompt</span>
+                <span className="text-[#0DA4AA]">SQL</span>
               </span>
             </div>
             <p className="text-sm text-[#E8DED3]/50 leading-relaxed max-w-xs mb-6">
