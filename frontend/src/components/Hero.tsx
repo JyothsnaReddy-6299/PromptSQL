@@ -1,29 +1,6 @@
-import { useState, useEffect } from "react";
 import { ArrowRight, Sparkles, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import WorkflowMarquee from "./WorkflowMarquee";
-
-function Typewriter({ text, delay = 0, speed = 55 }: { text: string; delay?: number; speed?: number }) {
-  const [displayed, setDisplayed] = useState("");
-
-  useEffect(() => {
-    let currentLength = 0;
-    const timer = setTimeout(() => {
-      const interval = setInterval(() => {
-        if (currentLength < text.length) {
-          currentLength++;
-          setDisplayed(text.slice(0, currentLength));
-        } else {
-          clearInterval(interval);
-        }
-      }, speed);
-      return () => clearInterval(interval);
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [text, delay, speed]);
-
-  return <>{displayed}</>;
-}
 
 const STATS = [
   { value: "10x", label: "Faster than writing SQL" },
@@ -68,20 +45,22 @@ export default function Hero({ onStartQuery }: HeroProps) {
         </a>
 
         {/* Main heading */}
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-[#2C3E50] leading-[1.05] mb-4">
-          <span className="block gradient-text">
-            <Typewriter text="Natural Language" speed={50} />
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-center leading-[1.15] md:leading-[1.18] mb-6">
+          <span className="block text-[#34434C]">
+            Natural Language
           </span>
-          <span className="block mt-2">
-            <span className="gradient-text-purple">
-              <Typewriter text="Meets SQL Intelligence" delay={1200} speed={50} />
+          <span className="block mt-1 sm:mt-2 text-[#34434C]">
+            Meets{" "}
+            <span className="text-[#70A9AA] bg-gradient-to-r from-[#70A9AA] via-[#5EA2A4] to-[#4D8C8E] bg-clip-text text-transparent">
+              SQL Intelligence
             </span>
-            <span className="inline-block w-0.5 h-12 md:h-16 bg-[#34495E] ml-2 animate-blink align-middle opacity-80" />
           </span>
+          {/* Short, thin teal underline below the second line */}
+          <span className="block w-20 sm:w-28 h-0.5 sm:h-1 bg-[#70A9AA] rounded-full mx-auto mt-4" />
         </h1>
 
         {/* Subtitle */}
-        <p className="text-base md:text-lg text-[#566573] max-w-2xl mx-auto leading-relaxed mb-6 font-normal">
+        <p className="text-base md:text-lg text-[#566573] max-w-2xl mx-auto leading-relaxed mb-8 font-normal">
           Upload any dataset and interrogate it with plain English. PromptSQL maps your schema and generates optimized SQL — no query writing needed.
         </p>
 
