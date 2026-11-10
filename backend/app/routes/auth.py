@@ -25,10 +25,16 @@ def signup(req: AuthRequest, db: Session = Depends(get_db)):
     if not username or not req.password:
         raise HTTPException(status_code=400, detail="Username and password are required")
     
-    if len(req.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+    if len(req.password) < 12:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 12 characters long"
+        )
     if len(req.password.encode("utf-8")) > 72:
-        raise HTTPException(status_code=400, detail="Password exceeds maximum length of 72 bytes")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password exceeds maximum length of 72 UTF-8 bytes"
+        )
      
     # Check if user already exists
     existing = db.query(User).filter(User.username == username).first()
@@ -59,6 +65,13 @@ def login(req: AuthRequest, db: Session = Depends(get_db)):
     username = req.username.strip().lower()
     if not username or not req.password:
         raise HTTPException(status_code=400, detail="Username and password are required")
+    
+    # Reject passwords exceeding bcrypt's 72-byte limit to prevent truncation bypass
+    if len(req.password.encode("utf-8")) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password"
+        )
         
     user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(req.password, user.password_hash):

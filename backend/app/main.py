@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -72,6 +72,17 @@ app.add_middleware(
 
 
 # Global sanitized exception handlers to protect against internal secret exposure
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    safe_detail = get_safe_exception_message(exc, is_production=settings.is_production)
+    content = {"detail": safe_detail, "error": safe_detail, "success": False} if exc.status_code >= 400 else {"detail": safe_detail}
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=content,
+        headers=exc.headers
+    )
+
+
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     safe_detail = get_safe_exception_message(exc, is_production=settings.is_production, context="database operation")

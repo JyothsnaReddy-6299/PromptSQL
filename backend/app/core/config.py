@@ -12,6 +12,8 @@ if os.path.exists(_env_path):
     load_dotenv(_env_path)
 load_dotenv()
 
+# To generate a cryptographically secure, high-entropy secret for production:
+# python -c "import secrets; print(secrets.token_urlsafe(32))"
 WEAK_JWT_SECRETS = {
     "secret",
     "changeme",
@@ -22,6 +24,10 @@ WEAK_JWT_SECRETS = {
     "your-super-secret-key",
     "your_super_secret_jwt_sign_key",
     "your-minimum-32-character-cryptographically-secure-secret-key-here",
+    "dev-insecure-secret-key-minimum-32-chars-long!",
+    "12345678901234567890123456789012",
+    "abcdefghijklmnopqrstuvwxyz123456",
+    "00000000000000000000000000000000",
 }
 
 ALLOWED_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}
@@ -131,19 +137,29 @@ class Settings(BaseModel):
 
         # In production, enforce strict secrets validation
         if env in ("production", "prod"):
-            # 1. JWT Secret strength
+            # 1. JWT Secret validation
             secret = (self.JWT_SECRET or "").strip()
             if not secret:
                 raise ValueError("CRITICAL: JWT_SECRET must be configured in production environment.")
-            if secret.lower() in WEAK_JWT_SECRETS:
+            lower_secret = secret.lower()
+            if (
+                lower_secret in WEAK_JWT_SECRETS
+                or "change_me" in lower_secret
+                or "your_jwt" in lower_secret
+                or "placeholder" in lower_secret
+                or "dev-insecure" in lower_secret
+            ):
                 raise ValueError(
                     "CRITICAL: JWT_SECRET uses an insecure known default or placeholder value. "
-                    "A cryptographically strong secret of at least 32 characters is required."
+                    "A cryptographically generated secret is required in production. "
+                    "Generate a secure secret using: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
                 )
             if len(secret) < 32:
                 raise ValueError(
                     f"CRITICAL: JWT_SECRET is too short ({len(secret)} characters). "
-                    "Production signing secrets must be at least 32 characters (256 bits)."
+                    "Production signing secrets must have a minimum length of 32 characters. "
+                    "Note: string length alone does not verify cryptographic entropy; "
+                    "generate a high-entropy secret using: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
                 )
 
             # 2. Database credentials

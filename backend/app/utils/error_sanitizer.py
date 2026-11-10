@@ -15,21 +15,21 @@ def sanitize_error_message(msg: Any) -> str:
         return ""
     text = str(msg)
 
-    # 1. Mask database connection URLs: mysql+pymysql://user:pass@host:port/db -> mysql+pymysql://***:***@host/db
+    # 1. Mask database connection URLs: mysql+pymysql://user:pass@host:port/db -> mysql+pymysql://***:***@[database-host]/[database]
     text = re.sub(
-        r"(mysql(\+pymysql)?|postgresql(\+psycopg2)?|sqlite)://[^:@\s]+:[^@\s]+@[^\s/:]+(:[0-9]+)?/[^\s\?]+",
+        r"(mysql(\+pymysql)?|postgresql(\+psycopg2)?|sqlite)://[^:@\s]+:[^@\s]+@[^\s/:]+(:[0-9]+)?/[^\s\?\"'\)]+",
         r"\1://***:***@[database-host]/[database]",
         text,
         flags=re.IGNORECASE
     )
     # Generic URL credentials masking: protocol://user:pass@host
-    text = re.sub(r"://([^:@\s]+):([^@\s]+)@", r"://***:***@", text)
+    text = re.sub(r"://([^:@\s\"']+):([^@\s\"']+)@", r"://***:***@", text)
 
     # 2. Mask Groq API keys: gsk_...
-    text = re.sub(r"gsk_[a-zA-Z0-9]{15,}", "gsk_***", text)
+    text = re.sub(r"gsk_[a-zA-Z0-9_\-]{10,}", "gsk_***", text)
 
     # 3. Mask Google / Gemini API keys: AIzaSy...
-    text = re.sub(r"AIzaSy[a-zA-Z0-9_-]{25,}", "AIzaSy***", text)
+    text = re.sub(r"AIzaSy[a-zA-Z0-9_-]{20,}", "AIzaSy***", text)
 
     # 4. Mask Bearer authorization tokens
     text = re.sub(r"Bearer\s+[a-zA-Z0-9\._\-]{20,}", "Bearer ***", text, flags=re.IGNORECASE)
@@ -43,8 +43,8 @@ def sanitize_error_message(msg: Any) -> str:
     )
 
     # 6. Mask local filesystem absolute paths (Windows & Unix)
-    text = re.sub(r"[A-Za-z]:\\[^:\n\r\t\"']+\.py", r"[internal-source-path]", text)
-    text = re.sub(r"/(Users|home|root|app)/[^:\n\r\t\"']+\.py", r"[internal-source-path]", text)
+    text = re.sub(r"[A-Za-z]:\\(?:[a-zA-Z0-9_.\- ]+\\)+[a-zA-Z0-9_.\- ]*", r"[internal-source-path]", text)
+    text = re.sub(r"/(Users|home|root|app)/[^:\n\r\t\"']+", r"[internal-source-path]", text)
 
     return text
 
