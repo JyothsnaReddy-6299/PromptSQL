@@ -14,8 +14,13 @@ USER_ACTIVE_DATASETS_TABLE = "user_active_datasets"
 
 def acquire_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME, timeout_seconds: int = DEFAULT_LOCK_TIMEOUT) -> bool:
     """
-    Acquires a named MySQL advisory lock across all workers/containers.
+    Acquires a named MySQL advisory lock across all workers/containers on this connection.
     For non-MySQL dialects (e.g. SQLite test runners), acts as a no-op returning True.
+
+    MySQL GET_LOCK() return values:
+    - 1: Lock was obtained successfully.
+    - 0: Attempt timed out (lock held by another session).
+    - NULL: Error occurred (e.g. thread killed, out of memory).
     """
     dialect = getattr(conn.dialect, "name", "").lower()
     if dialect != "mysql":
@@ -26,15 +31,33 @@ def acquire_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME, timeout_se
             text("SELECT GET_LOCK(:lock_name, :timeout)"),
             {"lock_name": lock_name, "timeout": int(timeout_seconds)}
         ).scalar()
-        return res == 1
+
+        if res == 1:
+            logger.debug(f"Acquired MySQL advisory lock '{lock_name}' successfully.")
+            return True
+        elif res == 0:
+            logger.warning(f"Advisory lock '{lock_name}' acquisition timed out after {timeout_seconds}s.")
+            return False
+        elif res is None:
+            logger.warning(f"Advisory lock '{lock_name}' acquisition failed: MySQL returned NULL (internal error).")
+            return False
+        else:
+            logger.warning(f"Advisory lock '{lock_name}' acquisition returned unexpected value: {res}.")
+            return False
     except Exception as e:
-        logger.warning(f"Failed to acquire MySQL advisory lock '{lock_name}': {sanitize_error_message(str(e))}")
+        safe_msg = sanitize_error_message(str(e))
+        logger.warning(f"Exception while acquiring MySQL advisory lock '{lock_name}': {safe_msg}")
         return False
 
 
 def release_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME) -> bool:
     """
-    Releases a named MySQL advisory lock.
+    Releases a named MySQL advisory lock on this connection.
+
+    MySQL RELEASE_LOCK() return values:
+    - 1: Lock was released.
+    - 0: Lock was not established by this thread/connection.
+    - NULL: Named lock did not exist.
     """
     dialect = getattr(conn.dialect, "name", "").lower()
     if dialect != "mysql":
@@ -45,9 +68,22 @@ def release_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME) -> bool:
             text("SELECT RELEASE_LOCK(:lock_name)"),
             {"lock_name": lock_name}
         ).scalar()
-        return res == 1
+
+        if res == 1:
+            logger.debug(f"Released MySQL advisory lock '{lock_name}' successfully.")
+            return True
+        elif res == 0:
+            logger.warning(f"Advisory lock '{lock_name}' was not released: lock not held by this connection.")
+            return False
+        elif res is None:
+            logger.warning(f"Advisory lock '{lock_name}' did not exist (returned NULL on release).")
+            return False
+        else:
+            logger.warning(f"Advisory lock '{lock_name}' release returned unexpected value: {res}.")
+            return False
     except Exception as e:
-        logger.warning(f"Failed to release MySQL advisory lock '{lock_name}': {sanitize_error_message(str(e))}")
+        safe_msg = sanitize_error_message(str(e))
+        logger.warning(f"Exception while releasing MySQL advisory lock '{lock_name}': {safe_msg}")
         return False
 
 
@@ -124,11 +160,56 @@ def verify_user_active_datasets_schema(engine_or_conn, table_name: str = USER_AC
             f"Table '{table_name}' column 'updated_at' has incompatible type: expected DATETIME/TIMESTAMP, got {upd_type}."
         )
 
+    # 5. Verify storage engine (MySQL only)
+    dialect = getattr(getattr(engine_or_conn, "dialect", None), "name", "").lower()
+    engine_name = "default"
+    table_collation = "default"
+    if dialect == "mysql":
+        try:
+            if hasattr(engine_or_conn, "connect") and not hasattr(engine_or_conn, "connection"):
+                # engine_or_conn is an Engine
+                with engine_or_conn.connect() as q_conn:
+                    row = q_conn.execute(
+                        text("""
+                            SELECT ENGINE, TABLE_COLLATION 
+                            FROM INFORMATION_SCHEMA.TABLES 
+                            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tbl
+                        """),
+                        {"tbl": table_name}
+                    ).fetchone()
+            else:
+                # engine_or_conn is a Connection
+                row = engine_or_conn.execute(
+                    text("""
+                        SELECT ENGINE, TABLE_COLLATION 
+                        FROM INFORMATION_SCHEMA.TABLES 
+                        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tbl
+                    """),
+                    {"tbl": table_name}
+                ).fetchone()
+
+            if row:
+                engine_name = row[0]
+                table_collation = row[1]
+                if engine_name and engine_name.upper() != "INNODB":
+                    raise RuntimeError(
+                        f"Table '{table_name}' has invalid storage engine: expected InnoDB, got {engine_name}."
+                    )
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.debug(f"Could not inspect engine from information_schema: {e}")
+
+    indexes = inspector.get_indexes(table_name)
+
     return {
         "valid": True,
         "table_name": table_name,
         "columns": [c["name"] for c in columns],
-        "primary_key": pk_cols
+        "primary_key": pk_cols,
+        "indexes": [idx.get("name") for idx in indexes],
+        "engine": engine_name,
+        "collation": table_collation
     }
 
 
@@ -169,7 +250,11 @@ def ensure_user_active_datasets_table(
                 # Verify schema strictly
                 verify_user_active_datasets_schema(conn, table_name=table_name)
             finally:
-                release_advisory_lock(conn, lock_name=lock_name)
+                released = release_advisory_lock(conn, lock_name=lock_name)
+                if not released and getattr(conn.dialect, "name", "").lower() == "mysql":
+                    logger.warning(
+                        f"[STARTUP] Advisory lock '{lock_name}' release was unsuccessful or not held by this session."
+                    )
     except Exception as e:
         safe_msg = sanitize_error_message(str(e))
         logger.error(f"[STARTUP FATAL] Failed initializing '{table_name}' schema: {safe_msg}")
