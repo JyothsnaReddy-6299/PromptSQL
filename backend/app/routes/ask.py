@@ -18,6 +18,7 @@ from app.services.result_interpreter import interpret_result
 from app.services.aggregate_summary import generate_aggregate_summary
 from app.services.summary_generator import generate_summary
 from app.services.auth_service import get_current_user_id
+from app.utils.error_sanitizer import sanitize_error_message
 
 router = APIRouter()
 
@@ -233,8 +234,9 @@ def ask_question(
     except HTTPException:
         raise
     except Exception as e:
-        print("\nException:", str(e))
+        safe_msg = sanitize_error_message(str(e))
+        print("\nException (sanitized):", safe_msg)
         return {
             "success": False,
-            "error": str(e)
+            "error": safe_msg
         }

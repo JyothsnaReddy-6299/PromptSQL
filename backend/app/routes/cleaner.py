@@ -18,6 +18,7 @@ from app.services.dataset_guard import (
 )
 from sqlalchemy import text
 from app.utils.tz_helper import get_ist_time
+from app.utils.error_sanitizer import sanitize_error_message
 
 router = APIRouter(prefix="/clean", tags=["Data Cleaner"])
 
@@ -109,7 +110,7 @@ def remove_duplicates(db: Session = Depends(get_db), ctx: ActiveTableContext = D
             "total_rows": count_after
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 @router.post("/impute")
@@ -211,7 +212,7 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: Active
             "imputed_value": str(val) if val is not None else None
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 @router.get("/locate-missing")
@@ -263,7 +264,7 @@ def locate_missing(column_name: str, ctx: ActiveTableContext = Depends(get_activ
     except HTTPException:
         raise
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 class UpdateCellRequest(BaseModel):
@@ -324,7 +325,7 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: Acti
             "rows_affected": rows_affected
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 class ConvertTypeRequest(BaseModel):
@@ -392,7 +393,7 @@ def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), ctx: Ac
             "message": f"Successfully converted column '{col}' datatype to {target.upper()}."
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 class StandardizeTextRequest(BaseModel):
@@ -463,7 +464,7 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db),
             "rows_affected": rows_affected
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 class ExtractNumbersRequest(BaseModel):
@@ -505,7 +506,7 @@ def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), c
             "rows_affected": rows_affected
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 @router.get("/detect-numeric-text")
@@ -556,7 +557,7 @@ def detect_numeric_text_columns(ctx: ActiveTableContext = Depends(get_active_con
 
         return {"success": True, "suspicious_columns": suspicious_columns}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 class ExtractAndConvertRequest(BaseModel):
@@ -604,4 +605,4 @@ def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get
             "message": f"Column '{col}' cleaned and converted to NUMERIC (DOUBLE) successfully."
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}

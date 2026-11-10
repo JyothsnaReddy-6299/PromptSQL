@@ -1,9 +1,6 @@
 import os
-from dotenv import load_dotenv
 from app.services.schema_service import schema_to_prompt
 from app.services.llm_service import call_llm
-
-load_dotenv()
 
 def generate_modification_sql(question: str, table_name: str, intent: str) -> str:
     """

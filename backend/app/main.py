@@ -1,6 +1,14 @@
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.core.config import get_settings
 from app.database.connection import engine, Base
+from app.utils.error_sanitizer import get_safe_exception_message
+
 # Import models to ensure they are registered with Base before metadata.create_all
 from app.models.history import QueryHistory
 from app.models.report import SavedReport
@@ -18,11 +26,14 @@ from app.routes.audit import router as audit_router
 from app.routes.cleaner import router as cleaner_router
 from app.routes.auth import router as auth_router
 
+settings = get_settings()
+
 # Auto-initialize database tables in MySQL with startup fault tolerance
 try:
     Base.metadata.create_all(bind=engine)
 except Exception as e:
     print(f"[STARTUP WARNING] Failed creating database tables: {e}")
+
 
 # Self-healing database check to automatically add undo_sql column to existing query_history table
 def check_and_add_undo_column():
@@ -40,19 +51,44 @@ def check_and_add_undo_column():
     except Exception as e:
         print("[STARTUP WARNING] Database schema check for undo_sql column:", e)
 
+
 try:
     check_and_add_undo_column()
 except Exception as e:
     print(f"[STARTUP WARNING] Failed running startup schema checks: {e}")
 
-app = FastAPI(title="AI Analytics API")
+app = FastAPI(
+    title="PromptSQL API",
+    debug=settings.DEBUG
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global sanitized exception handlers to protect against internal secret exposure
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    safe_detail = get_safe_exception_message(exc, is_production=settings.is_production, context="database operation")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"success": False, "error": safe_detail, "detail": safe_detail}
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    safe_detail = get_safe_exception_message(exc, is_production=settings.is_production, context="request")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"success": False, "error": safe_detail, "detail": safe_detail}
+    )
+
 
 app.include_router(auth_router)
 app.include_router(upload_router)
@@ -64,16 +100,17 @@ app.include_router(modification_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
 app.include_router(cleaner_router, prefix="/api")
 
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "message": "Backend is running"}
+    return {
+        "status": "ok",
+        "message": "Backend is running",
+        "environment": settings.APP_ENV
+    }
 
 
 # Serve static files from frontend build
-import os
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
 frontend_dist = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),

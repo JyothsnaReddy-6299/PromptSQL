@@ -14,6 +14,7 @@ from app.services.dataset_guard import (
     is_system_table,
     validate_table_identifier_format
 )
+from app.utils.error_sanitizer import sanitize_error_message
 
 router = APIRouter()
 
@@ -45,7 +46,7 @@ async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_c
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail=sanitize_error_message(str(e))
         )
 
 
@@ -246,7 +247,7 @@ def get_preview(
     except Exception as e:
         return {
             "success": False,
-            "error": str(e)
+            "error": sanitize_error_message(str(e))
         }
 
 
@@ -262,7 +263,7 @@ def list_datasets(user_id: str = Depends(get_current_user_id)):
     except HTTPException:
         raise
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 @router.post("/datasets/active")
@@ -274,7 +275,7 @@ def set_active_dataset(req: SetActiveDatasetRequest, user_id: str = Depends(get_
     except HTTPException:
         raise
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": sanitize_error_message(str(e))}
 
 
 @router.delete("/datasets/{table_name}")
@@ -303,7 +304,7 @@ def delete_dataset(table_name: str, user_id: str = Depends(get_current_user_id))
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=sanitize_error_message(str(e)))
 
 
 class ColumnDefinition(BaseModel):
@@ -372,4 +373,4 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {sanitize_error_message(str(e))}")

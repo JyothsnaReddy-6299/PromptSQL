@@ -14,6 +14,7 @@ from app.services.dataset_guard import (
     verify_all_referenced_tables,
     is_system_table
 )
+from app.utils.error_sanitizer import sanitize_error_message
 
 router = APIRouter(prefix="/history", tags=["History"])
 
@@ -160,14 +161,14 @@ def undo_history_item(
                 generated_sql=item.undo_sql,
                 rows_affected=0,
                 status="FAILURE",
-                error_message=str(e)
+                error_message=sanitize_error_message(str(e))
             )
             db.add(db_log)
             db.commit()
         except Exception as audit_err:
-            print("Failed logging failed undo operation to audit log:", audit_err)
+            print("Failed logging failed undo operation to audit log:", sanitize_error_message(str(audit_err)))
             
-        raise HTTPException(status_code=500, detail=f"Failed to undo database change: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to undo database change: {sanitize_error_message(str(e))}")
 
 
 @router.delete("/{id}")

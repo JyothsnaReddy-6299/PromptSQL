@@ -1,5 +1,13 @@
 venv/
 .env
+.env.*
+!.env.example
+*.env
 __pycache__/
 uploads/
 *.pyc
+*.pyo
+*.local
+*.log
+.pytest_cache/
+active_table.txt

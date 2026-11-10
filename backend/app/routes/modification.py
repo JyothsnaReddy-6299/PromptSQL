@@ -27,6 +27,7 @@ from app.services.dataset_guard import (
 )
 from app.utils.tz_helper import get_ist_time
 from app.utils.json_helper import sanitize_for_json
+from app.utils.error_sanitizer import sanitize_error_message
 import json
 
 router = APIRouter(prefix="/modification", tags=["Modification"])
@@ -234,9 +235,10 @@ def ask_modification(
     try:
         sql = generate_modification_sql(payload.question, table_name, intent)
     except Exception as e:
+        safe_msg = sanitize_error_message(str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed generating SQL for modification: {str(e)}"
+            detail=f"Failed generating SQL for modification: {safe_msg}"
         )
 
     # Replace friendly name with physical table name in quotes

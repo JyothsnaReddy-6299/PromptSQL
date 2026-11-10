@@ -1,9 +1,6 @@
 import os
 from typing import Optional
-from dotenv import load_dotenv
 from app.services.llm_service import call_llm
-
-load_dotenv()
 
 
 def explain_impact(sql: str, table_name: str, intent: str, estimated_rows: Optional[int]) -> str:

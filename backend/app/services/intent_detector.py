@@ -1,8 +1,5 @@
 import os
-from dotenv import load_dotenv
 from app.services.llm_service import call_llm
-
-load_dotenv()
 
 
 def detect_intent(question: str) -> str:

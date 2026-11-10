@@ -9,6 +9,7 @@ from app.services.auth_service import get_current_user_id
 from app.services.dataset_guard import resolve_and_authorize_dataset, safe_quote_table_name
 from app.database.connection import engine
 from sqlalchemy import text
+from app.utils.error_sanitizer import sanitize_error_message
 
 router = APIRouter(prefix="/export", tags=["Export"])
 
@@ -41,7 +42,7 @@ def export_pdf(payload: ExportPDFRequest, user_id: str = Depends(get_current_use
             }
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=sanitize_error_message(str(e)))
 
 
 @router.post("/excel")
@@ -56,7 +57,7 @@ def export_excel(payload: ExportDataRequest, user_id: str = Depends(get_current_
             }
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=sanitize_error_message(str(e)))
 
 
 @router.post("/csv")
@@ -71,7 +72,7 @@ def export_csv(payload: ExportDataRequest, user_id: str = Depends(get_current_us
             }
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=sanitize_error_message(str(e)))
 
 
 @router.get("/raw/csv")

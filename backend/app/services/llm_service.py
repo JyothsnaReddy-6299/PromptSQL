@@ -1,40 +1,31 @@
-import os
 from groq import Groq
-from dotenv import load_dotenv
+from app.core.config import get_settings
 from app.utils.think_stripper import strip_think_blocks
-
-base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-env_path = os.path.join(base_dir, ".env")
-if os.path.exists(env_path):
-    load_dotenv(env_path, override=True)
-load_dotenv(override=True)
-
-DEFAULT_MODEL = "qwen/qwen3.8-27b"
+from app.utils.error_sanitizer import sanitize_error_message
 
 
 def get_current_model() -> str:
     """
-    Returns the configured Groq model, falling back to qwen/qwen3.8-27b.
-    Auto-corrects outdated model name 'qwen3.6-27b' to 'qwen3.8-27b'.
+    Returns the configured Groq model from centralized settings.
     """
-    model = (os.getenv("GROQ_MODEL") or DEFAULT_MODEL).strip().strip("'\"")
-    if "qwen3.6" in model.lower():
-        model = DEFAULT_MODEL
-    return model
+    settings = get_settings()
+    return settings.GROQ_MODEL
 
 
 def call_llm(system_prompt: str, user_prompt: str, temperature: float = 0.1) -> str:
     """
-    Calls the configured Groq LLM model.
+    Calls the configured Groq LLM model using server-side credentials exclusively.
+    Sanitizes any provider exceptions before propagation to prevent secret exposure.
     """
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key or not api_key.strip():
-        raise Exception("GROQ_API_KEY is not configured in environment variables.")
+    settings = get_settings()
+    api_key = (settings.GROQ_API_KEY or "").strip()
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY is not configured in backend environment variables.")
 
     model = get_current_model()
 
     try:
-        client = Groq(api_key=api_key.strip())
+        client = Groq(api_key=api_key)
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -46,5 +37,6 @@ def call_llm(system_prompt: str, user_prompt: str, temperature: float = 0.1) -> 
         raw_text = response.choices[0].message.content.strip()
         return strip_think_blocks(raw_text)
     except Exception as e:
-        print(f"[LLM Service] Groq API call failed with model '{model}': {e}")
-        raise e
+        safe_msg = sanitize_error_message(str(e))
+        print(f"[LLM Service] Groq API call failed with model '{model}': {safe_msg}")
+        raise RuntimeError(f"AI Analytics service error: {safe_msg}") from None

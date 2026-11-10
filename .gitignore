@@ -9,21 +9,40 @@ lerna-debug.log*
 
 # Dependencies
 **/node_modules
+venv/
+backend/venv/
 
 # Build output
 dist
 dist-ssr
 build
+frontend/dist/
 
-# Environment variables
+# Environment and sensitive credential files
 .env
 .env.local
 .env.*
+!.env.example
+*.env
+aiven.txt
+active_table.txt
+backend/active_table.txt
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+secrets.*
+credentials.*
 
-# Uploaded files
+# Uploaded files and local databases
 uploads/
+backend/uploads/
 *.csv
 *.xlsx
+*.sqlite
+*.sqlite3
+*.db
 
 # Editor directories and files
 .vscode/*
@@ -36,19 +55,14 @@ uploads/
 *.sln
 *.sw?
 
-# Python cache (if used later)
+# Python cache & tests
 __pycache__/
 *.pyc
-venv/
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Local config
+# Local config & packages
 *.local
-
-backend/uploads/
-frontend/dist/
-
-aiven.txt
-active_table.txt
-backend/active_table.txt
-
 *.zip
