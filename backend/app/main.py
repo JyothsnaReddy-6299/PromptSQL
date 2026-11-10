@@ -7,7 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.database.connection import engine, Base
-from app.utils.error_sanitizer import get_safe_exception_message
+from app.utils.error_sanitizer import get_safe_exception_message, sanitize_error_message
+from app.services.migration_guard import ensure_user_active_datasets_table
 
 # Import models to ensure they are registered with Base before metadata.create_all
 from app.models.history import QueryHistory
@@ -29,13 +30,6 @@ from app.routes.auth import router as auth_router
 
 settings = get_settings()
 
-# Auto-initialize database tables in MySQL with startup fault tolerance
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    print(f"[STARTUP WARNING] Failed creating database tables: {e}")
-
-
 # Self-healing database check to automatically add undo_sql column to existing query_history table
 def check_and_add_undo_column():
     from sqlalchemy import inspect, text
@@ -47,41 +41,43 @@ def check_and_add_undo_column():
                 print("[STARTUP] Adding 'undo_sql' column to query_history table...")
                 with engine.connect() as conn:
                     conn.execute(text("ALTER TABLE query_history ADD COLUMN undo_sql TEXT NULL"))
-                    conn.execute(text("COMMIT"))
+                    conn.commit()
                 print("[STARTUP] 'undo_sql' column added successfully!")
     except Exception as e:
-        print("[STARTUP WARNING] Database schema check for undo_sql column:", e)
+        safe_msg = sanitize_error_message(str(e))
+        print(f"[STARTUP WARNING] Database schema check for undo_sql column: {safe_msg}")
 
 
-def check_and_create_user_active_datasets():
+def run_startup_migrations(db_engine=engine):
     """
-    Self-healing startup check to ensure user_active_datasets table exists
-    in existing production databases without requiring external migration tools.
+    Executes and validates all required database schema migrations at startup.
+    Fatal failures halt application startup immediately to prevent serving
+    traffic in an uninitialized or corrupted state.
     """
-    from sqlalchemy import inspect, text
+    if os.environ.get("PROMPTSQL_SKIP_STARTUP_DB_CHECK") == "1":
+        return
+
+    # 1. Base ORM tables (non-fatal warning if some already exist)
     try:
-        inspector = inspect(engine)
-        if "user_active_datasets" not in inspector.get_table_names():
-            print("[STARTUP] Creating 'user_active_datasets' table for multi-worker active dataset isolation...")
-            with engine.connect() as conn:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS user_active_datasets (
-                        user_id VARCHAR(50) NOT NULL PRIMARY KEY,
-                        table_name VARCHAR(100) NOT NULL,
-                        updated_at DATETIME NULL
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                """))
-                conn.commit()
-            print("[STARTUP] 'user_active_datasets' table created successfully!")
+        Base.metadata.create_all(bind=db_engine)
     except Exception as e:
-        print(f"[STARTUP WARNING] Database schema check for user_active_datasets table: {e}")
+        safe_msg = sanitize_error_message(str(e))
+        print(f"[STARTUP WARNING] Failed creating base database tables: {safe_msg}")
 
-
-try:
+    # 2. Self-healing check for query_history
     check_and_add_undo_column()
-    check_and_create_user_active_datasets()
-except Exception as e:
-    print(f"[STARTUP WARNING] Failed running startup schema checks: {e}")
+
+    # 3. Required authoritative active-dataset state table (FATAL if fails)
+    try:
+        ensure_user_active_datasets_table(db_engine)
+    except Exception as e:
+        safe_msg = sanitize_error_message(str(e))
+        print(f"[STARTUP FATAL] Failed running required startup migration for user_active_datasets: {safe_msg}")
+        raise RuntimeError(f"Database initialization failed: {safe_msg}") from None
+
+
+# Execute startup migrations immediately
+run_startup_migrations()
 
 app = FastAPI(
     title="PromptSQL API",
