@@ -10,6 +10,21 @@ interface AuthModalProps {
   onSuccess?: () => void;
 }
 
+const PROMPTSQL_SESSION_KEYS = [
+  "dataset",
+  "promptsql_dataset",
+  "promptsql_active_dataset",
+  "promptsql_table",
+  "promptsql_active_table",
+  "promptsql_temp_query",
+];
+
+function clearPromptSQLSessionState() {
+  for (const key of PROMPTSQL_SESSION_KEYS) {
+    sessionStorage.removeItem(key);
+  }
+}
+
 export default function AuthModal({
   isOpen,
   initialMode = "login",
@@ -81,7 +96,7 @@ export default function AuthModal({
         localStorage.setItem("promptsql_token", data.token);
         localStorage.setItem("promptsql_user_id", data.user_id);
         localStorage.setItem("promptsql_username", data.username);
-        sessionStorage.clear();
+        clearPromptSQLSessionState();
         if (onSuccess) onSuccess();
         onClose();
       } else {
@@ -90,7 +105,7 @@ export default function AuthModal({
         localStorage.setItem("promptsql_token", data.token);
         localStorage.setItem("promptsql_user_id", data.user_id);
         localStorage.setItem("promptsql_username", data.username);
-        sessionStorage.clear();
+        clearPromptSQLSessionState();
         setTimeout(() => {
           if (onSuccess) onSuccess();
           onClose();

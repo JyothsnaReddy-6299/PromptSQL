@@ -53,8 +53,33 @@ def check_and_add_undo_column():
         print("[STARTUP WARNING] Database schema check for undo_sql column:", e)
 
 
+def check_and_create_user_active_datasets():
+    """
+    Self-healing startup check to ensure user_active_datasets table exists
+    in existing production databases without requiring external migration tools.
+    """
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(engine)
+        if "user_active_datasets" not in inspector.get_table_names():
+            print("[STARTUP] Creating 'user_active_datasets' table for multi-worker active dataset isolation...")
+            with engine.connect() as conn:
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS user_active_datasets (
+                        user_id VARCHAR(50) NOT NULL PRIMARY KEY,
+                        table_name VARCHAR(100) NOT NULL,
+                        updated_at DATETIME NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                """))
+                conn.commit()
+            print("[STARTUP] 'user_active_datasets' table created successfully!")
+    except Exception as e:
+        print(f"[STARTUP WARNING] Database schema check for user_active_datasets table: {e}")
+
+
 try:
     check_and_add_undo_column()
+    check_and_create_user_active_datasets()
 except Exception as e:
     print(f"[STARTUP WARNING] Failed running startup schema checks: {e}")
 

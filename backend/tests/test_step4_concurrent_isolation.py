@@ -21,8 +21,6 @@ from app.services.table_manager import (
     get_current_table,
     set_current_table,
     clear_current_table,
-    _USER_ACTIVE_TABLES,
-    _LOCK
 )
 from app.services.dataset_guard import resolve_and_authorize_dataset, PROTECTED_SYSTEM_TABLES
 
@@ -310,10 +308,10 @@ class Step4ConcurrentUserIsolationTests(unittest.TestCase):
         self.assertNotIn("Alice_A1", resp_b.text)
 
     def test_10_backend_restart_and_active_state_persistence(self):
-        """Simulating backend process restart recovers active dataset state from database."""
+        """Active dataset state is persisted in MySQL; independent queries retrieve it without process state."""
         set_current_table(self.table_a2, user_id=self.user_id_a)
         
-        # Verify in DB
+        # Verify in DB directly
         db = SessionLocal()
         try:
             rec = db.query(UserActiveDataset).filter(UserActiveDataset.user_id == self.user_id_a).first()
@@ -322,35 +320,26 @@ class Step4ConcurrentUserIsolationTests(unittest.TestCase):
         finally:
             db.close()
 
-        # Simulate process crash/restart by clearing in-memory dictionary
-        with _LOCK:
-            _USER_ACTIVE_TABLES.clear()
-        self.assertEqual(len(_USER_ACTIVE_TABLES), 0)
-
-        # After restart, get_current_table must retrieve from MySQL
+        # In a new or restarted connection context, get_current_table strictly retrieves from MySQL
         reloaded = get_current_table(self.user_id_a)
         self.assertEqual(reloaded, self.table_a2)
 
-    def test_11_multiple_worker_consistency(self):
-        """Simulates two distinct backend worker processes communicating via the database."""
+    def test_11_simulated_multiple_worker_consistency(self):
+        """Tests that two independent callers communicating via MySQL share the exact active state."""
         worker1_user_id = self.user_id_a
         worker2_user_id = self.user_id_a
 
         # Worker 1 sets active table
         set_current_table(self.table_a1, user_id=worker1_user_id)
 
-        # Worker 2 simulates a fresh worker instance with empty local memory
-        with _LOCK:
-            _USER_ACTIVE_TABLES.pop(worker2_user_id, None)
-
-        # Worker 2 reads active table (retrieves from shared DB)
+        # Worker 2 reads active table (authoritatively from shared DB)
         read_by_worker2 = get_current_table(worker2_user_id)
         self.assertEqual(read_by_worker2, self.table_a1)
 
         # Worker 2 switches active table to A2
         set_current_table(self.table_a2, user_id=worker2_user_id)
 
-        # Worker 1 reads (simulating another worker thread/process)
+        # Worker 1 reads immediately and gets updated state from MySQL
         read_by_worker1 = get_current_table(worker1_user_id)
         self.assertEqual(read_by_worker1, self.table_a2)
 
@@ -390,6 +379,90 @@ class Step4ConcurrentUserIsolationTests(unittest.TestCase):
             # Table A2 score unchanged (remains 95)
             res_a2 = conn.execute(text(f"SELECT score FROM `{self.table_a2}` WHERE id=1")).scalar()
             self.assertEqual(res_a2, 95)
+
+    def test_13_real_multiprocess_worker_consistency(self):
+        """
+        Real multi-process integration test: launches a separate OS process via subprocess
+        to verify that independent operating system processes with separate PIDs and memory
+        spaces read and write active dataset state consistently through the shared MySQL database.
+        """
+        import subprocess
+        
+        # 1. Main process sets active table to table_a1
+        set_current_table(self.table_a1, user_id=self.user_id_a)
+        self.assertEqual(get_current_table(self.user_id_a), self.table_a1)
+
+        # 2. Spawn a completely separate OS process that connects to MySQL,
+        # reads active table, asserts it is table_a1, updates it to table_a2, and exits.
+        script = f"""
+import sys
+sys.path.insert(0, 'backend')
+from app.services.table_manager import get_current_table, set_current_table
+
+current = get_current_table('{self.user_id_a}')
+assert current == '{self.table_a1}', f'Expected {self.table_a1}, got {{current}}'
+
+# Separate OS process switches active table
+set_current_table('{self.table_a2}', user_id='{self.user_id_a}')
+print('SUBPROCESS_OK')
+"""
+        proc = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=20
+        )
+        self.assertEqual(proc.returncode, 0, f"Subprocess failed:\nSTDOUT: {proc.stdout}\nSTDERR: {proc.stderr}")
+        self.assertIn("SUBPROCESS_OK", proc.stdout)
+
+        # 3. Main process reads active table and confirms it immediately sees the switch
+        updated = get_current_table(self.user_id_a)
+        self.assertEqual(updated, self.table_a2)
+
+    def test_14_concurrent_atomic_upsert_under_load(self):
+        """
+        Executes simultaneous concurrent upserts on the same user's active dataset
+        across 20 parallel threads to verify atomic MySQL execution without integrity errors.
+        """
+        errors = []
+        target_tables = [self.table_a1, self.table_a2]
+
+        def worker_task(i):
+            tbl = target_tables[i % len(target_tables)]
+            try:
+                set_current_table(tbl, user_id=self.user_id_a)
+            except Exception as e:
+                errors.append(e)
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(worker_task, i) for i in range(20)]
+            for f in futures:
+                f.result()
+
+        # Zero concurrency or duplicate key errors
+        self.assertEqual(len(errors), 0, f"Encountered concurrency errors: {errors}")
+
+        # The final database row must be valid and correspond to one of the target tables
+        final_state = get_current_table(self.user_id_a)
+        self.assertIn(final_state, target_tables)
+
+        # Confirm exactly one single row exists in the database table for this user
+        db = SessionLocal()
+        try:
+            count = db.query(UserActiveDataset).filter(UserActiveDataset.user_id == self.user_id_a).count()
+            self.assertEqual(count, 1)
+        finally:
+            db.close()
+
+    def test_15_database_failure_fails_safely_without_stale_fallback(self):
+        """
+        When database connectivity fails, get_current_table must fail safely (raise)
+        rather than returning stale data from memory or filesystem.
+        """
+        from unittest.mock import patch
+        with patch("app.services.table_manager.engine.connect", side_effect=Exception("Database connection timeout")):
+            with self.assertRaises(Exception):
+                get_current_table(self.user_id_a)
 
 
 if __name__ == "__main__":
