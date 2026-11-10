@@ -1,6 +1,7 @@
 reportlab
 fastapi
 uvicorn
+gunicorn
 pydantic
 sqlalchemy
 pymysql
@@ -13,3 +14,4 @@ pyjwt
 bcrypt
 groq
 httpx
+sqlglot

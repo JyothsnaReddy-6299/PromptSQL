@@ -18,8 +18,11 @@ from app.routes.audit import router as audit_router
 from app.routes.cleaner import router as cleaner_router
 from app.routes.auth import router as auth_router
 
-# Auto-initialize database tables in MySQL
-Base.metadata.create_all(bind=engine)
+# Auto-initialize database tables in MySQL with startup fault tolerance
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"[STARTUP WARNING] Failed creating database tables: {e}")
 
 # Self-healing database check to automatically add undo_sql column to existing query_history table
 def check_and_add_undo_column():
@@ -35,9 +38,12 @@ def check_and_add_undo_column():
                     conn.execute(text("COMMIT"))
                 print("[STARTUP] 'undo_sql' column added successfully!")
     except Exception as e:
-        print("[STARTUP] Failed database schema check for undo_sql column:", e)
+        print("[STARTUP WARNING] Database schema check for undo_sql column:", e)
 
-check_and_add_undo_column()
+try:
+    check_and_add_undo_column()
+except Exception as e:
+    print(f"[STARTUP WARNING] Failed running startup schema checks: {e}")
 
 app = FastAPI(title="AI Analytics API")
 

@@ -22,7 +22,8 @@ services:
     environment:
       - DATABASE_URL=mysql+pymysql://root:root_password@db:3306/promptsql
       - JWT_SECRET=${JWT_SECRET}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL}
     depends_on:
       - db
 
