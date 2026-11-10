@@ -251,22 +251,20 @@ export default function DashboardSidebar({
         </div>
       </div>
 
-      {/* Sidebar Footer - Only Logout Symbol, expands on click */}
+      {/* Sidebar Footer - Only Logout Symbol, expands strictly on click */}
       <div className="p-3 space-y-2 shrink-0">
         <div ref={logoutRef} className="flex items-center justify-center">
           <button
             onClick={handleLogoutClick}
             title={logoutExpanded ? "Click again to confirm Logout" : "Logout"}
-            className={`group relative bg-[#FF4742] hover:bg-[#E93B36] text-white rounded-full flex items-center justify-center overflow-hidden shadow-md shadow-[#FF4742]/30 hover:shadow-lg hover:shadow-[#FF4742]/45 transition-all duration-300 ease-in-out cursor-pointer active:scale-95 ${
-              logoutExpanded ? "w-28 h-9 px-3.5 gap-2" : "w-9 h-9 px-2 hover:w-28 hover:gap-2"
+            className={`relative bg-[#FF4742] hover:bg-[#E93B36] text-white rounded-full flex items-center justify-center overflow-hidden shadow-md shadow-[#FF4742]/35 hover:shadow-lg hover:shadow-[#FF4742]/50 transition-all duration-300 ease-in-out cursor-pointer active:scale-95 ${
+              logoutExpanded ? "w-28 h-9 px-3.5 gap-2" : "w-9 h-9 p-0"
             }`}
           >
-            <LogOut size={15} className="shrink-0 transition-transform duration-300 group-hover:scale-105" />
+            <LogOut size={15} className="shrink-0 transition-transform duration-200" />
             <span
               className={`text-xs font-bold tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
-                logoutExpanded
-                  ? "max-w-xs opacity-100 ml-1.5"
-                  : "max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-1.5"
+                logoutExpanded ? "max-w-xs opacity-100 ml-1.5" : "max-w-0 opacity-0"
               }`}
             >
               Logout

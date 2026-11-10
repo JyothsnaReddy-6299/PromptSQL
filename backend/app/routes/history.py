@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
@@ -7,8 +7,13 @@ import json
 
 from app.database.connection import SessionLocal
 from app.models.history import QueryHistory
-
 from app.services.auth_service import get_current_user_id
+from app.services.dataset_guard import (
+    resolve_and_authorize_dataset,
+    get_user_datasets,
+    verify_all_referenced_tables,
+    is_system_table
+)
 
 router = APIRouter(prefix="/history", tags=["History"])
 
@@ -65,9 +70,12 @@ def create_history_item(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
+    # Validate table ownership and reject system tables
+    verified_table = resolve_and_authorize_dataset(user_id=user_id, requested_table_name=payload.table_name)
+
     db_item = QueryHistory(
         user_id=user_id,
-        table_name=payload.table_name,
+        table_name=verified_table,
         question=payload.question,
         generated_sql=payload.generated_sql,
         summary=payload.summary,
@@ -86,7 +94,7 @@ def undo_history_item(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    # 1. Fetch query history item
+    # 1. Fetch query history item strictly belonging to authenticated user
     item = (
         db.query(QueryHistory)
         .filter(QueryHistory.id == id, QueryHistory.user_id == user_id)
@@ -97,6 +105,14 @@ def undo_history_item(
         
     if not item.undo_sql:
         raise HTTPException(status_code=400, detail="This query cannot be undone (no undo SQL statement is available).")
+
+    # Guard against undoing operations on system tables
+    if is_system_table(item.table_name):
+        raise HTTPException(status_code=403, detail="Access denied. Cannot perform undo on protected system tables.")
+
+    # Guard: verify undo SQL only references datasets owned by user
+    user_datasets = get_user_datasets(user_id)
+    verify_all_referenced_tables(item.undo_sql, user_id, user_datasets)
         
     from sqlalchemy import text
     from app.database.connection import engine
@@ -104,7 +120,6 @@ def undo_history_item(
     
     # 2. Execute undo SQL query transactionally
     try:
-        # Split by semicolon and run each query separately (required for execute multi-statement support)
         queries = [q.strip() for q in item.undo_sql.split(";") if q.strip()]
         
         with engine.begin() as conn:
@@ -127,12 +142,14 @@ def undo_history_item(
         except Exception as audit_err:
             print("Failed logging undo operation to audit log:", audit_err)
             
-        # 4. Delete the query history item (so they can't undo it twice)
+        # 4. Delete the query history item
         db.delete(item)
         db.commit()
         
         return {"success": True, "message": "Database changes successfully rolled back!"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         # Log failure to Audit Logs
         try:

@@ -364,10 +364,39 @@ textarea:not(.no-border) {
   border-color: #E2E8F0 !important;
 }
 
-.no-border {
-  border: none !important;
+.no-border,
+.chat-input-textarea,
+textarea.no-border,
+input.no-border {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
   outline: none !important;
+  outline-width: 0 !important;
   box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background: transparent !important;
+}
+
+.no-border:focus,
+.no-border:active,
+.no-border:focus-visible,
+.chat-input-textarea:focus,
+.chat-input-textarea:active,
+.chat-input-textarea:focus-visible,
+textarea.no-border:focus,
+textarea.no-border:active,
+textarea.no-border:focus-visible {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  outline: none !important;
+  outline-width: 0 !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
   background: transparent !important;
 }
 

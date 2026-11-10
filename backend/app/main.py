@@ -6,6 +6,7 @@ from app.models.history import QueryHistory
 from app.models.report import SavedReport
 from app.models.audit_log import AuditLog
 from app.models.user import User
+from app.models.pending_modification import PendingModification
 
 from app.routes.upload import router as upload_router
 from app.routes.ask import router as ask_router
@@ -104,4 +105,4 @@ else:
         return {
             "message": "Backend is running. Frontend build not found.",
             "build_path": frontend_dist
-        }
+        }

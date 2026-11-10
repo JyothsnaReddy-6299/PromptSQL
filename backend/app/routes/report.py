@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.database.connection import SessionLocal
 from app.models.report import SavedReport
 from app.services.export_service import generate_pdf, generate_excel, generate_csv
-
 from app.services.auth_service import get_current_user_id
+from app.services.dataset_guard import resolve_and_authorize_dataset
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -107,10 +107,13 @@ def create_report(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
+    # Verify dataset ownership and reject system tables
+    verified_table = resolve_and_authorize_dataset(user_id=user_id, requested_table_name=payload.table_name)
+
     db_item = SavedReport(
         user_id=user_id,
         title=payload.title,
-        table_name=payload.table_name,
+        table_name=verified_table,
         question=payload.question,
         generated_sql=payload.generated_sql,
         summary=payload.summary,

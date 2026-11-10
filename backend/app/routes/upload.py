@@ -1,10 +1,19 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends
 import os
+import re
 from typing import Optional, List
 from pydantic import BaseModel
 
 from app.services.upload_service import upload_dataset
 from app.services.auth_service import get_current_user_id
+from app.services.table_manager import get_current_table, set_current_table
+from app.services.dataset_guard import (
+    resolve_and_authorize_dataset,
+    get_user_datasets,
+    safe_quote_table_name,
+    is_system_table,
+    validate_table_identifier_format
+)
 
 router = APIRouter()
 
@@ -14,9 +23,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
-
     try:
-
         filepath = os.path.join(
             UPLOAD_DIR,
             file.filename
@@ -35,9 +42,7 @@ async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_c
 
     except HTTPException:
         raise
-
     except Exception as e:
-
         raise HTTPException(
             status_code=500,
             detail=str(e)
@@ -54,22 +59,12 @@ def get_preview(
     x_table_name: Optional[str] = Header(None),
     user_id: str = Depends(get_current_user_id)
 ):
-    from app.services.table_manager import get_current_table
     from app.database.connection import engine
     from sqlalchemy import text, inspect
 
-    table_name = x_table_name or get_current_table()
-    if not table_name:
-        return {
-            "success": False,
-            "error": "No dataset uploaded yet."
-        }
-
-    # Security check: verify user owns the dataset
-    if "_usr_" in table_name:
-        owner_id = "usr_" + table_name.split("_usr_")[-1]
-        if owner_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
+    # 1. Authorize and resolve dataset table strictly
+    table_name = resolve_and_authorize_dataset(user_id=user_id, requested_table_name=x_table_name)
+    safe_tbl = safe_quote_table_name(table_name, [table_name])
 
     try:
         inspector = inspect(engine)
@@ -92,7 +87,7 @@ def get_preview(
                 detected_types[col_name] = "text"
 
         # Get dynamic total rows count
-        count_query = f"SELECT COUNT(*) FROM `{table_name}`"
+        count_query = f"SELECT COUNT(*) FROM {safe_tbl}"
         with engine.connect() as conn:
             total_rows = conn.execute(text(count_query)).scalar() or 0
 
@@ -104,12 +99,13 @@ def get_preview(
             for col in col_info:
                 col_name = col["name"]
                 col_type = str(col["type"]).lower()
+                clean_col = col_name.replace("`", "``")
                 if "varchar" in col_type or "text" in col_type or "char" in col_type:
-                    col_sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL OR `{col_name}` = '' THEN 1 ELSE 0 END) AS `{col_name}`")
+                    col_sum_parts.append(f"SUM(CASE WHEN `{clean_col}` IS NULL OR `{clean_col}` = '' THEN 1 ELSE 0 END) AS `{clean_col}`")
                 else:
-                    col_sum_parts.append(f"SUM(CASE WHEN `{col_name}` IS NULL THEN 1 ELSE 0 END) AS `{col_name}`")
+                    col_sum_parts.append(f"SUM(CASE WHEN `{clean_col}` IS NULL THEN 1 ELSE 0 END) AS `{clean_col}`")
             
-            missing_col_query = f"SELECT {', '.join(col_sum_parts)} FROM `{table_name}`"
+            missing_col_query = f"SELECT {', '.join(col_sum_parts)} FROM {safe_tbl}"
             with engine.connect() as conn:
                 row = conn.execute(text(missing_col_query)).first()
                 if row:
@@ -129,18 +125,17 @@ def get_preview(
             search_lower = search_clean.lower()
 
             if search_lower in ["null", "empty", "is null", "missing"]:
-                # Match rows where ANY column is NULL or empty (type-safe for MySQL)
                 conditions = []
                 for col in col_info:
                     col_name = col["name"]
                     col_type = str(col["type"]).lower()
+                    clean_col = col_name.replace("`", "``")
                     if "varchar" in col_type or "text" in col_type or "char" in col_type:
-                        conditions.append(f"(`{col_name}` IS NULL OR `{col_name}` = '')")
+                        conditions.append(f"(`{clean_col}` IS NULL OR `{clean_col}` = '')")
                     else:
-                        conditions.append(f"`{col_name}` IS NULL")
+                        conditions.append(f"`{clean_col}` IS NULL")
                 where_clause = " WHERE (" + " OR ".join(conditions) + ")"
             elif ":" in search_clean:
-                # Column-specific search e.g. "ORDER_ID:null" or "ORDER_ID:123"
                 parts = search_clean.split(":", 1)
                 col_target = parts[0].strip()
                 val_target = parts[1].strip()
@@ -148,76 +143,78 @@ def get_preview(
                 if col_match:
                     col_match_info = next((c for c in col_info if c["name"] == col_match), None)
                     col_match_type = str(col_match_info["type"]).lower() if col_match_info else "varchar"
-                    
-                    if val_target.lower() in ["null", "empty", "is null"]:
-                        if "varchar" in col_match_type or "text" in col_match_type or "char" in col_match_type:
-                            where_clause = f" WHERE (`{col_match}` IS NULL OR `{col_match}` = '')"
-                        else:
-                            where_clause = f" WHERE `{col_match}` IS NULL"
-                    else:
-                        where_clause = f" WHERE `{col_match}` LIKE :col_val"
-                        params["col_val"] = f"%{val_target}%"
-                else:
-                    conditions = [f"`{col}` LIKE :search" for col in columns] #Search a specific column
-                    where_clause = " WHERE (" + " OR ".join(conditions) + ")"
-                    params["search"] = f"%{search_clean}%"
-            else:
-                conditions = [f"`{col}` LIKE :search" for col in columns]
-                where_clause = " WHERE (" + " OR ".join(conditions) + ")"
-                params["search"] = f"%{search_clean}%"
+                    clean_col = col_match.replace("`", "``")
 
-        # Sorting
+                    if val_target.lower() in ["null", "empty", "is null", "missing"]:
+                        if "varchar" in col_match_type or "text" in col_match_type or "char" in col_match_type:
+                            where_clause = f" WHERE (`{clean_col}` IS NULL OR `{clean_col}` = '')"
+                        else:
+                            where_clause = f" WHERE (`{clean_col}` IS NULL)"
+                    else:
+                        where_clause = f" WHERE CAST(`{clean_col}` AS CHAR) LIKE :search_term"
+                        params["search_term"] = f"%{val_target}%"
+            else:
+                conditions = []
+                for idx, col in enumerate(columns):
+                    clean_col = col.replace("`", "``")
+                    param_name = f"search_val_{idx}"
+                    conditions.append(f"CAST(`{clean_col}` AS CHAR) LIKE :{param_name}")
+                    params[param_name] = f"%{search_clean}%"
+                if conditions:
+                    where_clause = " WHERE (" + " OR ".join(conditions) + ")"
+
+        # Sorting logic
         order_clause = ""
         if sort_col and sort_col in columns:
-            dir_keyword = "DESC" if sort_dir.upper() == "DESC" else "ASC"
-            order_clause = f" ORDER BY `{sort_col}` {dir_keyword}"
+            clean_sort = sort_col.replace("`", "``")
+            direction = "DESC" if sort_dir and sort_dir.upper() == "DESC" else "ASC"
+            order_clause = f" ORDER BY `{clean_sort}` {direction}"
 
-        # Count total filtered rows matching search
+        # Get filtered total rows count if searching
         if where_clause:
-            filtered_count_query = f"SELECT COUNT(*) FROM `{table_name}`{where_clause}"
+            filter_count_query = f"SELECT COUNT(*) FROM {safe_tbl}{where_clause}"
             with engine.connect() as conn:
-                display_total_rows = conn.execute(text(filtered_count_query), params).scalar() or 0
+                display_total_rows = conn.execute(text(filter_count_query), params).scalar() or 0
         else:
             display_total_rows = total_rows
 
         # Execute paginated query
-        sql_query = f"SELECT * FROM `{table_name}`{where_clause}{order_clause} LIMIT {page_limit} OFFSET {offset}"
+        sql_query = f"SELECT * FROM {safe_tbl}{where_clause}{order_clause} LIMIT {page_limit} OFFSET {offset}"
         with engine.connect() as conn:
             res = conn.execute(text(sql_query), params)
             records = [dict(row._mapping) for row in res]
 
-        # Get column statistics for numeric columns (computed efficiently in SQL to prevent loading the entire dataset in Python memory)
+        # Get column statistics for numeric columns
         column_stats = {}
         numeric_cols = [c for c, t in detected_types.items() if t == "numeric"]
         if numeric_cols:
             try:
                 with engine.connect() as conn:
-                    # 1. Get min, max, mean in a single optimized query
                     stats_select = []
                     for col in numeric_cols:
-                        stats_select.append(f"MIN(`{col}`) AS `{col}_min`")
-                        stats_select.append(f"MAX(`{col}`) AS `{col}_max`")
-                        stats_select.append(f"AVG(`{col}`) AS `{col}_mean`")
+                        clean_col = col.replace("`", "``")
+                        stats_select.append(f"MIN(`{clean_col}`) AS `{clean_col}_min`")
+                        stats_select.append(f"MAX(`{clean_col}`) AS `{clean_col}_max`")
+                        stats_select.append(f"AVG(`{clean_col}`) AS `{clean_col}_mean`")
                     
-                    stats_sql = f"SELECT {', '.join(stats_select)} FROM `{table_name}`"
+                    stats_sql = f"SELECT {', '.join(stats_select)} FROM {safe_tbl}"
                     stats_res = conn.execute(text(stats_sql)).first()
                     
                     if stats_res:
                         stats_map = dict(stats_res._mapping)
                         for col in numeric_cols:
-                            c_min = stats_map.get(f"{col}_min")
-                            c_max = stats_map.get(f"{col}_max")
-                            c_mean = stats_map.get(f"{col}_mean")
+                            clean_col = col.replace("`", "``")
+                            c_min = stats_map.get(f"{clean_col}_min")
+                            c_max = stats_map.get(f"{clean_col}_max")
+                            c_mean = stats_map.get(f"{clean_col}_mean")
                             
-                            # 2. Get median using ordered offset
-                            # Count non-null rows first
-                            count_sql = f"SELECT COUNT(*) FROM `{table_name}` WHERE `{col}` IS NOT NULL"
+                            count_sql = f"SELECT COUNT(*) FROM {safe_tbl} WHERE `{clean_col}` IS NOT NULL"
                             col_count = conn.execute(text(count_sql)).scalar() or 0
                             
                             median_val = 0.0
                             if col_count > 0:
                                 offset = max(0, (col_count - 1) // 2)
-                                median_sql = f"SELECT `{col}` FROM `{table_name}` WHERE `{col}` IS NOT NULL ORDER BY `{col}` LIMIT 1 OFFSET {offset}"
+                                median_sql = f"SELECT `{clean_col}` FROM {safe_tbl} WHERE `{clean_col}` IS NOT NULL ORDER BY `{clean_col}` LIMIT 1 OFFSET {offset}"
                                 median_val = conn.execute(text(median_sql)).scalar() or 0.0
                             
                             column_stats[col] = {
@@ -244,6 +241,8 @@ def get_preview(
             "detected_types": detected_types,
             "column_stats": column_stats
         }
+    except HTTPException:
+        raise
     except Exception as e:
         return {
             "success": False,
@@ -251,71 +250,55 @@ def get_preview(
         }
 
 
-from pydantic import BaseModel
-
 class SetActiveDatasetRequest(BaseModel):
     table_name: str
 
+
 @router.get("/datasets")
 def list_datasets(user_id: str = Depends(get_current_user_id)):
-    from app.database.connection import engine
-    from sqlalchemy import inspect
     try:
-        inspector = inspect(engine)
-        all_tables = inspector.get_table_names()
-        # Filter tables belonging only to this specific user (e.g. table_usr_usr_1)
-        suffix = f"_{user_id}"
-        datasets = [t for t in all_tables if t.endswith(suffix) and t not in ["query_history", "audit_logs", "users"]]
+        datasets = get_user_datasets(user_id)
         return {"success": True, "datasets": datasets}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-@router.post("/datasets/active")
-def set_active_dataset(req: SetActiveDatasetRequest, user_id: str = Depends(get_current_user_id)):
-    from app.services.table_manager import set_current_table
-    try:
-        # Verify ownership
-        if "_usr_" in req.table_name:
-            owner_id = "usr_" + req.table_name.split("_usr_")[-1]
-            if owner_id != user_id:
-                raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
-        set_current_table(req.table_name)
-        return {"success": True, "table_name": req.table_name}
     except HTTPException:
         raise
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
+@router.post("/datasets/active")
+def set_active_dataset(req: SetActiveDatasetRequest, user_id: str = Depends(get_current_user_id)):
+    try:
+        verified_table = resolve_and_authorize_dataset(user_id=user_id, requested_table_name=req.table_name)
+        set_current_table(verified_table, user_id=user_id)
+        return {"success": True, "table_name": verified_table}
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @router.delete("/datasets/{table_name}")
 def delete_dataset(table_name: str, user_id: str = Depends(get_current_user_id)):
     from app.database.connection import engine
     from sqlalchemy import text
-    from app.services.table_manager import get_current_table, set_current_table
-    from fastapi import HTTPException
+
+    # 1. Authorize table strictly (rejects system tables and other tenants' tables)
+    verified_table = resolve_and_authorize_dataset(user_id=user_id, requested_table_name=table_name)
     
-    if table_name in ["query_history", "audit_logs", "users"]:
-        raise HTTPException(status_code=400, detail="Cannot delete system tables")
-        
+    # 2. Hard guard: system tables can never be deleted
+    if is_system_table(verified_table):
+        raise HTTPException(status_code=403, detail="Access denied. You do not have permission to access this dataset.")
+
     try:
-        # Verify ownership
-        if "_usr_" in table_name:
-            owner_id = "usr_" + table_name.split("_usr_")[-1]
-            if owner_id != user_id:
-                raise HTTPException(status_code=403, detail="Access denied. You do not own this dataset.")
-                
-        from sqlalchemy import inspect
-        inspector = inspect(engine)
-        if table_name not in inspector.get_table_names():
-            raise HTTPException(status_code=404, detail="Dataset not found")
+        safe_tbl = safe_quote_table_name(verified_table, [verified_table])
+        with engine.connect() as conn:
+            conn.execute(text(f"DROP TABLE IF EXISTS {safe_tbl}"))
+            conn.commit()
+
+        if get_current_table(user_id=user_id) == verified_table:
+            set_current_table("", user_id=user_id)
             
-        with engine.begin() as conn:
-            conn.execute(text(f"DROP TABLE `{table_name}`"))
-            
-        # If this was the active table, clear active table
-        if get_current_table() == table_name:
-            set_current_table("")
-            
-        friendly_name = table_name.split("_usr_")[0] if "_usr_" in table_name else table_name
+        friendly_name = verified_table.split("_usr_")[0]
         return {"success": True, "message": f"Dataset {friendly_name} deleted successfully"}
     except HTTPException:
         raise
@@ -327,23 +310,28 @@ class ColumnDefinition(BaseModel):
     name: str
     type: str
 
+
 class CreateTableRequest(BaseModel):
     table_name: str
     columns: List[ColumnDefinition]
+
 
 @router.post("/datasets/create")
 def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_current_user_id)):
     from app.database.connection import engine
     from sqlalchemy import text
-    import re
     
     # 1. Validate Table Name (alphanumeric + underscore only)
+    validate_table_identifier_format(req.table_name)
     clean_table_name = re.sub(r'[^a-zA-Z0-9_]', '', req.table_name).lower()
-    if not clean_table_name:
+    if not clean_table_name or is_system_table(clean_table_name):
         raise HTTPException(status_code=400, detail="Invalid table name")
         
     physical_table_name = f"{clean_table_name}_{user_id}"
-    
+    validate_table_identifier_format(physical_table_name)
+    if is_system_table(physical_table_name):
+        raise HTTPException(status_code=403, detail="Cannot create table with system table name")
+
     # 2. Build Column Definitions SQL
     col_definitions = []
     # Always add an auto-incrementing id column as primary key
@@ -354,9 +342,8 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
         if not clean_col_name:
             continue
         if clean_col_name == "id":
-            continue # already added
+            continue
             
-        # Validate data type against a whitelist
         allowed_types = ["VARCHAR(255)", "INT", "DOUBLE", "DATE", "TEXT"]
         selected_type = col.type.upper()
         if selected_type not in allowed_types:
@@ -368,20 +355,21 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
         raise HTTPException(status_code=400, detail="Table must have at least one column")
         
     # 3. Execute CREATE TABLE
-    sql_create = f"CREATE TABLE `{physical_table_name}` (\n  " + ",\n  ".join(col_definitions) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+    safe_tbl = safe_quote_table_name(physical_table_name, [physical_table_name])
+    sql_create = f"CREATE TABLE {safe_tbl} (\n  " + ",\n  ".join(col_definitions) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
     
     try:
         with engine.begin() as conn:
             conn.execute(text(sql_create))
             
-        # Set active dataset in table manager
-        from app.services.table_manager import set_current_table
-        set_current_table(physical_table_name)
+        set_current_table(physical_table_name, user_id=user_id)
         
         return {
             "success": True, 
             "table_name": physical_table_name,
             "message": f"Table '{clean_table_name}' created successfully!"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

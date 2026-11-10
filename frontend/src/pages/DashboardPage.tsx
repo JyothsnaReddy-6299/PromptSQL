@@ -157,23 +157,34 @@ export default function DashboardPage() {
       if (isManualNavRef.current) return;
       if (activeSection === "reports" || activeSection === "audit" || activeSection === "cleaner") return;
 
-      const scrollPos = container.scrollTop + 140;
-
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
       const chatEl = document.getElementById("chat");
       const previewEl = document.getElementById("preview");
       const overviewEl = document.getElementById("overview");
 
-      if (chatEl && scrollPos >= chatEl.offsetTop) {
+      if (isAtBottom && chatEl) {
         setActiveSection("chat");
-      } else if (previewEl && scrollPos >= previewEl.offsetTop) {
+      } else if (chatEl && container.scrollTop + 160 >= chatEl.offsetTop) {
+        setActiveSection("chat");
+      } else if (previewEl && container.scrollTop + 160 >= previewEl.offsetTop) {
         setActiveSection("preview");
       } else if (overviewEl) {
         setActiveSection("overview");
       }
     };
 
+    const handleUserScrollIntent = () => {
+      isManualNavRef.current = false;
+    };
+
     container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
+    container.addEventListener("wheel", handleUserScrollIntent, { passive: true });
+    container.addEventListener("touchmove", handleUserScrollIntent, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      container.removeEventListener("wheel", handleUserScrollIntent);
+      container.removeEventListener("touchmove", handleUserScrollIntent);
+    };
   }, [activeSection]);
 
   const handleSectionClick = (sectionId: string) => {
@@ -187,18 +198,24 @@ export default function DashboardPage() {
       const element = document.getElementById(sectionId);
       const container = contentScrollRef.current;
       if (element && container) {
-        const elementTop = element.offsetTop;
-        container.scrollTo({
-          top: Math.max(0, elementTop - 16),
-          behavior: "smooth"
-        });
+        if (sectionId === "chat") {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth"
+          });
+        } else {
+          container.scrollTo({
+            top: Math.max(0, element.offsetTop - 16),
+            behavior: "smooth"
+          });
+        }
       }
     }, 10);
 
     // Release lock once smooth scrolling completes
     setTimeout(() => {
       isManualNavRef.current = false;
-    }, 800);
+    }, 1200);
   };
 
   return (
@@ -274,7 +291,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Chat box assistant */}
-            <div id="chat" className="scroll-mt-24">
+            <div id="chat" className="scroll-mt-24 pb-10">
               <ChatBox 
                 messages={chatMessages}
                 setMessages={setChatMessages}

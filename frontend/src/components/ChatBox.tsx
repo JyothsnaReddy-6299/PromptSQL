@@ -49,6 +49,10 @@ interface Message {
   warning?: string;
   requires_confirmation?: boolean;
   table_name?: string;
+  target_dataset?: string;
+  confirmation_token?: string;
+  estimated_rows?: number;
+  expires_at?: string;
   is_executing?: boolean;
   rows_affected?: number;
   execution_time_ms?: number;
@@ -189,6 +193,10 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
             warning: modCheck.warning,
             requires_confirmation: true,
             table_name: modCheck.table_name,
+            target_dataset: modCheck.target_dataset || modCheck.table_name,
+            confirmation_token: modCheck.confirmation_token,
+            estimated_rows: modCheck.estimated_rows,
+            expires_at: modCheck.expires_at,
             records: []
           }
         ]);
@@ -244,7 +252,15 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   };
 
   const handleConfirmModification = async (idx: number, msg: Message) => {
-    if (!msg.sql || !msg.intent || !msg.table_name) return;
+    if (!msg.confirmation_token) {
+      const finalized = [...messages];
+      finalized[idx].is_executing = false;
+      finalized[idx].requires_confirmation = false;
+      finalized[idx].text = "Missing server confirmation token. Please request a new preview.";
+      finalized[idx].error = "Missing confirmation token.";
+      setMessages(finalized);
+      return;
+    }
 
     try {
       // Set executing loading state
@@ -252,15 +268,21 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       updating[idx].is_executing = true;
       setMessages(updating);
 
-      // Execute transactionally
-      const result = await executeModification(msg.sql, msg.intent, msg.table_name, msg.question || "");
+      // Execute transactionally using confirmation token
+      const result = await executeModification(
+        msg.sql || "",
+        msg.intent || "",
+        msg.table_name || "",
+        msg.question || "",
+        msg.confirmation_token
+      );
 
       const finalized = [...messages];
       finalized[idx].is_executing = false;
       finalized[idx].requires_confirmation = false;
 
       if (result.success) {
-        finalized[idx].text = result.message; // LLM generated confirmation e.g. "18 records updated."
+        finalized[idx].text = result.message || "Modification executed successfully.";
         finalized[idx].rows_affected = result.rows_affected;
         finalized[idx].execution_time_ms = result.execution_time_ms;
         finalized[idx].records = result.records || []; // Save modified/inserted records
@@ -281,8 +303,8 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       const finalized = [...messages];
       finalized[idx].is_executing = false;
       finalized[idx].requires_confirmation = false;
-      finalized[idx].text = "Failed connecting to database executor.";
-      finalized[idx].error = err.message;
+      finalized[idx].text = "Execution failed. Transaction was not applied.";
+      finalized[idx].error = err.message || "Failed executing modification.";
       setMessages(finalized);
     }
   };
@@ -550,27 +572,42 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
                 {/* DML/DDL Confirmation Dialog Buttons */}
                 {msg.requires_confirmation && (
-                  <div className="bg-[#111113] border border-white/[0.12]/60 rounded-xl p-3 flex flex-col gap-2.5 text-left border-l-4 border-l-terracotta-500 shadow-sm">
-                    <p className="text-[10px] font-bold text-warmgray-800">
+                  <div className="bg-[#1e242b] border border-gray-700/80 rounded-xl p-3.5 flex flex-col gap-2.5 text-left border-l-4 border-l-amber-500 shadow-md">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-700/60 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          {msg.intent || "MODIFICATION"}
+                        </span>
+                        <span className="text-[10px] text-gray-300">
+                          Dataset: <strong className="text-white font-mono">{msg.target_dataset || msg.table_name}</strong>
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        Estimated Impact: <strong className="text-amber-400">{msg.estimated_rows !== undefined && msg.estimated_rows !== null ? `${msg.estimated_rows} row(s)` : (msg.intent === "ALTER" ? "0 rows (Schema modification)" : "Uncertain / Unestimated")}</strong>
+                      </div>
+                    </div>
+
+                    <p className="text-[10.5px] font-semibold text-gray-200">
                       This operation modifies database data or structures. Explicit approval is required.
                     </p>
-                    <div className="flex gap-2">
+
+                    <div className="flex gap-2 items-center pt-0.5">
                       <button
                         onClick={() => handleConfirmModification(idx, msg)}
                         disabled={msg.is_executing}
-                        className="bg-terracotta-500 hover:bg-terracotta-600 disabled:bg-terracotta-300 text-white px-3.5 py-1.5 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-sm shadow-terracotta-500/10"
+                        className="bg-[#FF5722] hover:bg-[#e64a19] disabled:bg-[#FF5722]/50 text-white px-3.5 py-1.5 rounded-lg text-[10.5px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:cursor-not-allowed"
                       >
                         {msg.is_executing ? (
                           <Loader2 size={12} className="animate-spin" />
                         ) : (
                           <Play size={10} className="fill-white" />
                         )}
-                        <span>{msg.is_executing ? "Executing..." : "Confirm & Execute"}</span>
+                        <span>{msg.is_executing ? "Executing Transaction..." : "Confirm & Execute"}</span>
                       </button>
                       <button
                         onClick={() => handleCancelModification(idx)}
                         disabled={msg.is_executing}
-                        className="bg-[#0D0D0F] border border-warmgray-250 hover:bg-[#111113] text-warmgray-600 px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                        className="bg-[#2a323d] border border-gray-600 hover:bg-[#343e4b] text-gray-200 px-3 py-1.5 rounded-lg text-[10.5px] font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition"
                       >
                         Cancel
                       </button>
@@ -796,7 +833,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           placeholder="Ask anything about your data..."
           rows={1}
           style={{ border: "none", outline: "none", boxShadow: "none", background: "transparent" }}
-          className="no-border flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 resize-none p-0 text-xs text-[#303841] placeholder-gray-400 font-semibold"
+          className="chat-input-textarea no-border flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 resize-none p-0 text-xs text-[#303841] placeholder-gray-400 font-semibold"
         />
 
         <button

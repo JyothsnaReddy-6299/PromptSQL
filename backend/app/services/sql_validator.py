@@ -1,6 +1,7 @@
 import re
 from sqlalchemy import inspect
 from app.database.connection import engine
+from app.services.dataset_guard import is_system_table, PROTECTED_SYSTEM_TABLES, PROTECTED_SCHEMA_PREFIXES
 
 
 BLOCKED_KEYWORDS = {
@@ -17,49 +18,55 @@ BLOCKED_KEYWORDS = {
 
 def validate_sql(sql_query, user_tables):
     """
-    Validates AI-generated SQL before execution against a list of user-owned tables.
+    Validates AI-generated SQL before execution against a list of verified user-owned tables.
+    Never leaks other tenants' table names or internal system structures in error messages.
     """
-
     sql = sql_query.strip()
 
     # ----------------------------
-    # Only SELECT queries allowed
+    # Only SELECT / WITH queries allowed
     # ----------------------------
-
     if not sql.lower().startswith("select") and not sql.lower().startswith("with"):
         return False, "The requested query is invalid and cannot be executed."
 
     # ----------------------------
     # Dangerous keywords
     # ----------------------------
-
     upper_sql = sql.upper()
-
     for keyword in BLOCKED_KEYWORDS:
-
         if re.search(rf"\b{keyword}\b", upper_sql):
-
             return (
                 False,
                 f"{keyword} statements are not allowed."
             )
 
-    inspector = inspect(engine)
-    all_db_tables = inspector.get_table_names()
+    # ----------------------------
+    # System table & schema protection
+    # ----------------------------
+    for sys_tbl in PROTECTED_SYSTEM_TABLES:
+        if re.search(rf"\b`?{re.escape(sys_tbl)}`?\b", sql, re.IGNORECASE):
+            return False, "Access denied. One or more referenced tables are unauthorized."
+
+    for schema in PROTECTED_SCHEMA_PREFIXES:
+        if re.search(rf"(?<![a-zA-Z0-9_])`?{re.escape(schema)}`?(?![a-zA-Z0-9_])", sql, re.IGNORECASE):
+            return False, "Access denied. One or more referenced tables are unauthorized."
 
     # ----------------------------
     # Check table permissions (Security)
     # ----------------------------
+    inspector = inspect(engine)
+    all_db_tables = inspector.get_table_names()
+
     # Verify that the query does NOT access any database tables that are NOT in user_tables
     for tbl in all_db_tables:
         if tbl not in user_tables:
-            if re.search(rf"\b{re.escape(tbl)}\b", sql, re.IGNORECASE):
-                return False, f"Access to table '{tbl}' is forbidden."
+            if re.search(rf"\b`?{re.escape(tbl)}`?\b", sql, re.IGNORECASE):
+                # Generic error message to prevent leaking existence of other tenants' tables
+                return False, "Access denied. One or more referenced tables are unauthorized."
 
     # ----------------------------
     # Check all backticked columns
     # ----------------------------
-
     valid_columns = set()
     known_tables = set()
     for tbl in user_tables:
@@ -90,4 +97,4 @@ def validate_sql(sql_query, user_tables):
     return (
         True,
         "SQL is valid."
-    )   
+    )

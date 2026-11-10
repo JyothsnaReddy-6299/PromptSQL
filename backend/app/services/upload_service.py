@@ -13,9 +13,7 @@ def clean_table_name(filename: str):
     Only the table name is cleaned.
     Column names remain EXACTLY as uploaded.
     """
-
     table_name = filename.rsplit(".", 1)[0]
-
     table_name = (
         table_name
         .strip()
@@ -24,18 +22,14 @@ def clean_table_name(filename: str):
         .replace("/", "_")
         .lower()
     )
-
     return table_name
 
 
 def load_dataset(filepath: str):
-
     if filepath.endswith(".csv"):
         return pd.read_csv(filepath)
-
     elif filepath.endswith((".xlsx", ".xls")):
         return pd.read_excel(filepath)
-
     else:
         raise Exception("Unsupported file type.")
 
@@ -44,23 +38,19 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     """
     Complete upload pipeline.
     """
-
     # ------------------------
     # Read dataset
     # ------------------------
-
     df = load_dataset(filepath)
 
     # ------------------------
     # Preserve ORIGINAL column names
     # ------------------------
-
     df.columns = df.columns.str.strip()
 
     # ------------------------
     # Detect datatypes
     # ------------------------
-
     detected_types = detect_column_types(df)
 
     print("\nDetected Types")
@@ -69,7 +59,6 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     # ------------------------
     # Clean data
     # ------------------------
-
     cleaned_df = clean_dataframe(
         df,
         detected_types
@@ -78,7 +67,6 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     # ------------------------
     # Table name
     # ------------------------
-
     table_name = clean_table_name(filename)
     if user_id and user_id != "default_user":
         safe_user_id = "".join([c if c.isalnum() else "_" for c in user_id])
@@ -118,29 +106,20 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     )
 
     # ------------------------
-    # Save current table
+    # Save current table (user-scoped)
     # ------------------------
-
-    set_current_table(table_name)
+    set_current_table(table_name, user_id=user_id)
 
     # ------------------------
     # Statistics
     # ------------------------
-
     return {
-
         "filename": filename,
-
         "table_name": table_name,
-
         "rows": len(cleaned_df),
-
         "columns": len(cleaned_df.columns),
-
         "missing_values": int(
             cleaned_df.isna().sum().sum()
         ),
-
         "detected_types": detected_types
-
     }
