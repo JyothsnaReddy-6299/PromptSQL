@@ -50,9 +50,15 @@ def acquire_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME, timeout_se
         return False
 
 
-def release_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME) -> bool:
+def release_advisory_lock(
+    conn,
+    lock_name: str = MIGRATION_LOCK_NAME,
+    invalidate_on_failure: bool = False
+) -> bool:
     """
     Releases a named MySQL advisory lock on this connection.
+    If release fails and invalidate_on_failure is True, the connection is invalidated
+    so it cannot return to the connection pool with an unreleased advisory lock.
 
     MySQL RELEASE_LOCK() return values:
     - 1: Lock was released.
@@ -62,6 +68,14 @@ def release_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME) -> bool:
     dialect = getattr(conn.dialect, "name", "").lower()
     if dialect != "mysql":
         return True
+
+    def _maybe_invalidate():
+        if invalidate_on_failure:
+            try:
+                conn.invalidate()
+                logger.info(f"Connection invalidated following advisory lock '{lock_name}' release failure.")
+            except Exception as inv_err:
+                logger.warning(f"Failed to invalidate connection: {sanitize_error_message(str(inv_err))}")
 
     try:
         res = conn.execute(
@@ -74,16 +88,20 @@ def release_advisory_lock(conn, lock_name: str = MIGRATION_LOCK_NAME) -> bool:
             return True
         elif res == 0:
             logger.warning(f"Advisory lock '{lock_name}' was not released: lock not held by this connection.")
+            _maybe_invalidate()
             return False
         elif res is None:
             logger.warning(f"Advisory lock '{lock_name}' did not exist (returned NULL on release).")
+            _maybe_invalidate()
             return False
         else:
             logger.warning(f"Advisory lock '{lock_name}' release returned unexpected value: {res}.")
+            _maybe_invalidate()
             return False
     except Exception as e:
         safe_msg = sanitize_error_message(str(e))
         logger.warning(f"Exception while releasing MySQL advisory lock '{lock_name}': {safe_msg}")
+        _maybe_invalidate()
         return False
 
 
@@ -116,9 +134,9 @@ def verify_user_active_datasets_schema(engine_or_conn, table_name: str = USER_AC
             f"Table '{table_name}' column 'user_id' has incompatible type: expected VARCHAR/String, got {uid_type}."
         )
     uid_len = getattr(uid_type, "length", None)
-    if uid_len is not None and uid_len < 50:
+    if uid_len != 50:
         raise RuntimeError(
-            f"Table '{table_name}' column 'user_id' length is too short: expected >= 50, got {uid_len}."
+            f"Table '{table_name}' column 'user_id' length mismatch (too short or invalid): expected exactly 50, got {uid_len}."
         )
     if uid_col.get("nullable") is True:
         raise RuntimeError(f"Table '{table_name}' column 'user_id' must be NOT NULL.")
@@ -142,9 +160,9 @@ def verify_user_active_datasets_schema(engine_or_conn, table_name: str = USER_AC
             f"Table '{table_name}' column 'table_name' has incompatible type: expected VARCHAR/String, got {tname_type}."
         )
     tname_len = getattr(tname_type, "length", None)
-    if tname_len is not None and tname_len < 64:
+    if tname_len != 100:
         raise RuntimeError(
-            f"Table '{table_name}' column 'table_name' length is too short: expected >= 64, got {tname_len}."
+            f"Table '{table_name}' column 'table_name' length mismatch: expected exactly 100, got {tname_len}."
         )
     if tname_col.get("nullable") is True:
         raise RuntimeError(f"Table '{table_name}' column 'table_name' must be NOT NULL.")
@@ -159,8 +177,10 @@ def verify_user_active_datasets_schema(engine_or_conn, table_name: str = USER_AC
         raise RuntimeError(
             f"Table '{table_name}' column 'updated_at' has incompatible type: expected DATETIME/TIMESTAMP, got {upd_type}."
         )
+    if upd_col.get("nullable") is False:
+        raise RuntimeError(f"Table '{table_name}' column 'updated_at' must be nullable (DATETIME NULL).")
 
-    # 5. Verify storage engine (MySQL only)
+    # 5. Verify storage engine & collation (MySQL only)
     dialect = getattr(getattr(engine_or_conn, "dialect", None), "name", "").lower()
     engine_name = "default"
     table_collation = "default"
@@ -195,12 +215,23 @@ def verify_user_active_datasets_schema(engine_or_conn, table_name: str = USER_AC
                     raise RuntimeError(
                         f"Table '{table_name}' has invalid storage engine: expected InnoDB, got {engine_name}."
                     )
+                if table_collation and "utf8mb4" not in table_collation.lower():
+                    raise RuntimeError(
+                        f"Table '{table_name}' has incompatible collation: expected utf8mb4, got {table_collation}."
+                    )
         except RuntimeError:
             raise
         except Exception as e:
             logger.debug(f"Could not inspect engine from information_schema: {e}")
 
+    # 6. Verify secondary index uniqueness
     indexes = inspector.get_indexes(table_name)
+    for idx in indexes:
+        if idx.get("column_names") == ["user_id"] and idx.get("name") != "PRIMARY":
+            if idx.get("unique") is True:
+                raise RuntimeError(
+                    f"Table '{table_name}' secondary index '{idx.get('name')}' must be non-unique (primary key already enforces uniqueness)."
+                )
 
     return {
         "valid": True,
@@ -223,7 +254,10 @@ def ensure_user_active_datasets_table(
     Ensures that the user_active_datasets table exists and is fully verified.
     Acquires a cross-worker advisory lock during creation and schema verification.
     Aborts with a sanitized RuntimeError if initialization or verification fails.
+    If lock release fails, the connection is invalidated to prevent pool reuse.
+    Preserves original migration exception without letting cleanup mask it.
     """
+    migration_exc = None
     try:
         with engine.connect() as conn:
             lock_acquired = acquire_advisory_lock(conn, lock_name=lock_name, timeout_seconds=lock_timeout)
@@ -249,13 +283,27 @@ def ensure_user_active_datasets_table(
 
                 # Verify schema strictly
                 verify_user_active_datasets_schema(conn, table_name=table_name)
+            except Exception as me:
+                migration_exc = me
+                raise
             finally:
-                released = release_advisory_lock(conn, lock_name=lock_name)
-                if not released and getattr(conn.dialect, "name", "").lower() == "mysql":
-                    logger.warning(
-                        f"[STARTUP] Advisory lock '{lock_name}' release was unsuccessful or not held by this session."
-                    )
+                try:
+                    released = release_advisory_lock(conn, lock_name=lock_name, invalidate_on_failure=True)
+                    if not released and getattr(conn.dialect, "name", "").lower() == "mysql":
+                        logger.warning(
+                            f"[STARTUP] Advisory lock '{lock_name}' release was unsuccessful or not held by this session. "
+                            "Connection invalidated to prevent pool reuse with unreleased locks."
+                        )
+                except Exception as cleanup_err:
+                    safe_cleanup = sanitize_error_message(str(cleanup_err))
+                    logger.warning(f"Error during advisory lock cleanup: {safe_cleanup}")
+                    try:
+                        conn.invalidate()
+                    except Exception:
+                        pass
     except Exception as e:
         safe_msg = sanitize_error_message(str(e))
         logger.error(f"[STARTUP FATAL] Failed initializing '{table_name}' schema: {safe_msg}")
+        if migration_exc is not None:
+            raise migration_exc
         raise RuntimeError(f"Active dataset table initialization failed: {safe_msg}") from None

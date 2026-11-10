@@ -505,23 +505,41 @@ class TestTenantIsolation(unittest.TestCase):
         self.assertTrue(clean_a.json().get("success"))
 
         # User A preview modification
-        prev_a = self.client.post(
-            "/api/modification/ask",
-            json={"question": "Update price of Laptop to 1250"},
-            headers=headers_a
-        )
-        self.assertEqual(prev_a.status_code, 200)
-        token_a = prev_a.json().get("confirmation_token")
-        self.assertTrue(token_a)
+        from unittest.mock import patch, MagicMock
+        mock_groq = MagicMock()
+        def fake_create(**kwargs):
+            messages = kwargs.get("messages", [])
+            sys_msg = messages[0]["content"].lower() if messages else ""
+            res = MagicMock()
+            if "intent" in sys_msg:
+                content = "UPDATE"
+            elif "impact" in sys_msg or "explain" in sys_msg:
+                content = "This will update 1 row."
+            else:
+                content = f"UPDATE `{self.table_a}` SET amount = 1250.0 WHERE product = 'Laptop'"
+            res.choices = [MagicMock(message=MagicMock(content=content))]
+            return res
 
-        # User A execute modification with confirmation token
-        mod_a = self.client.post(
-            "/api/modification/execute",
-            json={"confirmation_token": token_a},
-            headers=self.headers_a
-        )
-        self.assertEqual(mod_a.status_code, 200)
-        self.assertTrue(mod_a.json().get("success"))
+        mock_groq.return_value.chat.completions.create.side_effect = fake_create
+
+        with patch("app.services.llm_service.Groq", mock_groq):
+            prev_a = self.client.post(
+                "/api/modification/ask",
+                json={"question": "Update price of Laptop to 1250"},
+                headers=headers_a
+            )
+            self.assertEqual(prev_a.status_code, 200)
+            token_a = prev_a.json().get("confirmation_token")
+            self.assertTrue(token_a)
+
+            # User A execute modification with confirmation token
+            mod_a = self.client.post(
+                "/api/modification/execute",
+                json={"confirmation_token": token_a},
+                headers=self.headers_a
+            )
+            self.assertEqual(mod_a.status_code, 200)
+            self.assertTrue(mod_a.json().get("success"))
 
 
 if __name__ == "__main__":

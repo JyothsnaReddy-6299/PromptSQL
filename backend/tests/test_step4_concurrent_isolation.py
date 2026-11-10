@@ -345,29 +345,48 @@ class Step4ConcurrentUserIsolationTests(unittest.TestCase):
 
     def test_12_modification_confirmation_remaining_bound_to_original_dataset(self):
         """Switching active dataset does NOT redirect an existing confirmation token to another table."""
-        # 1. Preview modification on Table A1
-        preview_resp = self.client.post(
-            "/api/modification/ask",
-            json={"question": "Update Alice_A1 val to 150"},
-            headers={"Authorization": f"Bearer {self.token_a}", "X-Table-Name": self.table_a1}
-        )
-        self.assertEqual(preview_resp.status_code, 200)
-        data = preview_resp.json()
-        token = data.get("confirmation_token")
-        self.assertIsNotNone(token)
-        self.assertEqual(data.get("table_name"), self.table_a1)
+        from unittest.mock import patch, MagicMock
 
-        # 2. User A switches active dataset to Table A2
-        set_current_table(self.table_a2, user_id=self.user_id_a)
-        self.assertEqual(get_current_table(self.user_id_a), self.table_a2)
+        mock_groq = MagicMock()
+        def fake_create(**kwargs):
+            messages = kwargs.get("messages", [])
+            sys_msg = messages[0]["content"].lower() if messages else ""
+            res = MagicMock()
+            if "intent" in sys_msg:
+                content = "UPDATE"
+            elif "impact" in sys_msg or "explain" in sys_msg:
+                content = "This will update 1 row."
+            else:
+                content = f"UPDATE `{self.table_a1}` SET val = 150 WHERE name = 'Alice_A1'"
+            res.choices = [MagicMock(message=MagicMock(content=content))]
+            return res
 
-        # 3. User A executes confirmation token
-        exec_resp = self.client.post(
-            "/api/modification/execute",
-            json={"confirmation_token": token},
-            headers={"Authorization": f"Bearer {self.token_a}"}
-        )
-        self.assertEqual(exec_resp.status_code, 200)
+        mock_groq.return_value.chat.completions.create.side_effect = fake_create
+
+        with patch("app.services.llm_service.Groq", mock_groq):
+            # 1. Preview modification on Table A1
+            preview_resp = self.client.post(
+                "/api/modification/ask",
+                json={"question": "Update Alice_A1 val to 150"},
+                headers={"Authorization": f"Bearer {self.token_a}", "X-Table-Name": self.table_a1}
+            )
+            self.assertEqual(preview_resp.status_code, 200)
+            data = preview_resp.json()
+            token = data.get("confirmation_token")
+            self.assertIsNotNone(token)
+            self.assertEqual(data.get("table_name"), self.table_a1)
+
+            # 2. User A switches active dataset to Table A2
+            set_current_table(self.table_a2, user_id=self.user_id_a)
+            self.assertEqual(get_current_table(self.user_id_a), self.table_a2)
+
+            # 3. User A executes confirmation token
+            exec_resp = self.client.post(
+                "/api/modification/execute",
+                json={"confirmation_token": token},
+                headers={"Authorization": f"Bearer {self.token_a}"}
+            )
+            self.assertEqual(exec_resp.status_code, 200)
         exec_data = exec_resp.json()
         self.assertTrue(exec_data.get("success"))
 
