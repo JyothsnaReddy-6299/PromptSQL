@@ -15,6 +15,7 @@ from app.models.report import SavedReport
 from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.models.pending_modification import PendingModification
+from app.models.user_active_dataset import UserActiveDataset
 
 from app.routes.upload import router as upload_router
 from app.routes.ask import router as ask_router

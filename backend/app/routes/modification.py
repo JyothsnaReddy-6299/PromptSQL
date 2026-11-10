@@ -483,6 +483,15 @@ def execute_modification_query(
 
     # 9. Update state & save audit / history records
     if result["success"]:
+        # If dataset was permanently dropped, clear active dataset state for this user
+        if intent == "DROP":
+            try:
+                from app.services.table_manager import get_current_table, clear_current_table
+                if get_current_table(user_id=user_id) == table_name:
+                    clear_current_table(user_id=user_id)
+            except Exception:
+                pass
+
         bookkeeping_err = None
 
         try:

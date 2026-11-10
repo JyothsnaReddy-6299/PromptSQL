@@ -16,13 +16,14 @@ from sqlalchemy import inspect
 
 from app.database.connection import engine
 from app.services.auth_service import get_current_user_id
-from app.services.table_manager import get_current_table, set_current_table
+from app.services.table_manager import get_current_table, set_current_table, clear_current_table
 
 # ---------------------------------------------------------------------------
 # 1. Centralized Explicit Denylist of Protected System Tables
 # ---------------------------------------------------------------------------
 PROTECTED_SYSTEM_TABLES: Set[str] = frozenset({
     "users",
+    "user_active_datasets",
     "query_history",
     "audit_logs",
     "saved_reports",
@@ -141,17 +142,19 @@ def resolve_and_authorize_dataset(
     if not target:
         # Fall back to user-scoped active table
         active = get_current_table(user_id=user_id)
-        if not active:
-            user_tables = get_user_datasets(user_id)
-            if user_tables:
-                active = user_tables[0]
-                set_current_table(active, user_id=user_id)
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No dataset uploaded yet. Please upload a dataset first."
-                )
-        target = active
+        user_tables = get_user_datasets(user_id)
+        if active and active in user_tables:
+            target = active
+        elif user_tables:
+            # Stale or missing active table: automatically switch to first valid owned table
+            target = user_tables[0]
+            set_current_table(target, user_id=user_id)
+        else:
+            clear_current_table(user_id=user_id)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No dataset uploaded yet. Please upload a dataset first."
+            )
 
     # Strip enclosing backticks/quotes if present
     target = target.strip("`").strip("'").strip('"').strip()

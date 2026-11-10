@@ -81,7 +81,7 @@ export default function AuthModal({
         localStorage.setItem("promptsql_token", data.token);
         localStorage.setItem("promptsql_user_id", data.user_id);
         localStorage.setItem("promptsql_username", data.username);
-        sessionStorage.removeItem("dataset");
+        sessionStorage.clear();
         if (onSuccess) onSuccess();
         onClose();
       } else {
@@ -90,7 +90,7 @@ export default function AuthModal({
         localStorage.setItem("promptsql_token", data.token);
         localStorage.setItem("promptsql_user_id", data.user_id);
         localStorage.setItem("promptsql_username", data.username);
-        sessionStorage.removeItem("dataset");
+        sessionStorage.clear();
         setTimeout(() => {
           if (onSuccess) onSuccess();
           onClose();
