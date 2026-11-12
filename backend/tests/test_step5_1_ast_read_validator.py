@@ -655,6 +655,63 @@ class TestStep51ASTReadValidator(unittest.TestCase):
         self.assertFalse(valid, "Expected original column name 'amount' to be rejected when CTE declares (total, st).")
         self.assertIn("Unknown column 'amount'", msg)
 
+    def test_g09_step5212_function_allowlist_accepted(self):
+        """Verifies that legitimate built-in analytical functions pass the allowlist (Step 5.2.1.2 Part A)."""
+        schemas = {
+            "sales_usr_1": ["id", "amount", "customer_name", "first_name", "last_name", "date_column", "created_at"]
+        }
+        test_queries = [
+            "SELECT COUNT(*) FROM sales_usr_1",
+            "SELECT SUM(amount) FROM sales_usr_1",
+            "SELECT AVG(amount) FROM sales_usr_1",
+            "SELECT LOWER(customer_name) FROM sales_usr_1",
+            "SELECT CONCAT(first_name, last_name) FROM sales_usr_1",
+            "SELECT ROUND(amount, 2) FROM sales_usr_1",
+            "SELECT COALESCE(amount, 0) FROM sales_usr_1",
+            "SELECT NOW() FROM sales_usr_1",
+            "SELECT DATE_FORMAT(date_column, '%Y-%m') FROM sales_usr_1",
+            "SELECT ROW_NUMBER() OVER (ORDER BY amount) FROM sales_usr_1",
+        ]
+        for sql in test_queries:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, schemas)
+                self.assertTrue(valid, f"Expected legitimate function query to pass: {sql} - Error: {msg}")
+
+    def test_g10_step5212_unknown_and_user_defined_functions_rejected(self):
+        """Verifies that unknown and user-defined functions are rejected by default (Step 5.2.1.2 Part A)."""
+        schemas = {
+            "sales_usr_1": ["id", "amount"]
+        }
+        rejected_queries = [
+            ("SELECT UNKNOWN_FUNCTION(id) FROM sales_usr_1", "UNKNOWN_FUNCTION"),
+            ("SELECT custom_stored_function(id) FROM sales_usr_1", "CUSTOM_STORED_FUNCTION"),
+            ("SELECT do_something_evil(amount) FROM sales_usr_1", "DO_SOMETHING_EVIL"),
+            ("SELECT my_proc(id) FROM sales_usr_1", "MY_PROC"),
+        ]
+        for sql, fn_name in rejected_queries:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, schemas)
+                self.assertFalse(valid, f"Expected unknown function to be rejected: {sql}")
+                self.assertIn("not permitted", msg.lower())
+                self.assertIn(fn_name, msg)
+
+    def test_g11_step5212_quoted_and_backticked_unknown_functions_rejected(self):
+        """Verifies that quoted and backticked unknown function names cannot bypass validation (Step 5.2.1.2 Part A)."""
+        schemas = {
+            "sales_usr_1": ["id", "amount"]
+        }
+        rejected_queries = [
+            ("SELECT `UNKNOWN_FUNCTION`(id) FROM sales_usr_1", "UNKNOWN_FUNCTION"),
+            ("SELECT `custom_stored_function`(id) FROM sales_usr_1", "CUSTOM_STORED_FUNCTION"),
+            ("SELECT `malicious_func`(id) FROM sales_usr_1", "MALICIOUS_FUNC"),
+        ]
+        for sql, fn_name in rejected_queries:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, schemas)
+                self.assertFalse(valid, f"Expected quoted unknown function to be rejected: {sql}")
+                self.assertIn("not permitted", msg.lower())
+                self.assertIn(fn_name, msg)
+
 
 if __name__ == "__main__":
     unittest.main()

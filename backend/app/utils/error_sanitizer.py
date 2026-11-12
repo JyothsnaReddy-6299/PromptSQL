@@ -65,9 +65,21 @@ def get_safe_exception_message(e: Exception, is_production: bool = False, contex
 
     if is_production:
         lower_raw = raw_str.lower()
-        if any(db_err in lower_raw for db_err in ("operationalerror", "programmingerror", "pymysql", "sqlalchemy", "access denied", "can't connect")):
+        # 1. Query timeout errors
+        if any(t_err in lower_raw for t_err in ("3024", "max_execution_time", "statement execution time exceeded", "query execution was interrupted", "timed out", "timeout")):
+            return "Query execution timed out. Please simplify your query or apply stricter filters."
+        # 2. Result budget / cell size limit errors
+        if any(s_err in lower_raw for s_err in ("cell size exceeds", "result cell exceeds", "maximum size limit", "result size limit", "byte budget")):
+            return "The query result exceeds the maximum permitted size. Please refine your query filters."
+        # 3. Database driver and syntax errors
+        if any(db_err in lower_raw for db_err in (
+            "operationalerror", "programmingerror", "databaseerror", "interfaceerror",
+            "pymysql", "sqlalchemy", "mysql", "access denied", "can't connect",
+            "table doesn't exist", "unknown column", "syntax error", "1054", "1146", "1064", "1792", "read-only", "lost connection"
+        )):
             return "A database error occurred while processing your request. Please try again later."
-        if any(llm_err in lower_raw for llm_err in ("groq", "ratelimit", "authenticationerror")):
+        # 4. LLM service errors
+        if any(llm_err in lower_raw for llm_err in ("groq", "ratelimit", "authenticationerror", "api key", "openai")):
             return "The AI Analytics service is currently unavailable. Please try again shortly."
         return f"An unexpected error occurred while processing your {context}."
 

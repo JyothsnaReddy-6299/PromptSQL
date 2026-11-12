@@ -12,7 +12,7 @@ def sanitize_for_json(data):
     elif isinstance(data, dict):
         return {key: sanitize_for_json(val) for key, val in data.items()}
     elif isinstance(data, Decimal):
-        return float(data)
+        return format(data, "f")
     elif isinstance(data, (datetime.date, datetime.datetime)):
         return data.isoformat()
     return data

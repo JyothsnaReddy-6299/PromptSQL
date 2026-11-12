@@ -18,7 +18,7 @@ def format_value(value):
     return str(value)
 
 
-def generate_aggregate_summary(question, sql, records):
+def generate_aggregate_summary(question, sql, records, is_truncated: bool = False):
     """
     Generates deterministic summaries for aggregate SQL queries.
     No LLM is used here.
@@ -123,11 +123,11 @@ def generate_aggregate_summary(question, sql, records):
                     )
 
         return (
-            f"The query returned {len(records)} grouped results."
+            f"The query returned the first {len(records)} grouped results (capped at system limit)." if is_truncated else f"The query returned {len(records)} grouped results."
         )
 
     # ---------------------------------
     # FALLBACK
     # ---------------------------------
 
-    return f"The query returned {len(records)} record(s)."
+    return f"The query returned {len(records)} record(s) (capped at system limit)." if is_truncated else f"The query returned {len(records)} record(s)."

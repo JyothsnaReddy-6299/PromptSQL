@@ -51,6 +51,44 @@ PROHIBITED_FUNCTION_NAMES: Set[str] = frozenset({
     "SCHEMA",
 })
 
+# Explicit allowlist of authorized built-in SQL functions (Step 5.2.1.2)
+# Unknown, user-defined, or stored functions are rejected by default.
+ALLOWED_FUNCTION_NAMES: Set[str] = frozenset({
+    # 1. Aggregates
+    "COUNT", "SUM", "AVG", "MIN", "MAX", "GROUP_CONCAT",
+    "STDDEV", "STDDEV_POP", "STDDEV_SAMP", "VARIANCE", "VAR_POP", "VAR_SAMP",
+
+    # 2. String operations & formatting
+    "LOWER", "UPPER", "CONCAT", "CONCAT_WS", "SUBSTRING", "SUBSTR",
+    "TRIM", "LTRIM", "RTRIM", "LENGTH", "CHAR_LENGTH", "REPLACE",
+    "LEFT", "RIGHT", "LPAD", "RPAD", "INSTR", "LOCATE", "REVERSE",
+    "FORMAT",
+
+    # 3. Numeric & mathematical operations
+    "ROUND", "ABS", "CEIL", "CEILING", "FLOOR", "TRUNCATE", "MOD",
+    "POW", "POWER", "SQRT", "SIGN", "GREATEST", "LEAST", "EXP",
+    "LN", "LOG", "LOG2", "LOG10",
+
+    # 4. Date and time operations
+    "NOW", "CURDATE", "CURRENT_DATE", "CURTIME", "CURRENT_TIME",
+    "DATE", "TIME", "YEAR", "MONTH", "DAY", "DAYOFMONTH", "DAYOFWEEK",
+    "DAYOFYEAR", "HOUR", "MINUTE", "SECOND", "QUARTER", "WEEK",
+    "DATEDIFF", "TIMEDIFF", "DATE_ADD", "DATE_SUB", "ADDDATE", "SUBDATE",
+    "DATE_FORMAT", "STR_TO_DATE", "EXTRACT", "TIMESTAMPADD", "TIMESTAMPDIFF",
+    # SQLGlot internal representations for MySQL date/time parsing
+    "TIME_TO_STR", "STR_TO_TIME", "TS_OR_DS_TO_DATE", "TS_OR_DS_TO_TIMESTAMP",
+
+    # 5. Null safety & conditional operations
+    "COALESCE", "IFNULL", "NULLIF", "IF",
+
+    # 6. Type conversion & non-destructive hashing
+    "CAST", "CONVERT", "MD5", "SHA1", "SHA2",
+
+    # 7. Window & ranking functions
+    "ROW_NUMBER", "RANK", "DENSE_RANK", "NTILE", "LAG", "LEAD",
+    "FIRST_VALUE", "LAST_VALUE",
+})
+
 # Prohibited AST classes (system parameters, user variables, administrative constructs)
 PROHIBITED_AST_CLASSES: Tuple[type, ...] = (
     exp.CurrentUser,
@@ -223,20 +261,30 @@ def validate_sql(
         if isinstance(node, PROHIBITED_AST_CLASSES):
             return False, f"Prohibited SQL construct '{type(node).__name__}' is not permitted."
 
-        # SEC-01: Prohibited functions (Anonymous and explicit AST functions, handling quoted names)
+        # SEC-01 & Step 5.2.1.2: Prohibited functions & Default-deny Function Allowlist
         if isinstance(node, exp.Anonymous):
             raw = node.this.this if isinstance(node.this, exp.Identifier) else str(node.this)
             func_name = raw.strip("`'\"").upper()
             if func_name in PROHIBITED_FUNCTION_NAMES:
                 return False, f"Prohibited SQL function '{func_name}' is not permitted."
-        elif isinstance(node, exp.Func):
+            if func_name not in ALLOWED_FUNCTION_NAMES:
+                return False, f"Disallowed or unknown SQL function '{func_name}' is not permitted."
+        elif isinstance(node, exp.Func) and not isinstance(node, (exp.Connector, exp.Case, exp.Exists)):
             sql_n = getattr(node, "sql_name", lambda: "")().upper()
             type_n = type(node).__name__.upper()
             key_n = getattr(node, "key", "").upper()
             raw_id = node.name.strip("`'\"").upper() if hasattr(node, "name") and isinstance(node.name, str) else ""
-            for candidate in [sql_n, type_n, key_n, raw_id]:
+            candidates = [c for c in [sql_n, type_n, key_n, raw_id] if c]
+
+            # 1. Prohibited functions check
+            for candidate in candidates:
                 if candidate in PROHIBITED_FUNCTION_NAMES:
                     return False, f"Prohibited SQL function '{candidate}' is not permitted."
+
+            # 2. Allowlist check: at least one candidate identifier must be allowlisted
+            if not any(c in ALLOWED_FUNCTION_NAMES for c in candidates):
+                display_name = sql_n or type_n or raw_id or "UNKNOWN"
+                return False, f"Disallowed or unknown SQL function '{display_name}' is not permitted."
 
     # 3. Scope Traversal & Table Resolution
     user_tables_set: Set[str] = {t.lower() for t in user_tables}

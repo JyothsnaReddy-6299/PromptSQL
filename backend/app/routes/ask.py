@@ -10,6 +10,7 @@ from app.services.dataset_guard import (
     is_system_table
 )
 from app.services.sql_generator import generate_sql
+from app.services.table_translator import translate_query_tables, TableTranslationError
 from app.services.sql_validator import validate_sql
 from app.services.sql_regenerator import regenerate_sql
 from app.services.sql_executor import execute_sql
@@ -18,7 +19,8 @@ from app.services.result_interpreter import interpret_result
 from app.services.aggregate_summary import generate_aggregate_summary
 from app.services.summary_generator import generate_summary
 from app.services.auth_service import get_current_user_id
-from app.utils.error_sanitizer import sanitize_error_message
+from app.core.config import get_settings
+from app.utils.error_sanitizer import sanitize_error_message, get_safe_exception_message
 
 router = APIRouter()
 
@@ -99,29 +101,52 @@ def ask_question(
         print(sql_query)
 
         # -----------------------------------------
-        # Validate SQL
+        # Translate & Validate SQL (AST-Based)
         # -----------------------------------------
+        validated_physical_sql: Optional[str] = None
+        last_error_message: str = ""
+
         for _ in range(MAX_RETRIES):
-            # Translate all friendly table references to physical table names
-            physical_sql = sql_query
-            for t in user_tables:
-                friendly_tbl = t.split("_usr_")[0]
-                physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_tbl)}\`?(?!\w)", f"`{t}`", physical_sql)
+            # 1. Translate friendly table references to physical table names via SQLGlot AST
+            try:
+                candidate_physical_sql = translate_query_tables(
+                    sql_query=sql_query,
+                    authorized_tables=user_tables,
+                    user_id=user_id
+                )
+            except TableTranslationError as trans_err:
+                last_error_message = str(trans_err)
+                print("\nTable Translation Failed:")
+                print(last_error_message)
 
-            # Auto-correct any generic or mismatched table references in FROM/JOIN clauses to use the active table
-            from_join_tables = re.findall(r"\b(?:FROM|JOIN)\s+`?([a-zA-Z0-9_\-\(\)]+)`?", physical_sql, re.IGNORECASE)
-            for tbl in from_join_tables:
-                if tbl not in user_tables and not is_system_table(tbl):
-                    physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(tbl)}\`?(?!\w)", f"`{table_name}`", physical_sql)
+                # Sanitize physical table names so LLM sees friendly names
+                sanitized_message = last_error_message
+                for t in user_tables:
+                    friendly_tbl = t.split("_usr_")[0]
+                    sanitized_message = sanitized_message.replace(t, friendly_tbl)
 
+                sql_query = regenerate_sql(
+                    payload.question,
+                    table_name,
+                    sql_query,
+                    sanitized_message,
+                    user_id
+                )
+                print("\nRegenerated SQL:")
+                print(sql_query)
+                continue
+
+            # 2. Validate translated physical SQL using AST validator
             valid, message = validate_sql(
-                physical_sql,
+                candidate_physical_sql,
                 user_tables
             )
 
             if valid:
+                validated_physical_sql = candidate_physical_sql
                 break
 
+            last_error_message = message
             print("\nValidation Failed")
             print(message)
 
@@ -145,21 +170,25 @@ def ask_question(
         else:
             return {
                 "success": False,
-                "error": message
+                "error": last_error_message
             }
 
         # -----------------------------------------
         # Execute SQL
         # -----------------------------------------
-        physical_sql = sql_query
-        for t in user_tables:
-            friendly_tbl = t.split("_usr_")[0]
-            physical_sql = re.sub(rf"(?<!\w)\`?{re.escape(friendly_tbl)}\`?(?!\w)", f"`{t}`", physical_sql)
+        # CRITICAL: The SQL executed is byte-for-byte the exact same SQL that was validated!
+        physical_sql = validated_physical_sql
 
         # Multi-table authorization verification: every referenced table must be authorized
         verify_all_referenced_tables(physical_sql, user_id, user_tables)
 
-        records = execute_sql(physical_sql)
+        exec_res = execute_sql(physical_sql)
+        records = exec_res.records
+        is_truncated = exec_res.is_truncated
+        truncation_reason = exec_res.truncation_reason
+        result_size_bytes = exec_res.result_size_bytes
+        returned_rows = getattr(exec_res, "returned_rows", len(records))
+        total_rows = getattr(exec_res, "total_rows", (len(records) if not is_truncated else None))
 
         print("\nReturned Records :", len(records))
         if len(records) > 0:
@@ -183,26 +212,36 @@ def ask_question(
             summary = generate_aggregate_summary(
                 payload.question,
                 sql_query,
-                records
+                records,
+                is_truncated=is_truncated
             )
         else:
             print("Using LLM Summary")
             summary = generate_summary(
                 payload.question,
-                records
+                records,
+                is_truncated=is_truncated
             )
 
         print("\nSummary")
         print(summary)
 
         # -----------------------------------------
-        # Save to Query History
+        # Save to Query History (Bounded payload)
         # -----------------------------------------
         try:
             from app.database.connection import SessionLocal
             from app.models.history import QueryHistory
-            from app.utils.json_helper import sanitize_for_json
             import json
+
+            # Apply bounded history persistence: cap stored records to protect database storage
+            MAX_HISTORY_ROWS = 50
+            MAX_HISTORY_BYTES = 128 * 1024  # 128 KB
+            history_sample = records[:MAX_HISTORY_ROWS]
+            history_payload = json.dumps(history_sample)
+            while len(history_payload.encode("utf-8")) > MAX_HISTORY_BYTES and len(history_sample) > 1:
+                history_sample = history_sample[:len(history_sample) // 2]
+                history_payload = json.dumps(history_sample)
 
             db_session = SessionLocal()
             db_history = QueryHistory(
@@ -211,14 +250,14 @@ def ask_question(
                 question=payload.question,
                 generated_sql=sql_query,
                 summary=summary,
-                result_count=len(records),
-                result_json=json.dumps(sanitize_for_json(records))
+                result_count=returned_rows,
+                result_json=history_payload
             )
             db_session.add(db_history)
             db_session.commit()
             db_session.close()
         except Exception as history_err:
-            print("\nFailed logging query history:", str(history_err))
+            print("\nFailed logging query history:", sanitize_error_message(str(history_err)))
 
         # -----------------------------------------
         # Response
@@ -228,13 +267,23 @@ def ask_question(
             "summary": summary,
             "generated_sql": sql_query,
             "count": len(records),
-            "result": records
+            "result": records,
+            "is_truncated": is_truncated,
+            "truncation_reason": truncation_reason,
+            "returned_rows": returned_rows,
+            "total_rows": total_rows,
+            "result_size_bytes": result_size_bytes,
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        safe_msg = sanitize_error_message(str(e))
+        settings = get_settings()
+        safe_msg = get_safe_exception_message(
+            e,
+            is_production=settings.is_production,
+            context="query"
+        )
         print("\nException (sanitized):", safe_msg)
         return {
             "success": False,

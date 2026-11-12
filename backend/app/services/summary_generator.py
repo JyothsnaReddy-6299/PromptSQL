@@ -8,7 +8,7 @@ load_dotenv()
 MAX_RECORDS_FOR_SUMMARY = 20
 
 
-def generate_summary(question, records):
+def generate_summary(question, records, is_truncated: bool = False):
     """
     Generates a natural language summary for row-based query results.
 
@@ -20,6 +20,28 @@ def generate_summary(question, records):
         return "No matching records found."
 
     sample_records = records[:MAX_RECORDS_FOR_SUMMARY]
+
+    if is_truncated:
+        count_instruction = f"""5. The query result was truncated/capped at the system limit.
+Mention that {len(records)} matching records are returned as a capped sample.
+Do NOT claim or imply that {len(records)} is the total number of matching records in the database."""
+        summary_count_instruction = f"""10. If multiple records are returned,
+briefly summarize them and mention that {len(records)} records were returned (capped at limit)."""
+        disallowed_phrases = """8. Do NOT say things like:
+   - "I think..."
+   - "It appears...\""""
+    else:
+        count_instruction = f"""5. If there are multiple rows,
+mention the total number of matching records using this number:
+
+Total Matching Records = {len(records)}"""
+        summary_count_instruction = """10. If multiple records are returned,
+briefly summarize them and mention the total count."""
+        disallowed_phrases = """8. Do NOT say things like:
+   - "Based on the sample..."
+   - "The provided data..."
+   - "I think..."
+   - "It appears...\""""
 
     prompt = f"""
 You are an expert data analyst.
@@ -43,26 +65,18 @@ Instructions:
 4. If the records contain employee details,
 summarize them naturally.
 
-5. If there are multiple rows,
-mention the total number of matching records using this number:
-
-Total Matching Records = {len(records)}
+{count_instruction}
 
 6. Mention important values whenever appropriate.
 
 7. Keep the answer concise (2-5 sentences).
 
-8. Do NOT say things like:
-   - "Based on the sample..."
-   - "The provided data..."
-   - "I think..."
-   - "It appears..."
+{disallowed_phrases}
 
 9. If only one record is returned,
 describe that record clearly.
 
-10. If multiple records are returned,
-briefly summarize them and mention the total count.
+{summary_count_instruction}
 """
 
     system_prompt = "You summarize SQL query results accurately without inventing information."
