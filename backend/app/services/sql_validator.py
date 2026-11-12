@@ -9,6 +9,17 @@ Enforces:
 4. Scope-aware tenant table authorization (rejecting system tables, other tenant tables, and schema qualification).
 5. Scope-aware column resolution against live table schemas, CTE outputs, derived tables, and aliases.
 6. Explicit denylist of prohibited security and information-disclosure functions and constructs.
+
+SQLGlot Version & Private API Contract:
+- Pinned to sqlglot==30.30.0 (SEC-03).
+- Uses sqlglot.optimizer.scope.traverse_scope and Scope instances.
+- Private attributes utilized:
+  * `scope._raw_columns`: Direct list of Column AST nodes belonging strictly to this lexical scope.
+  * `scope._stars`: List of Star AST expressions within this scope.
+  * `scope._ensure_collected()`: Guarantees lazy column/source collection has completed.
+  * `scope.selected_sources`: Map of source names/aliases to (node, source) within this scope.
+These internal Scope APIs provide zero-copy, scope-accurate AST traversal without re-parsing or AST mutation.
+Their behavior is locked by pinning sqlglot==30.30.0 and verified by regression test suites.
 """
 
 import re
@@ -83,12 +94,27 @@ INTO_DANGEROUS_REGEX = re.compile(r"\bINTO\s+(?:OUTFILE|DUMPFILE)\b", re.IGNOREC
 def _get_scope_exported_columns(scope: Scope, schemas: Dict[str, Set[str]]) -> Set[str]:
     """
     Computes the set of lowercase column names exported by a CTE, derived table, or subquery scope.
+    Handles explicit CTE column lists (SEC-05) and union select expressions.
     """
     expr = scope.expression
-    if not hasattr(expr, "selects"):
-        return set()
-
     exported: Set[str] = set()
+
+    # SEC-05: Check explicit CTE column declarations: e.g. cte (col1, col2) AS ...
+    cte_node = expr.find_ancestor(exp.CTE) if not isinstance(expr.parent, exp.CTE) else expr.parent
+    if cte_node and cte_node.args.get("alias"):
+        alias_node = cte_node.args["alias"]
+        if isinstance(alias_node, exp.TableAlias) and alias_node.args.get("columns"):
+            for col in alias_node.args["columns"]:
+                if col.name:
+                    exported.add(col.name.lower())
+            return exported
+
+    if not hasattr(expr, "selects"):
+        if isinstance(expr, exp.Union):
+            for s in expr.named_selects:
+                exported.add(s.lower())
+        return exported
+
     for item in expr.selects:
         if isinstance(item, exp.Star):
             # Star expands to all columns of all sources in this subscope
@@ -113,6 +139,20 @@ def _get_scope_exported_columns(scope: Scope, schemas: Dict[str, Set[str]]) -> S
             exported.add(item.alias_or_name.lower())
 
     return exported
+
+
+def _get_scope_ancestor_expr_ids(scope: Scope) -> Set[int]:
+    """
+    Returns the set of python object ids for all expressions in the ancestor chain of this scope,
+    including this scope itself. Used to prevent self-referential / enclosing pipeline cycles (SEC-02).
+    """
+    ancestors = set()
+    curr = scope
+    while curr:
+        if curr.expression:
+            ancestors.add(id(curr.expression))
+        curr = curr.parent
+    return ancestors
 
 
 def validate_sql(
@@ -160,8 +200,13 @@ def validate_sql(
 
     stmt = non_empty_statements[0]
 
+    # SEC-04: Support parenthesized root queries by unwrapping Subquery layers
+    root_expr = stmt
+    while isinstance(root_expr, exp.Subquery) and root_expr.this:
+        root_expr = root_expr.this
+
     # Root statement must be Select or Union
-    if not isinstance(stmt, (exp.Select, exp.Union)):
+    if not isinstance(root_expr, (exp.Select, exp.Union)):
         return False, "Only read-only SELECT queries are permitted."
 
     # 2. Comprehensive AST node inspection
@@ -178,16 +223,20 @@ def validate_sql(
         if isinstance(node, PROHIBITED_AST_CLASSES):
             return False, f"Prohibited SQL construct '{type(node).__name__}' is not permitted."
 
-        # Prohibited functions (Anonymous and explicit AST functions)
+        # SEC-01: Prohibited functions (Anonymous and explicit AST functions, handling quoted names)
         if isinstance(node, exp.Anonymous):
-            func_name = str(node.this).upper()
+            raw = node.this.this if isinstance(node.this, exp.Identifier) else str(node.this)
+            func_name = raw.strip("`'\"").upper()
             if func_name in PROHIBITED_FUNCTION_NAMES:
                 return False, f"Prohibited SQL function '{func_name}' is not permitted."
         elif isinstance(node, exp.Func):
-            func_name = getattr(node, "sql_name", lambda: "")().upper()
-            node_type_name = type(node).__name__.upper()
-            if func_name in PROHIBITED_FUNCTION_NAMES or node_type_name in PROHIBITED_FUNCTION_NAMES:
-                return False, f"Prohibited SQL function '{func_name or node_type_name}' is not permitted."
+            sql_n = getattr(node, "sql_name", lambda: "")().upper()
+            type_n = type(node).__name__.upper()
+            key_n = getattr(node, "key", "").upper()
+            raw_id = node.name.strip("`'\"").upper() if hasattr(node, "name") and isinstance(node.name, str) else ""
+            for candidate in [sql_n, type_n, key_n, raw_id]:
+                if candidate in PROHIBITED_FUNCTION_NAMES:
+                    return False, f"Prohibited SQL function '{candidate}' is not permitted."
 
     # 3. Scope Traversal & Table Resolution
     user_tables_set: Set[str] = {t.lower() for t in user_tables}
@@ -248,15 +297,18 @@ def validate_sql(
         except Exception:
             return False, "Database schema inspection failed."
 
-    # Pre-compute exported columns for CTEs, derived tables, and subqueries
+    # Pre-compute exported columns for all scopes keyed by id(scope.expression) (SEC-05)
     scope_exported_cols: Dict[int, Set[str]] = {}
     for scope in scopes:
-        if scope.is_cte or scope.is_derived_table or scope.is_subquery:
-            scope_exported_cols[id(scope)] = _get_scope_exported_columns(scope, resolved_schemas)
+        if scope.expression:
+            scope_exported_cols[id(scope.expression)] = _get_scope_exported_columns(scope, resolved_schemas)
 
     # 5. Scope-Aware Column Validation
     for scope in scopes:
         scope._ensure_collected()
+
+        # Build ancestor expression set to avoid self-referential / enclosing pipeline cycles (SEC-02)
+        ancestor_expr_ids = _get_scope_ancestor_expr_ids(scope)
 
         # Build source columns map for THIS scope using selected_sources
         source_cols: Dict[str, Set[str]] = {}
@@ -266,8 +318,8 @@ def validate_sql(
             if isinstance(src, exp.Table):
                 p_name = src.name.lower()
                 source_cols[key] = resolved_schemas.get(p_name, set())
-            elif isinstance(src, Scope):
-                source_cols[key] = scope_exported_cols.get(id(src), set())
+            elif isinstance(src, Scope) and src.expression:
+                source_cols[key] = scope_exported_cols.get(id(src.expression), set())
 
         # If this is a UNION scope, make union output columns available
         if isinstance(scope.expression, exp.Union):
@@ -292,8 +344,11 @@ def validate_sql(
                     while curr:
                         curr._ensure_collected()
                         if tbl_key in curr.selected_sources or tbl_key in curr.sources:
-                            found_parent = True
-                            break
+                            parent_src = curr.selected_sources.get(tbl_key) or curr.sources.get(tbl_key)
+                            ps = parent_src[1] if isinstance(parent_src, tuple) else parent_src
+                            if not (isinstance(ps, Scope) and ps.expression and id(ps.expression) in ancestor_expr_ids):
+                                found_parent = True
+                                break
                         curr = curr.parent
                     if not found_parent:
                         return False, f"Unknown table alias or source '{star.table}'."
@@ -309,22 +364,24 @@ def validate_sql(
                     if col_name not in source_cols[table_prefix]:
                         return False, f"Unknown column '{col.name}' in table or source '{col.table}'."
                 else:
-                    # Check parent scopes for correlated references
+                    # SEC-02: Correlated reference in parent scopes, excluding self and enclosing wrappers
                     curr = scope.parent
                     found_parent = False
                     while curr:
                         curr._ensure_collected()
-                        parent_src = curr.sources.get(table_prefix)
+                        parent_src = curr.sources.get(table_prefix) or curr.selected_sources.get(table_prefix)
                         if parent_src:
-                            p_cols: Set[str] = set()
-                            if isinstance(parent_src, exp.Table):
-                                p_cols = resolved_schemas.get(parent_src.name.lower(), set())
-                            elif isinstance(parent_src, Scope):
-                                p_cols = scope_exported_cols.get(id(parent_src), set())
-                            if col_name not in p_cols:
-                                return False, f"Unknown column '{col.name}' in table or source '{col.table}'."
-                            found_parent = True
-                            break
+                            ps = parent_src[1] if isinstance(parent_src, tuple) else parent_src
+                            if not (isinstance(ps, Scope) and ps.expression and id(ps.expression) in ancestor_expr_ids):
+                                p_cols: Set[str] = set()
+                                if isinstance(ps, exp.Table):
+                                    p_cols = resolved_schemas.get(ps.name.lower(), set())
+                                elif isinstance(ps, Scope) and ps.expression:
+                                    p_cols = scope_exported_cols.get(id(ps.expression), set())
+                                if col_name not in p_cols:
+                                    return False, f"Unknown column '{col.name}' in table or source '{col.table}'."
+                                found_parent = True
+                                break
                         curr = curr.parent
 
                     if not found_parent:
@@ -342,19 +399,22 @@ def validate_sql(
                 elif len(matching_sources) == 1:
                     continue
 
-                # 3. Check parent scopes (correlated reference)
+                # SEC-02: Parent scope lookup excluding self-referential / enclosing pipeline scopes
                 curr = scope.parent
                 found_parent = False
                 while curr:
                     curr._ensure_collected()
                     parent_matches = []
                     for src_name, src_node in curr.selected_sources.items():
-                        cols: Set[str] = set()
                         src = src_node[1] if isinstance(src_node, tuple) else src_node
+                        # Never resolve against self or enclosing derived wrappers
+                        if isinstance(src, Scope) and src.expression and id(src.expression) in ancestor_expr_ids:
+                            continue
+                        cols: Set[str] = set()
                         if isinstance(src, exp.Table):
                             cols = resolved_schemas.get(src.name.lower(), set())
-                        elif isinstance(src, Scope):
-                            cols = scope_exported_cols.get(id(src), set())
+                        elif isinstance(src, Scope) and src.expression:
+                            cols = scope_exported_cols.get(id(src.expression), set())
                         if col_name in cols:
                             parent_matches.append(src_name)
                     if len(parent_matches) > 1:

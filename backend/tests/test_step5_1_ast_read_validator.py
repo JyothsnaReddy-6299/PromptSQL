@@ -499,6 +499,162 @@ class TestStep51ASTReadValidator(unittest.TestCase):
         self.assertTrue(valid, msg)
         mock_inspector.get_columns.assert_called_with("sales_usr_1")
 
+    # =========================================================================
+    # Category G: Step 5.1.2 Remediation Security Verification (SEC-01 to SEC-05)
+    # =========================================================================
+
+    def test_g01_sec01_all_prohibited_functions_backticked_rejected(self):
+        """Verifies that every single prohibited function is rejected when backticked (SEC-01)."""
+        backticked_prohibited_cases = [
+            ("SELECT `sleep`(5) FROM sales_usr_1", "SLEEP"),
+            ("SELECT `benchmark`(1000000, MD5(1)) FROM sales_usr_1", "BENCHMARK"),
+            ("SELECT `load_file`('/etc/passwd') FROM sales_usr_1", "LOAD_FILE"),
+            ("SELECT `get_lock`('sec_lock', 10) FROM sales_usr_1", "GET_LOCK"),
+            ("SELECT `release_lock`('sec_lock') FROM sales_usr_1", "RELEASE_LOCK"),
+            ("SELECT `is_free_lock`('sec_lock') FROM sales_usr_1", "IS_FREE_LOCK"),
+            ("SELECT `is_used_lock`('sec_lock') FROM sales_usr_1", "IS_USED_LOCK"),
+            ("SELECT `user`() FROM sales_usr_1", "USER"),
+            ("SELECT `current_user`() FROM sales_usr_1", "CURRENT_USER"),
+            ("SELECT `session_user`() FROM sales_usr_1", "SESSION_USER"),
+            ("SELECT `system_user`() FROM sales_usr_1", "SYSTEM_USER"),
+            ("SELECT `version`() FROM sales_usr_1", "VERSION"),
+            ("SELECT `database`() FROM sales_usr_1", "DATABASE"),
+            ("SELECT `schema`() FROM sales_usr_1", "SCHEMA"),
+        ]
+        for sql, expected_fn in backticked_prohibited_cases:
+            with self.subTest(fn=expected_fn, sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, self.table_schemas)
+                self.assertFalse(valid, f"Expected {expected_fn} to be rejected, but query passed.")
+                # Rejected either as prohibited function or prohibited AST construct
+                self.assertTrue(
+                    "Prohibited SQL" in msg or expected_fn.lower() in msg.lower(),
+                    f"Unexpected rejection message: {msg}"
+                )
+
+    def test_g02_sec01_prohibited_functions_casing_and_clauses(self):
+        """Verifies mixed case, subqueries, and various SQL clauses reject backticked prohibited functions."""
+        cases = [
+            "SELECT `SlEeP`(2) FROM sales_usr_1",
+            "SELECT `vErSiOn`() FROM sales_usr_1",
+            "SELECT id FROM sales_usr_1 WHERE `sleep`(1) = 0",
+            "SELECT id FROM sales_usr_1 ORDER BY `benchmark`(100, 1)",
+            "SELECT (SELECT `database`()) FROM sales_usr_1",
+            "SELECT CASE WHEN 1=1 THEN `sleep`(1) ELSE 0 END FROM sales_usr_1",
+        ]
+        for sql in cases:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, self.table_schemas)
+                self.assertFalse(valid, f"Expected query to be rejected: {sql}")
+                self.assertTrue("Prohibited SQL" in msg or "not permitted" in msg)
+
+    def test_g03_sec01_legitimate_functions_not_blocked(self):
+        """Verifies legitimate SQL functions (standard and backticked) are NOT blocked."""
+        legit_cases = [
+            "SELECT COUNT(*) FROM sales_usr_1",
+            "SELECT SUM(amount) FROM sales_usr_1",
+            "SELECT AVG(amount) FROM sales_usr_1",
+            "SELECT MAX(amount), MIN(amount) FROM sales_usr_1",
+            "SELECT COALESCE(status, 'N/A') FROM sales_usr_1",
+            "SELECT ROUND(amount, 2) FROM sales_usr_1",
+            "SELECT NOW() FROM sales_usr_1",
+            "SELECT CONCAT(status, '_ok') FROM sales_usr_1",
+            "SELECT `sum`(amount) FROM sales_usr_1",
+            "SELECT `count`(*) FROM sales_usr_1",
+        ]
+        for sql in legit_cases:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, self.table_schemas)
+                self.assertTrue(valid, f"Legitimate query failed: {sql} - Error: {msg}")
+
+    def test_g04_sec02_scope_exclusion_mandatory_rejections(self):
+        """Verifies mandatory rejection cases for self-referential / enclosing pipeline column access (SEC-02)."""
+        rejection_cases = [
+            "WITH c AS (SELECT non_existent FROM sales_usr_1) SELECT 1 FROM c",
+            "WITH c AS (SELECT non_existent FROM sales_usr_1) SELECT non_existent FROM c",
+            "SELECT sub.non_existent FROM (SELECT non_existent FROM sales_usr_1) sub",
+            "SELECT 1 FROM (SELECT non_existent FROM sales_usr_1) sub",
+            "WITH c1 AS (SELECT non_existent FROM sales_usr_1), c2 AS (SELECT 1 FROM c1) SELECT 1 FROM c2",
+            "SELECT 1 FROM (SELECT 1 FROM (SELECT non_existent FROM sales_usr_1) sub1) sub2",
+        ]
+        for sql in rejection_cases:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, self.table_schemas)
+                self.assertFalse(valid, f"Expected scope bypass query to be rejected: {sql}")
+                self.assertIn("Unknown column", msg)
+
+    def test_g05_sec02_scope_exclusion_mandatory_acceptances(self):
+        """Verifies mandatory acceptance cases for valid correlated subqueries and CTE pipelines (SEC-02)."""
+        acceptance_cases = [
+            # Correlated WHERE referencing outer table
+            "SELECT id FROM sales_usr_1 o WHERE amount > (SELECT AVG(amount) FROM sales_usr_1 i WHERE i.status = o.status)",
+            # Correlated EXISTS referencing outer table
+            "SELECT id FROM sales_usr_1 o WHERE EXISTS (SELECT 1 FROM customers_usr_1 i WHERE i.id = o.cust_id)",
+            # Valid CTE referencing valid column
+            "WITH c AS (SELECT id, amount FROM sales_usr_1) SELECT id FROM c",
+            # Chained CTEs referencing valid columns
+            "WITH c1 AS (SELECT id, amount FROM sales_usr_1), c2 AS (SELECT id FROM c1 WHERE amount > 100) SELECT id FROM c2",
+            # Valid derived table
+            "SELECT sub.id FROM (SELECT id, amount FROM sales_usr_1) sub WHERE sub.amount > 100",
+        ]
+        for sql in acceptance_cases:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, self.table_schemas)
+                self.assertTrue(valid, f"Valid query was rejected: {sql} - Error: {msg}")
+
+    def test_g06_sec04_parenthesized_root_queries_acceptance(self):
+        """Verifies harmless parenthesized root queries are accepted (SEC-04)."""
+        parenthesized_valid_cases = [
+            "(SELECT id FROM sales_usr_1)",
+            "((SELECT id FROM sales_usr_1))",
+            "(SELECT id FROM sales_usr_1 WHERE amount > 100)",
+            "(SELECT id FROM sales_usr_1) UNION (SELECT id FROM sales_usr_1)",
+            "(SELECT sub.id FROM (SELECT id FROM sales_usr_1) sub)",
+        ]
+        for sql in parenthesized_valid_cases:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, self.table_schemas)
+                self.assertTrue(valid, f"Valid parenthesized query was rejected: {sql} - Error: {msg}")
+
+    def test_g07_sec04_parenthesized_root_queries_security_rejections(self):
+        """Verifies parenthesized queries still enforce security rejections (SEC-04)."""
+        parenthesized_invalid_cases = [
+            ("(SELECT SLEEP(5) FROM sales_usr_1)", "SLEEP"),
+            ("(SELECT `sleep`(5) FROM sales_usr_1)", "SLEEP"),
+            ("(SELECT id FROM other_user_tbl)", "Access denied"),
+            ("(SELECT id FROM sales_usr_1); DROP TABLE sales_usr_1", "Multiple or chained"),
+            ("(INSERT INTO sales_usr_1 (id) VALUES (1))", None),
+        ]
+        for sql, expected_sub in parenthesized_invalid_cases:
+            with self.subTest(sql=sql):
+                valid, msg = validate_sql(sql, self.user_tables, self.table_schemas)
+                self.assertFalse(valid, f"Expected parenthesized query to be rejected: {sql}")
+                if expected_sub:
+                    self.assertIn(expected_sub, msg)
+
+    def test_g08_sec05_explicit_cte_output_columns(self):
+        """Verifies explicit CTE output column declarations (SEC-05)."""
+        # 1. Valid recursive CTE with explicit column list (n)
+        valid_recursive = "WITH RECURSIVE cte (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM cte WHERE n < 5) SELECT n FROM cte"
+        valid, msg = validate_sql(valid_recursive, self.user_tables, self.table_schemas)
+        self.assertTrue(valid, f"Valid recursive CTE rejected: {msg}")
+
+        # 2. Valid CTE with explicit column aliases (total, st)
+        valid_cte = "WITH cte (total, st) AS (SELECT amount, status FROM sales_usr_1) SELECT total, st FROM cte"
+        valid, msg = validate_sql(valid_cte, self.user_tables, self.table_schemas)
+        self.assertTrue(valid, f"Valid CTE with explicit column list rejected: {msg}")
+
+        # 3. Non-existent column in recursive CTE caller
+        invalid_recursive = "WITH RECURSIVE cte (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM cte WHERE n < 5) SELECT bad_col FROM cte"
+        valid, msg = validate_sql(invalid_recursive, self.user_tables, self.table_schemas)
+        self.assertFalse(valid, "Expected non-existent column in recursive CTE caller to be rejected.")
+        self.assertIn("Unknown column 'bad_col'", msg)
+
+        # 4. Accessing original column name when CTE explicitly renamed it
+        invalid_renamed = "WITH cte (total, st) AS (SELECT amount, status FROM sales_usr_1) SELECT amount FROM cte"
+        valid, msg = validate_sql(invalid_renamed, self.user_tables, self.table_schemas)
+        self.assertFalse(valid, "Expected original column name 'amount' to be rejected when CTE declares (total, st).")
+        self.assertIn("Unknown column 'amount'", msg)
+
 
 if __name__ == "__main__":
     unittest.main()

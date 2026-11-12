@@ -14,4 +14,4 @@ pyjwt
 bcrypt
 groq
 httpx
-sqlglot
+sqlglot==30.30.0
