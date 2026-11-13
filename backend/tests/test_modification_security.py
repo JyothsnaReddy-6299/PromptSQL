@@ -1069,6 +1069,25 @@ class TestModificationSecurity(unittest.TestCase):
         finally:
             db.close()
 
+    # -------------------------------------------------------------
+    # 35. SELECT queries submitted to /api/modification/ask
+    # -------------------------------------------------------------
+    def test_35_select_query_not_treated_as_failed_modification(self):
+        """35. SELECT queries submitted to /api/modification/ask return success=True and requires_confirmation=False without errors."""
+        headers = {**self.headers_a, "X-Table-Name": self.table_a}
+        resp = self.client.post(
+            "/api/modification/ask",
+            json={"question": "Show all customers from Chennai."},
+            headers=headers
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data.get("success"))
+        self.assertFalse(data.get("requires_confirmation"))
+        self.assertFalse(data.get("is_modification", True))
+        self.assertNotIn("error", data)
+        self.assertIn("not appear to be a data or schema modification", data.get("message", ""))
+
 
 if __name__ == "__main__":
     unittest.main()

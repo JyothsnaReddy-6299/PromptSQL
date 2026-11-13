@@ -166,20 +166,6 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       // 1. Intercept user question by calling intent detector and preview generator
       const modCheck = await askModification(currentQuestion);
 
-      if (!modCheck.success) {
-        // The modification query failed safety validation!
-        setMessages((prev) => [
-          ...prev,
-          {
-            sender: "ai",
-            text: "I couldn't complete that modification. Safety validation failed:",
-            error: modCheck.error || "Safety check violation."
-          }
-        ]);
-        setLoading(false);
-        return;
-      }
-
       if (modCheck.requires_confirmation) {
         // This is a database modification (DML or DDL)
         setMessages((prev) => [
@@ -198,6 +184,20 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
             estimated_rows: modCheck.estimated_rows,
             expires_at: modCheck.expires_at,
             records: []
+          }
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      if (modCheck.error) {
+        // The modification query failed safety validation!
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: "I couldn't complete that modification. Safety validation failed:",
+            error: modCheck.error || "Safety check violation."
           }
         ]);
         setLoading(false);

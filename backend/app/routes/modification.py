@@ -224,7 +224,8 @@ def ask_modification(
     intent = detect_intent(payload.question)
     if intent not in ["UPDATE", "INSERT", "DELETE", "MERGE", "ALTER", "DROP", "TRUNCATE", "CREATE"]:
         return {
-            "success": False,
+            "success": True,
+            "is_modification": False,
             "requires_confirmation": False,
             "message": "This request does not appear to be a data or schema modification."
         }

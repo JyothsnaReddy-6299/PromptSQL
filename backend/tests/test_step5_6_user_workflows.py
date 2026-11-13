@@ -407,6 +407,29 @@ class TestStep56UserWorkflows(unittest.TestCase):
         self.assertIn("sales_records.csv", res_raw_csv.headers["content-disposition"])
         self.assertIn("Alpha Corp", res_raw_csv.text)
 
+    def test_20_select_query_handled_by_read_pipeline_not_modification_failure(self):
+        """Ordinary read-only SELECT query ('Show all customers from Chennai.') is routed to read-query pipeline without modification safety errors."""
+        headers = {**self.headers_a, "X-Table-Name": self.tbl_a}
+
+        # Step 1: Pre-check via /api/modification/ask must report success=True, requires_confirmation=False, and no error
+        mod_res = self.client.post("/api/modification/ask", json={"question": "Show all customers from Chennai."}, headers=headers)
+        self.assertEqual(mod_res.status_code, 200)
+        mod_data = mod_res.json()
+        self.assertTrue(mod_data.get("success"))
+        self.assertFalse(mod_data.get("requires_confirmation"))
+        self.assertFalse(mod_data.get("is_modification", True))
+        self.assertNotIn("error", mod_data)
+        self.assertIn("not appear to be a data or schema modification", mod_data.get("message", ""))
+
+        # Step 2: Read query execution via /ask must execute successfully and return results
+        ask_res = self.client.post("/ask", json={"question": "Show all customers from Seattle"}, headers=headers)
+        self.assertEqual(ask_res.status_code, 200)
+        ask_data = ask_res.json()
+        self.assertTrue(ask_data.get("success"))
+        self.assertGreaterEqual(ask_data.get("count", 0), 1)
+        self.assertIn("SELECT", ask_data.get("generated_sql", "").upper())
+        self.assertIsNotNone(ask_data.get("result"))
+
 
 if __name__ == "__main__":
     unittest.main()
