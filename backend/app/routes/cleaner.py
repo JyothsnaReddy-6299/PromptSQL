@@ -69,26 +69,43 @@ def remove_duplicates(db: Session = Depends(get_db), ctx: ActiveTableContext = D
     safe_tbl = safe_quote_table_name(table_name, [table_name])
 
     try:
-        # Get count before
-        with engine.connect() as conn:
-            count_before = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
+        col_info = inspector.get_columns(table_name)
+        data_cols = [c["name"] for c in col_info if c["name"] not in pk_cols]
 
-        temp_table = f"temp_dedup_{table_name}"
-        safe_temp = f"`{temp_table.replace('`', '``')}`"
-        
-        # Copy unique rows to temp, truncate original, insert back
-        with engine.begin() as conn:
-            conn.execute(text("SET SESSION sql_require_primary_key = 0"))
-            conn.execute(text(f"DROP TABLE IF EXISTS {safe_temp}"))
-            conn.execute(text(f"CREATE TABLE {safe_temp} AS SELECT DISTINCT * FROM {safe_tbl}"))
-            conn.execute(text(f"TRUNCATE TABLE {safe_tbl}"))
-            conn.execute(text(f"INSERT INTO {safe_tbl} SELECT * FROM {safe_temp}"))
-            conn.execute(text(f"DROP TABLE {safe_temp}"))
+        if pk_cols and data_cols and len(pk_cols) == 1:
+            # Table has a surrogate or single primary key: delete duplicate records where non-PK data columns match
+            pk_col = pk_cols[0]
+            clean_pk = pk_col.replace("`", "``")
+            match_conditions = " AND ".join([f"t1.`{c.replace('`', '``')}` <=> t2.`{c.replace('`', '``')}`" for c in data_cols])
+            del_sql = f"DELETE t1 FROM {safe_tbl} t1 JOIN {safe_tbl} t2 ON t1.`{clean_pk}` > t2.`{clean_pk}` AND {match_conditions}"
+            with engine.begin() as conn:
+                res = conn.execute(text(del_sql))
+                rows_deleted = res.rowcount or 0
+                count_after = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
+        else:
+            # Fallback for tables without a primary key or composite PKs
+            with engine.connect() as conn:
+                count_before = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
 
-            # Get count after
-            count_after = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
+            temp_table = f"temp_dedup_{table_name}"
+            safe_temp = f"`{temp_table.replace('`', '``')}`"
+            
+            # Copy unique rows to temp, truncate original, insert back
+            with engine.begin() as conn:
+                conn.execute(text("SET SESSION sql_require_primary_key = 0"))
+                conn.execute(text(f"DROP TABLE IF EXISTS {safe_temp}"))
+                conn.execute(text(f"CREATE TABLE {safe_temp} AS SELECT DISTINCT * FROM {safe_tbl}"))
+                conn.execute(text(f"TRUNCATE TABLE {safe_tbl}"))
+                conn.execute(text(f"INSERT INTO {safe_tbl} SELECT * FROM {safe_temp}"))
+                conn.execute(text(f"DROP TABLE {safe_temp}"))
 
-        rows_deleted = count_before - count_after
+                # Get count after
+                count_after = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
+
+            rows_deleted = count_before - count_after
 
         # Save to Audit Log
         audit_log = AuditLog(

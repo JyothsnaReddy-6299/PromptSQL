@@ -1,6 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends, status
 import os
 import re
+import secrets
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -20,22 +21,50 @@ router = APIRouter()
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB limit
+ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
-    try:
-        filepath = os.path.join(
-            UPLOAD_DIR,
-            file.filename
+    raw_filename = file.filename or ""
+    safe_filename = os.path.basename(raw_filename).strip()
+    if not safe_filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename is required."
         )
 
+    _, ext = os.path.splitext(safe_filename)
+    if ext.lower() not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file format. Please upload a CSV, XLS, or XLSX file."
+        )
+
+    # Use unique isolated temp file name to prevent collision across concurrent tenant uploads
+    temp_filename = f"{user_id}_{secrets.token_hex(8)}_{safe_filename}"
+    filepath = os.path.join(UPLOAD_DIR, temp_filename)
+
+    try:
+        content = await file.read()
+        if len(content) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded file is empty. Please upload a valid CSV, XLS, or XLSX file."
+            )
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="File size exceeds the 50MB maximum allowed limit."
+            )
+
         with open(filepath, "wb") as buffer:
-            buffer.write(await file.read())
+            buffer.write(content)
 
         result = upload_dataset(
             filepath=filepath,
-            filename=file.filename,
+            filename=safe_filename,
             user_id=user_id
         )
 
@@ -43,11 +72,22 @@ async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_c
 
     except HTTPException:
         raise
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=sanitize_error_message(str(ve))
+        )
     except Exception as e:
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=sanitize_error_message(str(e))
         )
+    finally:
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
 
 
 @router.get("/preview")

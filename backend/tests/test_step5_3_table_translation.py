@@ -466,6 +466,70 @@ class TestTableTranslator(unittest.TestCase):
             with engine.begin() as conn:
                 conn.execute(text(f"DROP TABLE IF EXISTS `{temp_physical}`"))
 
+    # -------------------------------------------------------------
+    # 30. Explicit Alias Collision Rejection (Case C)
+    # -------------------------------------------------------------
+    def test_30_case_c_explicit_alias_collision_rejected(self):
+        """30. An unaliased table whose friendly name collides with an explicit alias is rejected."""
+        sql = "SELECT sales.id FROM sales JOIN customers AS sales ON sales.id = 1"
+        with self.assertRaises(AliasCollisionError):
+            translate_query_tables(sql, self.authorized_tables, self.user_id)
+
+    # -------------------------------------------------------------
+    # 31. Foreign Tenant Table Rejection
+    # -------------------------------------------------------------
+    def test_31_foreign_tenant_table_rejected_in_mapping(self):
+        """31. A physical table bearing another tenant's suffix is rejected with TranslationSecurityError."""
+        foreign_tables = ["sales_usr_456"]
+        with self.assertRaises(TranslationSecurityError):
+            build_friendly_to_physical_map(foreign_tables, user_id="usr_123")
+
+        with self.assertRaises(TranslationSecurityError):
+            build_friendly_to_physical_map(foreign_tables, user_id="123")
+
+        with self.assertRaises(TranslationSecurityError):
+            translate_query_tables("SELECT * FROM sales", foreign_tables, user_id="usr_123")
+
+    # -------------------------------------------------------------
+    # 32. Numeric User ID Normalization
+    # -------------------------------------------------------------
+    def test_32_numeric_user_id_normalization(self):
+        """32. User IDs passed as raw numbers ('123') correctly map to friendly names without '_usr'."""
+        f2p, auth = build_friendly_to_physical_map(["sales_usr_123"], user_id="123")
+        self.assertIn("sales", f2p)
+        self.assertEqual(f2p["sales"], "sales_usr_123")
+
+        translated = translate_query_tables("SELECT * FROM sales", ["sales_usr_123"], user_id="123")
+        self.assertIn("`sales_usr_123` AS `sales`", translated)
+
+    # -------------------------------------------------------------
+    # 33. Mixed-Case Suffix Matching
+    # -------------------------------------------------------------
+    def test_33_mixed_case_suffix_matching(self):
+        """33. Physical table names with mixed casing in suffix derive normalized friendly name while preserving physical casing."""
+        f2p, auth = build_friendly_to_physical_map(["Sales_Usr_123"], user_id="usr_123")
+        self.assertIn("sales", f2p)
+        self.assertEqual(f2p["sales"], "Sales_Usr_123")
+
+        translated = translate_query_tables("SELECT * FROM sales", ["Sales_Usr_123"], user_id="usr_123")
+        self.assertIn("`Sales_Usr_123` AS `sales`", translated)
+
+    # -------------------------------------------------------------
+    # 34. Non-Compliant Tenant Suffix Rejection (sales_123)
+    # -------------------------------------------------------------
+    def test_34_non_compliant_tenant_suffix_not_mapped_as_tenant_table(self):
+        """34. sales_123 is rejected as a tenant-owned table for user_id=123 because it lacks _usr_."""
+        f2p, auth = build_friendly_to_physical_map(["sales_123"], user_id="123")
+        self.assertNotIn("sales", f2p)
+        self.assertIn("sales_123", f2p)
+
+        with self.assertRaises(TranslationTableNotFoundError):
+            translate_query_tables("SELECT * FROM sales", ["sales_123"], user_id="123")
+
+        # Also verify with normalized 'usr_123'
+        f2p_usr, _ = build_friendly_to_physical_map(["sales_123"], user_id="usr_123")
+        self.assertNotIn("sales", f2p_usr)
+
 
 if __name__ == "__main__":
     unittest.main()

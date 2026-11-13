@@ -82,6 +82,14 @@ def build_friendly_to_physical_map(
     friendly_to_physical: Dict[str, str] = {}
     authorized_physical_set: Set[str] = set()
 
+    user_id_str = str(user_id).strip() if user_id is not None else None
+    canonical_suffix: Optional[str] = None
+    if user_id_str:
+        uid_clean = user_id_str.lower()
+        # Normalize both '123' and 'usr_123' into canonical form 'usr_<id>'
+        canonical_uid = uid_clean if uid_clean.startswith("usr_") else f"usr_{uid_clean}"
+        canonical_suffix = f"_{canonical_uid}"
+
     for phys in authorized_tables:
         if not phys or not isinstance(phys, str):
             continue
@@ -89,14 +97,24 @@ def build_friendly_to_physical_map(
         if not phys_clean:
             continue
 
-        authorized_physical_set.add(phys_clean.lower())
+        phys_lower = phys_clean.lower()
+        authorized_physical_set.add(phys_lower)
 
         # Derive friendly name based on PromptSQL naming rules
-        if user_id and phys_clean.endswith(f"_{user_id}"):
-            friendly = phys_clean[:-len(f"_{user_id}")]
-        elif "_usr_" in phys_clean:
-            friendly = phys_clean.split("_usr_")[0]
+        if canonical_suffix and phys_lower.endswith(canonical_suffix):
+            friendly = phys_clean[:-len(canonical_suffix)]
+        elif user_id_str and "_usr_" in phys_lower:
+            # Foreign tenant table with an unauthorized user suffix
+            raise TranslationSecurityError(
+                f"Access denied. Table '{phys_clean}' does not belong to authenticated user '{user_id}'."
+            )
+        elif "_usr_" in phys_lower:
+            # Fallback only when unauthenticated: strip at rightmost _usr_
+            friendly = phys_clean[:phys_lower.rfind("_usr_")]
         else:
+            friendly = phys_clean
+
+        if not friendly:
             friendly = phys_clean
 
         norm = friendly.lower()
@@ -214,10 +232,12 @@ def translate_query_tables(
                 # If table does not already have an explicit alias, add the friendly name as alias
                 # so that table-qualified columns (e.g. `sales.id`) resolve natively in MySQL.
                 if not table.alias:
-                    # Guard: avoid setting alias if friendly name collides with another alias in this scope
-                    if norm_name not in scope_aliases:
-                        table.set("alias", exp.to_identifier(raw_name, quoted=True))
-                        scope_aliases.add(norm_name)
+                    if norm_name in scope_aliases:
+                        raise AliasCollisionError(
+                            f"Cannot automatically alias table '{raw_name}': alias '{raw_name}' is already defined in query scope."
+                        )
+                    table.set("alias", exp.to_identifier(raw_name, quoted=True))
+                    scope_aliases.add(norm_name)
                 table.set("this", exp.to_identifier(phys_name, quoted=True))
             elif norm_name in authorized_physical_set:
                 # Table already refers to an authorized physical table directly

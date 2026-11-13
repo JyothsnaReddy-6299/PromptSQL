@@ -26,12 +26,23 @@ def clean_table_name(filename: str):
 
 
 def load_dataset(filepath: str):
+    if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+        raise ValueError("The uploaded file is empty. Please upload a valid CSV, XLS, or XLSX file.")
+
     if filepath.endswith(".csv"):
-        return pd.read_csv(filepath)
+        try:
+            return pd.read_csv(filepath)
+        except pd.errors.EmptyDataError:
+            raise ValueError("The uploaded CSV file is empty or contains no parseable columns.")
+        except Exception as e:
+            raise ValueError(f"Failed to parse CSV file: {str(e)}")
     elif filepath.endswith((".xlsx", ".xls")):
-        return pd.read_excel(filepath)
+        try:
+            return pd.read_excel(filepath)
+        except Exception as e:
+            raise ValueError(f"Failed to parse Excel file: {str(e)}")
     else:
-        raise Exception("Unsupported file type.")
+        raise ValueError("Unsupported file type. Please upload a CSV, XLS, or XLSX file.")
 
 
 def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
@@ -43,10 +54,17 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     # ------------------------
     df = load_dataset(filepath)
 
+    if df.empty and len(df.columns) == 0:
+        raise ValueError("The uploaded dataset contains no columns.")
+
     # ------------------------
-    # Preserve ORIGINAL column names
+    # Preserve ORIGINAL column names (stripped of surrounding whitespace)
     # ------------------------
-    df.columns = df.columns.str.strip()
+    df.columns = [str(c).strip() for c in df.columns]
+    valid_cols = [c for c in df.columns if c and not c.startswith("Unnamed:")]
+    if not valid_cols:
+        raise ValueError("The uploaded file does not contain any valid named columns.")
+    df = df[valid_cols]
 
     # ------------------------
     # Detect datatypes
@@ -81,7 +99,18 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     # ------------------------
     from sqlalchemy import text
     
-    col_defs = ["`id` INT AUTO_INCREMENT PRIMARY KEY"]
+    # Avoid primary key column name collision if user dataset already contains an 'id' column
+    has_id_col = any(col.lower() == "id" for col in cleaned_df.columns)
+    if has_id_col:
+        pk_col = "_row_id"
+        counter = 1
+        while any(col.lower() == pk_col.lower() for col in cleaned_df.columns):
+            pk_col = f"_row_id_{counter}"
+            counter += 1
+        col_defs = [f"`{pk_col}` INT AUTO_INCREMENT PRIMARY KEY"]
+    else:
+        col_defs = ["`id` INT AUTO_INCREMENT PRIMARY KEY"]
+
     for col in cleaned_df.columns:
         t_type = detected_types.get(col, "text")
         if t_type == "numeric":
@@ -90,7 +119,8 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
             db_type = "DATETIME"
         else:
             db_type = "TEXT"
-        col_defs.append(f"`{col}` {db_type} NULL")
+        clean_col = str(col).replace("`", "``")
+        col_defs.append(f"`{clean_col}` {db_type} NULL")
         
     sql_create = f"CREATE TABLE `{table_name}` (\n  " + ",\n  ".join(col_defs) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
     

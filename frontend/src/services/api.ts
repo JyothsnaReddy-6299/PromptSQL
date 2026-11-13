@@ -525,6 +525,23 @@ export async function signup(username: string, password: string) {
   return data || {};
 }
 
+export async function logoutUser() {
+  try {
+    await fetch(`${API_URL}/auth/logout`, { method: "POST" });
+  } finally {
+    localStorage.removeItem("promptsql_token");
+    localStorage.removeItem("promptsql_user_id");
+    localStorage.removeItem("promptsql_username");
+    sessionStorage.clear();
+  }
+}
+
+export async function getMe() {
+  const response = await fetch(`${API_URL}/auth/me`);
+  if (!response.ok) throw new Error("Not authenticated");
+  return response.json();
+}
+
 export async function downloadRawCSV() {
   const response = await fetch(`${API_URL}/api/export/raw/csv`);
   await triggerBlobDownload(response, "dataset.csv");
