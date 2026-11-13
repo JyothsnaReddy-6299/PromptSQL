@@ -56,6 +56,28 @@ def call_llm(
                 print(f"[LLM Service] Rate limit hit on model '{model}'. Retrying in {sleep_sec:.1f}s (attempt {attempt + 1}/{max_retries})...")
                 time.sleep(sleep_sec)
                 continue
+
+            # Fallback to secondary model if primary model exhausted rate limit
+            fallback_models = ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]
+            for fb_model in fallback_models:
+                if fb_model != model:
+                    try:
+                        print(f"[LLM Service] Primary model '{model}' rate-limited. Falling back to '{fb_model}'...")
+                        response = client.chat.completions.create(
+                            model=fb_model,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            temperature=temperature,
+                            max_tokens=max_tokens
+                        )
+                        raw_text = response.choices[0].message.content.strip()
+                        return strip_think_blocks(raw_text)
+                    except Exception as fb_err:
+                        print(f"[LLM Service] Fallback model '{fb_model}' failed: {sanitize_error_message(str(fb_err))}")
+                        continue
+
             safe_msg = sanitize_error_message(str(rle))
             print(f"[LLM Service] Groq API call failed with model '{model}': {safe_msg}")
             raise RuntimeError(f"AI Analytics service error: {safe_msg}") from None

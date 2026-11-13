@@ -44,48 +44,23 @@ def ask_question(
     table_name = resolve_and_authorize_dataset(user_id=user_id, requested_table_name=x_table_name)
     all_user_tables = get_user_datasets(user_id)
 
-    # Restrict LLM query scope to user's authorized tables
-    from app.database.connection import engine
-    from sqlalchemy import inspect
-    inspector = inspect(engine)
+    # Dynamic Schema Discovery, Relationship Inference & Query Context Resolution
+    from app.services.relationship_service import resolve_query_context
+    query_context = resolve_query_context(
+        question=payload.question,
+        user_id=user_id,
+        active_table=table_name
+    )
 
-    user_tables = [table_name]
-    question_lower = payload.question.lower()
-    for t in all_user_tables:
-        if t != table_name:
-            friendly_tbl = t.split("_usr_")[0].lower()
-            friendly_clean = friendly_tbl.rstrip('s')
-            
-            # Check 1: Table name matching
-            table_matched = (
-                friendly_tbl in question_lower or 
-                friendly_tbl.replace("_", " ") in question_lower or
-                (len(friendly_clean) > 3 and friendly_clean in question_lower) or
-                any(word in friendly_tbl for word in question_lower.split() if len(word) > 3)
-            )
-            
-            # Check 2: Column name matching (dynamic context expansion)
-            column_matched = False
-            if not table_matched:
-                try:
-                    for col in inspector.get_columns(t):
-                        col_name = col["name"].lower()
-                        # Skip common generic columns to prevent accidental joins
-                        if col_name in ["id", "key", "date", "name", "city", "email", "status", "type"]:
-                            continue
-                        if any(word in col_name for word in question_lower.split() if len(word) > 3):
-                            column_matched = True
-                            break
-                except Exception:
-                    pass
-            
-            if table_matched or column_matched:
-                user_tables.append(t)
+    user_tables = list(query_context.physical_tables)
+    if table_name not in user_tables:
+        user_tables.append(table_name)
 
     print("\n==============================")
     print("Current Table :", table_name)
     print("User Tables   :", user_tables)
     print("Question      :", payload.question)
+    print("Multi-Table   :", query_context.is_multi_table)
 
     try:
         # -----------------------------------------
@@ -94,7 +69,8 @@ def ask_question(
         sql_query = generate_sql(
             payload.question,
             table_name,
-            user_id
+            user_id,
+            context=query_context
         )
 
         print("\nGenerated SQL")
@@ -130,7 +106,8 @@ def ask_question(
                     table_name,
                     sql_query,
                     sanitized_message,
-                    user_id
+                    user_id,
+                    context=query_context
                 )
                 print("\nRegenerated SQL:")
                 print(sql_query)
@@ -161,7 +138,8 @@ def ask_question(
                 table_name,
                 sql_query,
                 sanitized_message,
-                user_id
+                user_id,
+                context=query_context
             )
 
             print("\nRegenerated SQL")
@@ -273,6 +251,7 @@ def ask_question(
             "returned_rows": returned_rows,
             "total_rows": total_rows,
             "result_size_bytes": result_size_bytes,
+            "ambiguity_warning": query_context.ambiguity_warning,
         }
 
     except HTTPException:
