@@ -135,6 +135,47 @@ def are_types_join_compatible(cat1: str, cat2: str) -> bool:
     return False
 
 
+def clean_token(s: str) -> str:
+    """Strips delimiters and converts to lowercase for normalized key and token matching."""
+    return re.sub(r"[_\s\-]+", "", s.lower())
+
+
+NON_ID_WORDS = ("valid", "paid", "grid", "solid", "liquid", "acid", "mid", "rapid", "pyramid", "hybrid", "lipid")
+
+
+def is_identifier_column(col_name: str, is_primary_key: bool = False) -> bool:
+    """Determines whether a column is a primary, foreign, or business entity identifier."""
+    if is_primary_key:
+        return True
+    norm = clean_token(col_name)
+    if norm in GENERIC_ID_NAMES:
+        return True
+    for suffix in ["id", "code", "key", "number", "num", "no", "ref"]:
+        if norm.endswith(suffix):
+            if suffix == "id" and any(norm.endswith(w) for w in NON_ID_WORDS):
+                continue
+            return True
+    return False
+
+
+def extract_semantic_tokens(text: str) -> Set[str]:
+    """Extracts lowercase tokens, compound parts, and singular stems from text or identifier."""
+    raw_tokens = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|\d+", text)
+    tokens = set()
+    for t in raw_tokens:
+        tl = t.lower()
+        if len(tl) < 2:
+            continue
+        tokens.add(tl)
+        if tl.endswith("ies") and len(tl) > 4:
+            tokens.add(tl[:-3] + "y")
+        elif any(tl.endswith(sfx) for sfx in ["sses", "shes", "ches", "xes", "zes"]) and len(tl) > 4:
+            tokens.add(tl[:-2])
+        elif tl.endswith("s") and len(tl) > 2 and not tl.endswith("ss"):
+            tokens.add(tl[:-1])
+    return tokens
+
+
 def get_table_name_variants(friendly_name: str) -> Set[str]:
     """
     Derives linguistic variants (singular, stem, constituent entity tokens) of a table name dynamically
@@ -311,27 +352,24 @@ def infer_table_relationships(
                         ))
 
             # 2. Heuristic Key Pattern Matching:
-            # Table A has a Primary Key or unique identifier `pk_col`
-            # Table B has a column `col_b` that references Table A
+            # Matches explicit entity identifiers, primary/foreign keys, and role-prefixed columns
             a_variants = get_table_name_variants(table_a.friendly_name)
+            b_variants = get_table_name_variants(table_b.friendly_name)
 
             for col_a in table_a.columns:
-                # Target column in Table A must be a PK, an explicit ID, or a specific identifier
-                col_a_lower = col_a.name.lower()
-                is_target_id = col_a.is_primary_key or col_a_lower.endswith("_id") or col_a_lower.endswith("_code") or col_a_lower in GENERIC_ID_NAMES
-
-                if not is_target_id:
-                    continue
+                col_a_clean = clean_token(col_a.name)
+                is_a_id = is_identifier_column(col_a.name, col_a.is_primary_key)
 
                 for col_b in table_b.columns:
-                    col_b_lower = col_b.name.lower()
+                    col_b_clean = clean_token(col_b.name)
+                    is_b_id = is_identifier_column(col_b.name, col_b.is_primary_key)
 
                     # False-positive suppression:
                     # Generic columns matching across tables (e.g. A.id = B.id, A.status = B.status)
                     # must NEVER be inferred as foreign keys
-                    if col_a_lower in GENERIC_ID_NAMES and col_b_lower in GENERIC_ID_NAMES:
+                    if col_a_clean in GENERIC_ID_NAMES and col_b_clean in GENERIC_ID_NAMES:
                         continue
-                    if col_b_lower in NON_RELATIONAL_ATTRIBUTES:
+                    if col_b_clean in NON_RELATIONAL_ATTRIBUTES or col_a_clean in NON_RELATIONAL_ATTRIBUTES:
                         continue
 
                     # Type compatibility check
@@ -341,61 +379,141 @@ def infer_table_relationships(
                     confidence = 0.0
                     reason = ""
                     disambiguation_hint = None
+                    src_tbl, src_col, tgt_tbl, tgt_col = None, None, None, None
 
-                    # Pattern 1: Exact <table_a_variant>_<pk_a_name> (e.g. orders.customer_id -> customers.id)
-                    for v in a_variants:
-                        if col_b_lower == f"{v}_{col_a_lower}":
-                            confidence = 0.95
-                            reason = f"Column `{col_b.name}` matches `{table_a.friendly_name}.{col_a.name}` naming pattern"
-                            break
-                        # Handle concatenated: customerid -> customers.id
-                        if col_b_lower == f"{v}{col_a_lower}":
-                            confidence = 0.92
-                            reason = f"Concatenated `{col_b.name}` matches `{table_a.friendly_name}.{col_a.name}`"
-                            break
-                        # Handle role-prefixed: origin_airport_id -> airports.id
-                        if col_b_lower.endswith(f"_{v}_{col_a_lower}"):
-                            role = col_b_lower[:-len(f"_{v}_{col_a_lower}")]
-                            confidence = 0.90
-                            reason = f"Role-prefixed `{col_b.name}` (role: '{role}') matches `{table_a.friendly_name}.{col_a.name}`"
-                            disambiguation_hint = role
-                            break
+                    # Pattern 1: Identical / Equivalent Shared Identifier column
+                    # e.g. customers.CustomerID <-> orders.CustomerID, or clients.client_id <-> orders.client_id
+                    if col_a_clean == col_b_clean and (is_a_id or is_b_id):
+                        a_matched = any(clean_token(v) in col_a_clean for v in a_variants)
+                        b_matched = any(clean_token(v) in col_b_clean for v in b_variants)
+                        confidence = 0.96 if (a_matched or b_matched or col_a.is_primary_key or col_b.is_primary_key) else 0.92
+                        reason = f"Shared domain identifier `{col_a.name}` across `{table_a.friendly_name}` and `{table_b.friendly_name}`"
+                        if col_b.is_primary_key:
+                            src_tbl, src_col, tgt_tbl, tgt_col = table_a, col_a, table_b, col_b
+                        else:
+                            src_tbl, src_col, tgt_tbl, tgt_col = table_b, col_b, table_a, col_a
 
-                    # Pattern 2: Shared non-generic identifier across tables
-                    # (e.g. departments.dept_code [PK] <-> employees.dept_code)
-                    if confidence == 0.0 and col_a_lower not in GENERIC_ID_NAMES:
-                        if col_a_lower == col_b_lower and (col_a.is_primary_key or col_a_lower.endswith("_code") or col_a_lower.endswith("_id")):
-                            confidence = 0.90
-                            reason = f"Shared domain identifier `{col_b.name}` across both tables"
+                    # Pattern 1b: Equivalent Identifier with prefix/stem match (e.g. customer_id <-> cust_id)
+                    if confidence == 0.0 and (is_a_id and is_b_id):
+                        for sfx in ["id", "code", "key", "number", "num", "no", "ref"]:
+                            if col_a_clean.endswith(sfx) and col_b_clean.endswith(sfx):
+                                stem_a = col_a_clean[:-len(sfx)]
+                                stem_b = col_b_clean[:-len(sfx)]
+                                if len(stem_a) >= 3 and len(stem_b) >= 3:
+                                    if stem_a.startswith(stem_b) or stem_b.startswith(stem_a):
+                                        confidence = 0.93
+                                        reason = f"Domain identifier `{col_a.name}` matches `{col_b.name}`"
+                                        src_tbl, src_col, tgt_tbl, tgt_col = table_b, col_b, table_a, col_a
+                                        break
 
-                    if confidence >= 0.70:
+                    # Pattern 2: Foreign Key naming pattern: B -> A (col_b references table_a.col_a)
+                    # e.g. orders.customer_id -> customers.id, or orders.CustomerID -> customers.id, sales.cust_id -> customers.id
+                    if confidence == 0.0 and (col_a.is_primary_key or col_a_clean in GENERIC_ID_NAMES or is_a_id):
+                        for v in a_variants:
+                            v_clean = clean_token(v)
+                            # Direct concatenation or snake_case match: customer_id, customerid
+                            if col_b_clean == f"{v_clean}{col_a_clean}" or col_b.name.lower() == f"{v}_{col_a.name.lower()}":
+                                confidence = 0.95
+                                reason = f"Column `{col_b.name}` matches `{table_a.friendly_name}.{col_a.name}` naming pattern"
+                                src_tbl, src_col, tgt_tbl, tgt_col = table_b, col_b, table_a, col_a
+                                break
+                            # Concatenation when col_a is generic 'id' and col_b is '<entity>id'
+                            if col_a_clean in GENERIC_ID_NAMES and col_b_clean == f"{v_clean}id":
+                                confidence = 0.94
+                                reason = f"Column `{col_b.name}` references `{table_a.friendly_name}.{col_a.name}`"
+                                src_tbl, src_col, tgt_tbl, tgt_col = table_b, col_b, table_a, col_a
+                                break
+                            # Prefix/abbreviation stem matching when col_a is generic 'id' or PK and col_b ends with 'id'
+                            # e.g. sales.cust_id -> customers.id, employees.dept_id -> departments.id
+                            if (col_a_clean in GENERIC_ID_NAMES or col_a.is_primary_key) and col_b_clean.endswith(col_a_clean):
+                                prefix = col_b_clean[:-len(col_a_clean)]
+                                if len(prefix) >= 3 and v_clean.startswith(prefix):
+                                    confidence = 0.94
+                                    reason = f"Column `{col_b.name}` (stem '{prefix}') references `{table_a.friendly_name}.{col_a.name}`"
+                                    src_tbl, src_col, tgt_tbl, tgt_col = table_b, col_b, table_a, col_a
+                                    break
+                            # Role-prefixed: origin_airport_id -> airports.id or airports.airport_id
+                            role_suffix = f"{v_clean}{col_a_clean}"
+                            if col_b_clean.endswith(role_suffix) and len(col_b_clean) > len(role_suffix):
+                                role = col_b_clean[:-len(role_suffix)].rstrip("_")
+                                confidence = 0.90
+                                reason = f"Role-prefixed `{col_b.name}` (role: '{role}') matches `{table_a.friendly_name}.{col_a.name}`"
+                                disambiguation_hint = role
+                                src_tbl, src_col, tgt_tbl, tgt_col = table_b, col_b, table_a, col_a
+                                break
+
+                    # Pattern 3: Foreign Key naming pattern: A -> B (col_a references table_b.col_b)
+                    # Symmetric check when table order is inverted: e.g. sales.cust_id -> customers.id
+                    if confidence == 0.0 and (col_b.is_primary_key or col_b_clean in GENERIC_ID_NAMES or is_b_id):
+                        for v in b_variants:
+                            v_clean = clean_token(v)
+                            # Direct concatenation or snake_case match: customer_id, customerid
+                            if col_a_clean == f"{v_clean}{col_b_clean}" or col_a.name.lower() == f"{v}_{col_b.name.lower()}":
+                                confidence = 0.95
+                                reason = f"Column `{col_a.name}` matches `{table_b.friendly_name}.{col_b.name}` naming pattern"
+                                src_tbl, src_col, tgt_tbl, tgt_col = table_a, col_a, table_b, col_b
+                                break
+                            # Concatenation when col_b is generic 'id' and col_a is '<entity>id'
+                            if col_b_clean in GENERIC_ID_NAMES and col_a_clean == f"{v_clean}id":
+                                confidence = 0.94
+                                reason = f"Column `{col_a.name}` references `{table_b.friendly_name}.{col_b.name}`"
+                                src_tbl, src_col, tgt_tbl, tgt_col = table_a, col_a, table_b, col_b
+                                break
+                            # Prefix/abbreviation stem matching when col_b is generic 'id' or PK and col_a ends with 'id'
+                            # e.g. sales.cust_id -> customers.id, employees.dept_id -> departments.id
+                            if (col_b_clean in GENERIC_ID_NAMES or col_b.is_primary_key) and col_a_clean.endswith(col_b_clean):
+                                prefix = col_a_clean[:-len(col_b_clean)]
+                                if len(prefix) >= 3 and v_clean.startswith(prefix):
+                                    confidence = 0.94
+                                    reason = f"Column `{col_a.name}` (stem '{prefix}') references `{table_b.friendly_name}.{col_b.name}`"
+                                    src_tbl, src_col, tgt_tbl, tgt_col = table_a, col_a, table_b, col_b
+                                    break
+                            # Role-prefixed: origin_airport_id -> airports.id or airports.airport_id
+                            role_suffix = f"{v_clean}{col_b_clean}"
+                            if col_a_clean.endswith(role_suffix) and len(col_a_clean) > len(role_suffix):
+                                role = col_a_clean[:-len(role_suffix)].rstrip("_")
+                                confidence = 0.90
+                                reason = f"Role-prefixed `{col_a.name}` (role: '{role}') matches `{table_b.friendly_name}.{col_b.name}`"
+                                disambiguation_hint = role
+                                src_tbl, src_col, tgt_tbl, tgt_col = table_a, col_a, table_b, col_b
+                                break
+
+                    if confidence >= 0.70 and src_tbl is not None:
                         # 3. Optional Value Overlap Verification (Empirical validation)
                         if verify_data_overlap and db_engine is not None:
                             try:
                                 with db_engine.connect() as conn:
                                     test_sql = text(
-                                        f"SELECT 1 FROM `{table_b.physical_name}` b "
-                                        f"JOIN `{table_a.physical_name}` a ON b.`{col_b.name}` = a.`{col_a.name}` "
+                                        f"SELECT 1 FROM `{src_tbl.physical_name}` s "
+                                        f"JOIN `{tgt_tbl.physical_name}` t ON s.`{src_col.name}` = t.`{tgt_col.name}` "
                                         f"LIMIT 1"
                                     )
                                     has_overlap = conn.execute(test_sql).scalar()
                                     if has_overlap:
                                         confidence = min(1.0, confidence + 0.04)
+                                    else:
+                                        # If both tables possess data but have zero overlapping values,
+                                        # they belong to disjoint value spaces (not an active relational link)
+                                        s_cnt = conn.execute(text(f"SELECT 1 FROM `{src_tbl.physical_name}` LIMIT 1")).scalar()
+                                        t_cnt = conn.execute(text(f"SELECT 1 FROM `{tgt_tbl.physical_name}` LIMIT 1")).scalar()
+                                        if s_cnt is not None and t_cnt is not None:
+                                            confidence -= 0.30
                             except Exception:
                                 pass
 
-                        relationships.append(InferredRelationship(
-                            source_table=table_b.friendly_name,
-                            source_physical=table_b.physical_name,
-                            source_column=col_b.name,
-                            target_table=table_a.friendly_name,
-                            target_physical=table_a.physical_name,
-                            target_column=col_a.name,
-                            confidence=round(confidence, 2),
-                            cardinality="N:1",
-                            reason=reason,
-                            disambiguation_hint=disambiguation_hint
-                        ))
+                        if confidence >= 0.70:
+                            relationships.append(InferredRelationship(
+                                source_table=src_tbl.friendly_name,
+                                source_physical=src_tbl.physical_name,
+                                source_column=src_col.name,
+                                target_table=tgt_tbl.friendly_name,
+                                target_physical=tgt_tbl.physical_name,
+                                target_column=tgt_col.name,
+                                confidence=round(confidence, 2),
+                                cardinality="N:1",
+                                reason=reason,
+                                disambiguation_hint=disambiguation_hint
+                            ))
 
     # Deduplicate relationships and flag ambiguity
     deduped: List[InferredRelationship] = []
@@ -403,14 +521,18 @@ def infer_table_relationships(
     table_pairs: Dict[Tuple[str, str], List[InferredRelationship]] = {}
 
     for rel in sorted(relationships, key=lambda r: r.confidence, reverse=True):
-        key = (rel.source_table.lower(), rel.source_column.lower(), rel.target_table.lower(), rel.target_column.lower())
-        if key not in seen:
-            seen.add(key)
+        # Deduplicate undirected pairs of identical columns so the highest confidence direction is kept
+        undirected_key = tuple(sorted([
+            f"{rel.source_table.lower()}.{rel.source_column.lower()}",
+            f"{rel.target_table.lower()}.{rel.target_column.lower()}"
+        ]))
+        if undirected_key not in seen:
+            seen.add(undirected_key)
             deduped.append(rel)
-            pair_key = (rel.source_table.lower(), rel.target_table.lower())
+            pair_key = tuple(sorted([rel.source_table.lower(), rel.target_table.lower()]))
             table_pairs.setdefault(pair_key, []).append(rel)
 
-    # Flag ambiguous multi-foreign key relationships (e.g. origin_airport vs dest_airport)
+    # Flag ambiguous multi-foreign key relationships (e.g. origin_airport vs dest_airport between same table pair)
     for pair_rels in table_pairs.values():
         if len(pair_rels) > 1:
             for r in pair_rels:
@@ -550,6 +672,7 @@ def resolve_query_context(
     # Analyze question against schemas to detect required tables
     question_lower = question.lower()
     words_in_q = set(re.findall(r"\b[a-zA-Z0-9_]+\b", question_lower))
+    question_tokens = extract_semantic_tokens(question) | words_in_q
 
     table_scores: Dict[str, int] = {}
     matched_columns_per_table: Dict[str, List[str]] = {}
@@ -561,36 +684,37 @@ def resolve_query_context(
         # 1. Match table name or singular forms in question
         variants = get_table_name_variants(friendly)
         for v in variants:
-            if v in words_in_q or v in question_lower:
+            if v in words_in_q or v in question_tokens or v in question_lower:
                 score += 5
 
         # 2. Match column names in question
         for col in meta.columns:
             c_name = col.name.lower()
             clean_c = c_name.replace("_", " ")
+            col_tokens = extract_semantic_tokens(col.name)
+            is_col_id = is_identifier_column(col.name, col.is_primary_key)
 
             # Skip generic identifier columns for initial table scoring
-            if c_name in GENERIC_ID_NAMES:
+            if clean_token(c_name) in GENERIC_ID_NAMES:
                 continue
 
             # Multi-word column match (e.g. "unit price" in question)
             if " " in clean_c and clean_c in question_lower:
                 score += 4
                 matched_cols.append(col.name)
-            elif c_name in words_in_q and len(c_name) > 2:
+            elif (c_name in words_in_q or c_name in question_tokens) and len(c_name) > 2:
                 # Full column name match
                 weight = 1 if c_name in NON_RELATIONAL_ATTRIBUTES else 3
                 score += weight
                 matched_cols.append(col.name)
-            else:
-                # Component token match (e.g. "amount" or "total" from "total_amount")
-                # Exclude foreign key columns (*_id, *_fk, *_pk) from component matching
-                if not (c_name.endswith("_id") or c_name.endswith("_fk") or c_name.endswith("_pk")):
-                    c_parts = [p for p in c_name.split("_") if len(p) > 2]
-                    matched_parts = [p for p in c_parts if p in words_in_q]
-                    if matched_parts:
-                        score += 2
-                        matched_cols.append(col.name)
+            elif col_tokens & question_tokens:
+                # Semantic component match across token boundaries (camelCase, PascalCase, snake_case)
+                # Exclude foreign key columns from accidental component matching
+                if not is_col_id:
+                    matched_parts = col_tokens & question_tokens
+                    weight = 1 if any(p in NON_RELATIONAL_ATTRIBUTES for p in matched_parts) else 2
+                    score += weight
+                    matched_cols.append(col.name)
 
         table_scores[friendly] = score
         matched_columns_per_table[friendly] = matched_cols
