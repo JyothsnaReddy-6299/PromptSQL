@@ -72,7 +72,11 @@ export async function getHealth() {
   }
 }
 
-export async function askQuestion(question: string) {
+export async function askQuestion(
+  question: string,
+  clarificationSelection?: string,
+  clarificationContext?: Record<string, any>
+) {
   const response = await fetch(`${API_URL}/ask`, {
     method: "POST",
     headers: {
@@ -80,6 +84,8 @@ export async function askQuestion(question: string) {
     },
     body: JSON.stringify({
       question,
+      clarification_selection: clarificationSelection,
+      clarification_context: clarificationContext,
     }),
   });
   return response.json();
@@ -325,6 +331,25 @@ export async function executeModification(sql: string, intent: string, tableName
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
     throw new Error(detail?.detail || detail?.error || "Failed executing database modification query");
+  }
+  return response.json();
+}
+
+export async function cancelModification(confirmationToken: string) {
+  const token = localStorage.getItem("token");
+  const response = await fetch(`${API_URL}/api/modification/cancel`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({
+      confirmation_token: confirmationToken,
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail?.detail || detail?.error || "Failed cancelling database modification");
   }
   return response.json();
 }

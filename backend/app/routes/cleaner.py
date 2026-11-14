@@ -187,7 +187,7 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: Active
                 val = str(series.mode()[0]) if not series.empty else ""
 
             elif strategy == "custom":
-                val = req.custom_value or ""
+                val = req.custom_value if req.custom_value is not None else ""
                 if not is_text:
                     if "date" in col_type or "timestamp" in col_type:
                         try:
@@ -197,7 +197,12 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: Active
                             else:
                                 val = parsed_date.strftime("%Y-%m-%d")
                         except Exception:
-                            pass
+                            val = None
+                    elif any(num_t in col_type for num_t in ["int", "double", "float", "decimal"]):
+                        try:
+                            val = float(val) if val != "" else 0.0
+                        except (ValueError, TypeError):
+                            val = 0.0
 
             # Update rows where it is NULL
             if is_text:
@@ -316,7 +321,7 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: Acti
             params[param_key] = v
 
     where_clause = " AND ".join(where_parts) if where_parts else "1=1"
-    sql_executed = f"UPDATE {safe_tbl} SET {safe_col} = :new_val WHERE {where_clause}"
+    sql_executed = f"UPDATE {safe_tbl} SET {safe_col} = :new_val WHERE {where_clause} LIMIT 1"
 
     try:
         with engine.begin() as conn:
@@ -432,19 +437,28 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db),
 
     try:
         if op == "title":
-            query = f"SELECT `id`, {safe_col} FROM {safe_tbl}"
+            from sqlalchemy import inspect
+            inspector = inspect(engine)
+            pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
+            col_info = inspector.get_columns(table_name)
+            all_cols = [c["name"] for c in col_info]
+
+            pk_col = pk_cols[0] if pk_cols else ("_row_id" if "_row_id" in all_cols else ("id" if "id" in all_cols else all_cols[0]))
+            safe_pk = f"`{pk_col.replace('`', '``')}`"
+
+            query = f"SELECT {safe_pk}, {safe_col} FROM {safe_tbl} WHERE {safe_col} IS NOT NULL AND {safe_col} != ''"
             with engine.connect() as conn:
                 df = pd.read_sql(query, conn)
             
             # Apply Title Case, preserving NULL values
             df[col] = df[col].apply(lambda x: str(x).title() if pd.notna(x) and x is not None else None)
             
-            update_query = f"-- Title case update via Pandas\nUPDATE {safe_tbl} SET {safe_col} = :val WHERE `id` = :id"
+            update_query = f"-- Title case update via Pandas\nUPDATE {safe_tbl} SET {safe_col} = :val WHERE {safe_pk} = :pk_val"
             with engine.begin() as conn:
                 for _, row in df.iterrows():
                     conn.execute(
-                        text(f"UPDATE {safe_tbl} SET {safe_col} = :val WHERE `id` = :id"),
-                        {"val": row[col], "id": int(row["id"])}
+                        text(f"UPDATE {safe_tbl} SET {safe_col} = :val WHERE {safe_pk} = :pk_val"),
+                        {"val": row[col], "pk_val": row[pk_col]}
                     )
                 rows_affected = len(df)
         else:

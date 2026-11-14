@@ -27,6 +27,8 @@ router = APIRouter()
 
 class AskRequest(BaseModel):
     question: str
+    clarification_selection: Optional[str] = None
+    clarification_context: Optional[dict] = None
 
 
 MAX_RETRIES = 2
@@ -44,13 +46,55 @@ def ask_question(
     table_name = resolve_and_authorize_dataset(user_id=user_id, requested_table_name=x_table_name)
     all_user_tables = get_user_datasets(user_id)
 
+    # -----------------------------------------
+    # Resolve clarification follow-up if pending for this user and dataset
+    # -----------------------------------------
+    from app.services.relationship_service import (
+        get_pending_clarification,
+        clear_pending_clarification,
+        save_pending_clarification,
+        resolve_clarification_followup
+    )
+
+    effective_question = payload.question
+    pending = payload.clarification_context or get_pending_clarification(user_id=user_id, table_name=table_name)
+    if pending:
+        clarification_input = payload.clarification_selection or payload.question
+        combined_question = resolve_clarification_followup(pending, clarification_input)
+        if combined_question:
+            effective_question = combined_question
+            clear_pending_clarification(user_id=user_id, table_name=table_name)
+        else:
+            clear_pending_clarification(user_id=user_id, table_name=table_name)
+
     # Dynamic Schema Discovery, Relationship Inference & Query Context Resolution
     from app.services.relationship_service import resolve_query_context
     query_context = resolve_query_context(
-        question=payload.question,
+        question=effective_question,
         user_id=user_id,
         active_table=table_name
     )
+
+    # If ambiguity requires clarification, do not execute an arbitrary query
+    if query_context.needs_clarification:
+        save_pending_clarification(
+            user_id=user_id,
+            table_name=table_name,
+            context_data=query_context.clarification_context_data
+        )
+        return {
+            "success": True,
+            "needs_clarification": True,
+            "clarification_prompt": query_context.clarification_prompt,
+            "clarification_options": query_context.clarification_options,
+            "clarification_context": query_context.clarification_context_data,
+            "summary": query_context.clarification_prompt,
+            "generated_sql": None,
+            "count": 0,
+            "result": [],
+            "is_truncated": False,
+            "ambiguity_warning": query_context.ambiguity_warning,
+        }
 
     user_tables = list(query_context.physical_tables)
     if table_name not in user_tables:
@@ -59,7 +103,7 @@ def ask_question(
     print("\n==============================")
     print("Current Table :", table_name)
     print("User Tables   :", user_tables)
-    print("Question      :", payload.question)
+    print("Question      :", effective_question)
     print("Multi-Table   :", query_context.is_multi_table)
 
     try:
@@ -67,7 +111,7 @@ def ask_question(
         # Generate SQL
         # -----------------------------------------
         sql_query = generate_sql(
-            payload.question,
+            effective_question,
             table_name,
             user_id,
             context=query_context
@@ -225,7 +269,7 @@ def ask_question(
             db_history = QueryHistory(
                 user_id=user_id,
                 table_name=table_name,
-                question=payload.question,
+                question=effective_question,
                 generated_sql=sql_query,
                 summary=summary,
                 result_count=returned_rows,
@@ -252,6 +296,7 @@ def ask_question(
             "total_rows": total_rows,
             "result_size_bytes": result_size_bytes,
             "ambiguity_warning": query_context.ambiguity_warning,
+            "needs_clarification": False,
         }
 
     except HTTPException:

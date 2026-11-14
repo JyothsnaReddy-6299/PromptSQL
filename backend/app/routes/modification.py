@@ -57,6 +57,10 @@ class ModificationExecuteRequest(BaseModel):
     question: Optional[str] = None
 
 
+class ModificationCancelRequest(BaseModel):
+    confirmation_token: Optional[str] = None
+
+
 class ReconcileRequest(BaseModel):
     token: Optional[str] = None
     stale_timeout_seconds: Optional[int] = DEFAULT_STALE_EXECUTION_TIMEOUT_SECONDS
@@ -308,6 +312,64 @@ def ask_modification(
         "reliable_estimate": is_reliable,
         "confirmation_token": confirmation_token,
         "expires_at": expires_at.isoformat()
+    }
+
+
+@router.post("/cancel")
+def cancel_modification_query(
+    payload: ModificationCancelRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Cancels a pending modification before execution:
+    - Validates tenant ownership of confirmation token.
+    - Transitions pending record status to CANCELLED.
+    - Prevents any future execution using this token.
+    - Completely preserves database table data unchanged.
+    """
+    token = payload.confirmation_token
+    if not token or not token.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid confirmation token is required to cancel."
+        )
+
+    clean_token = token.strip()
+    pending = db.query(PendingModification).filter(PendingModification.token == clean_token).first()
+    if not pending:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pending modification not found."
+        )
+
+    if pending.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You do not own this pending modification."
+        )
+
+    if pending.status == "EXECUTED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot cancel a modification that has already been executed."
+        )
+
+    if pending.status == "CANCELLED":
+        return {
+            "success": True,
+            "message": "Modification was already cancelled.",
+            "status": "CANCELLED"
+        }
+
+    pending.status = "CANCELLED"
+    pending.status_message = "Modification cancelled by user. No data was changed."
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Modification cancelled successfully. No changes were made.",
+        "status": "CANCELLED"
     }
 
 

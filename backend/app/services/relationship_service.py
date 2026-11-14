@@ -14,6 +14,8 @@ Zero Hardcoding Guarantee:
 """
 
 import re
+import threading
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple, Any
 from sqlalchemy import inspect, text
@@ -104,6 +106,11 @@ class QueryContext:
     relationships_prompt: str
     is_multi_table: bool
     ambiguity_warning: Optional[str] = None
+    needs_clarification: bool = False
+    clarification_prompt: Optional[str] = None
+    clarification_options: List[str] = field(default_factory=list)
+    ambiguous_relationships: List[InferredRelationship] = field(default_factory=list)
+    clarification_context_data: Optional[Dict[str, Any]] = None
 
 
 # -----------------------------------------------------------------------------
@@ -433,7 +440,7 @@ def infer_table_relationships(
                                     src_tbl, src_col, tgt_tbl, tgt_col = table_b, col_b, table_a, col_a
                                     break
                             # Role-prefixed: origin_airport_id -> airports.id or airports.airport_id
-                            role_suffix = f"{v_clean}{col_a_clean}"
+                            role_suffix = col_a_clean if col_a_clean.startswith(v_clean) else f"{v_clean}{col_a_clean}"
                             if col_b_clean.endswith(role_suffix) and len(col_b_clean) > len(role_suffix):
                                 role = col_b_clean[:-len(role_suffix)].rstrip("_")
                                 confidence = 0.90
@@ -469,7 +476,7 @@ def infer_table_relationships(
                                     src_tbl, src_col, tgt_tbl, tgt_col = table_a, col_a, table_b, col_b
                                     break
                             # Role-prefixed: origin_airport_id -> airports.id or airports.airport_id
-                            role_suffix = f"{v_clean}{col_b_clean}"
+                            role_suffix = col_b_clean if col_b_clean.startswith(v_clean) else f"{v_clean}{col_b_clean}"
                             if col_a_clean.endswith(role_suffix) and len(col_a_clean) > len(role_suffix):
                                 role = col_a_clean[:-len(role_suffix)].rstrip("_")
                                 confidence = 0.90
@@ -542,6 +549,98 @@ def infer_table_relationships(
 
 
 # -----------------------------------------------------------------------------
+# 2b. Pending Clarification Context Store (Thread-safe session memory)
+# -----------------------------------------------------------------------------
+
+_clarification_lock = threading.Lock()
+_pending_clarifications: Dict[str, Dict[str, Any]] = {}
+
+
+def _make_clarification_key(user_id: str, table_name: Optional[str] = None) -> str:
+    tbl = (table_name or "").strip().lower()
+    return f"{user_id}:{tbl}"
+
+
+def save_pending_clarification(user_id: str, table_name: Optional[str], context_data: Optional[Dict[str, Any]]) -> None:
+    """Stores pending clarification context isolated by user and active dataset with auto-expiration."""
+    if not context_data:
+        return
+    with _clarification_lock:
+        now = time.time()
+        # Expire stale entries (> 3 minutes / 180 seconds)
+        for k in list(_pending_clarifications.keys()):
+            if now - _pending_clarifications[k].get("timestamp", 0) > 180:
+                _pending_clarifications.pop(k, None)
+        context_data["timestamp"] = now
+        context_data["table_name"] = table_name
+        key = _make_clarification_key(user_id, table_name)
+        _pending_clarifications[key] = context_data
+
+
+def get_pending_clarification(user_id: str, table_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Retrieves active pending clarification context for user and dataset if not expired."""
+    with _clarification_lock:
+        key = _make_clarification_key(user_id, table_name)
+        data = _pending_clarifications.get(key)
+        if data:
+            if time.time() - data.get("timestamp", 0) > 180:
+                _pending_clarifications.pop(key, None)
+                return None
+        return data
+
+
+def clear_pending_clarification(user_id: str, table_name: Optional[str] = None) -> None:
+    """Clears pending clarification context for a user and dataset."""
+    with _clarification_lock:
+        key = _make_clarification_key(user_id, table_name)
+        _pending_clarifications.pop(key, None)
+
+
+def resolve_clarification_followup(pending: Dict[str, Any], user_input: str) -> Optional[str]:
+    """
+    Evaluates follow-up user input against a pending clarification context.
+    If the follow-up answers the clarification, synthesizes the complete unambiguous question.
+    """
+    if not pending or not user_input:
+        return None
+    input_lower = user_input.lower().strip()
+    matched_role = None
+
+    # 1. Match exact clarification options (e.g. "origin city", "destination city")
+    for opt in pending.get("options", []):
+        opt_lower = opt.lower()
+        if opt_lower in input_lower or input_lower in opt_lower:
+            matched_role = opt_lower.split()[0]
+            break
+
+    # 2. Match role hints (e.g. "origin", "destination")
+    if not matched_role:
+        for role in pending.get("role_hints", []):
+            if role and role in input_lower:
+                matched_role = role
+                break
+
+    if not matched_role:
+        return None
+
+    orig_q = pending.get("original_question", "")
+    novel_col = pending.get("novel_column")
+
+    # If user provided a complete long sentence, use user's explicit sentence directly
+    if len(input_lower.split()) > 4:
+        return user_input
+
+    # Otherwise, synthesize role into the original ambiguous question
+    if novel_col:
+        pattern = re.compile(rf"\b{re.escape(novel_col)}\b", re.IGNORECASE)
+        combined = pattern.sub(f"{matched_role} {novel_col}", orig_q, count=1)
+        if combined != orig_q:
+            return combined
+
+    return f"{orig_q} ({matched_role})"
+
+
+# -----------------------------------------------------------------------------
 # 3. Relationship Graph & Multi-Hop Path Finding
 # -----------------------------------------------------------------------------
 
@@ -551,8 +650,9 @@ class RelationshipGraph:
     Uses BFS / shortest-path search to connect tables across multi-hop relationships.
     """
 
-    def __init__(self, relationships: List[InferredRelationship]):
+    def __init__(self, relationships: List[InferredRelationship], question_lower: str = ""):
         self.relationships = relationships
+        self.question_lower = question_lower
         self.adj: Dict[str, List[Tuple[str, InferredRelationship]]] = {}
 
         for rel in relationships:
@@ -560,6 +660,17 @@ class RelationshipGraph:
             t = rel.target_table.lower()
             self.adj.setdefault(s, []).append((t, rel))
             self.adj.setdefault(t, []).append((s, rel))
+
+        # Prioritize edges that match disambiguation role hints present in the question
+        if question_lower:
+            for node in self.adj:
+                self.adj[node].sort(
+                    key=lambda item: (
+                        1 if (item[1].disambiguation_hint and item[1].disambiguation_hint in self.question_lower) else 0,
+                        item[1].confidence
+                    ),
+                    reverse=True
+                )
 
     def find_shortest_path(self, start: str, target: str) -> Optional[List[InferredRelationship]]:
         """Finds shortest join path (minimum hops, highest confidence) between two tables."""
@@ -665,14 +776,14 @@ def resolve_query_context(
     canonical_id, canonical_suffix = extract_canonical_user_id(user_id)
     active_friendly = derive_friendly_table_name(active_table, canonical_suffix).lower() if active_table else ""
 
-    # Infer relationships across all user tables
-    relationships = infer_table_relationships(schemas=schemas, db_engine=db_engine)
-    graph = RelationshipGraph(relationships)
-
     # Analyze question against schemas to detect required tables
     question_lower = question.lower()
     words_in_q = set(re.findall(r"\b[a-zA-Z0-9_]+\b", question_lower))
     question_tokens = extract_semantic_tokens(question) | words_in_q
+
+    # Infer relationships across all user tables
+    relationships = infer_table_relationships(schemas=schemas, db_engine=db_engine)
+    graph = RelationshipGraph(relationships, question_lower=question_lower)
 
     table_scores: Dict[str, int] = {}
     matched_columns_per_table: Dict[str, List[str]] = {}
@@ -769,17 +880,79 @@ def resolve_query_context(
         preferred_root=active_friendly if active_friendly in candidate_tables else None
     )
 
-    # Ambiguity check
+    # Ambiguity check & clarification detection
+    table_pairs: Dict[Tuple[str, str], List[InferredRelationship]] = {}
+    for rel in relationships:
+        pair_key = tuple(sorted([rel.source_table.lower(), rel.target_table.lower()]))
+        if pair_key[0] in resolved_nodes and pair_key[1] in resolved_nodes:
+            table_pairs.setdefault(pair_key, []).append(rel)
+
+    needs_clarification = False
+    clarification_prompt = None
+    clarification_options: List[str] = []
+    ambiguous_relationships: List[InferredRelationship] = []
+    clarification_context_data = None
     ambiguity_warning = None
-    for r in resolved_rels:
-        if r.is_ambiguous:
-            # Check if question specifies role hint
-            if r.disambiguation_hint and r.disambiguation_hint in question_lower:
-                r.is_ambiguous = False
+
+    for pair_key, pair_rels in table_pairs.items():
+        if len(pair_rels) > 1:
+            # Check if question explicitly specifies any of the role hints
+            matching_roles = [r for r in pair_rels if r.disambiguation_hint and r.disambiguation_hint in question_lower]
+            if len(matching_roles) == 1:
+                # Disambiguated by user's question!
+                # Ensure resolved_rels uses this specific chosen relationship
+                for i, r in enumerate(resolved_rels):
+                    if tuple(sorted([r.source_table.lower(), r.target_table.lower()])) == pair_key:
+                        resolved_rels[i] = matching_roles[0]
+                        matching_roles[0].is_ambiguous = False
+            elif len(matching_roles) == 0:
+                # Ambiguous! Multiple plausible relationships exist and user question did not specify role
+                needs_clarification = True
+                ambiguous_relationships = pair_rels
+                src_tbl = pair_rels[0].source_table
+                tgt_tbl = pair_rels[0].target_table
+
+                # Check for novel column in either table
+                novel_col = None
+                for col in matched_columns_per_table.get(tgt_tbl, []) + matched_columns_per_table.get(src_tbl, []):
+                    if col.lower() not in GENERIC_ID_NAMES and not is_identifier_column(col, False):
+                        novel_col = col
+                        break
+
+                if novel_col:
+                    clarification_options = [
+                        f"{r.disambiguation_hint} {novel_col}" if r.disambiguation_hint else r.source_column
+                        for r in pair_rels
+                    ]
+                else:
+                    clarification_options = [
+                        r.disambiguation_hint or r.source_column for r in pair_rels
+                    ]
+
+                options_phrase = (
+                    f"{clarification_options[0]} or {clarification_options[1]}"
+                    if len(clarification_options) == 2
+                    else ", ".join(clarification_options[:-1]) + f", or {clarification_options[-1]}"
+                )
+                clarification_prompt = (
+                    f"Multiple relationships connect '{src_tbl}' and '{tgt_tbl}'. "
+                    f"Please clarify whether you mean {options_phrase}."
+                )
+
+                clarification_context_data = {
+                    "user_id": user_id,
+                    "original_question": question,
+                    "active_table": active_table,
+                    "source_table": src_tbl,
+                    "target_table": tgt_tbl,
+                    "novel_column": novel_col,
+                    "options": clarification_options,
+                    "role_hints": [r.disambiguation_hint for r in pair_rels if r.disambiguation_hint]
+                }
+                break
             else:
                 ambiguity_warning = (
-                    f"Notice: Multiple join relationships exist between '{r.source_table}' and '{r.target_table}'. "
-                    f"Joining on `{r.source_column}` = `{r.target_column}` based on inferred context."
+                    f"Notice: Multiple join relationships exist between '{pair_rels[0].source_table}' and '{pair_rels[0].target_table}'."
                 )
 
     # Format schemas for LLM prompt
@@ -819,5 +992,10 @@ def resolve_query_context(
         relationships=resolved_rels,
         relationships_prompt=relationships_prompt,
         is_multi_table=len(resolved_nodes) > 1,
-        ambiguity_warning=ambiguity_warning
+        ambiguity_warning=ambiguity_warning,
+        needs_clarification=needs_clarification,
+        clarification_prompt=clarification_prompt,
+        clarification_options=clarification_options,
+        ambiguous_relationships=ambiguous_relationships,
+        clarification_context_data=clarification_context_data
     )

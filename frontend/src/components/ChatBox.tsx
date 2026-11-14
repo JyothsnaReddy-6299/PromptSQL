@@ -29,6 +29,7 @@ import {
   downloadActiveCSV,
   askModification,
   executeModification,
+  cancelModification,
   askQuestion,
   undoHistoryItem
 } from "../services/api";
@@ -60,6 +61,9 @@ interface Message {
   history_id?: number;
   is_undone?: boolean;
   is_undoing?: boolean;
+  needs_clarification?: boolean;
+  clarification_options?: string[];
+  clarification_context?: Record<string, any>;
 }
 
 interface ChatBoxProps {
@@ -149,11 +153,12 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
     setTimeout(() => setCopiedSql(null), 2000);
   };
 
-  const askAI = async () => {
-    if (!question.trim()) return;
+  const askAI = async (overrideText?: string, clarificationCtx?: Record<string, any>) => {
+    const textToSend = overrideText || question;
+    if (!textToSend.trim()) return;
 
-    const currentQuestion = question;
-    setQuestion("");
+    const currentQuestion = textToSend;
+    if (!overrideText) setQuestion("");
     setLoading(true);
 
     // Append user question
@@ -205,7 +210,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       }
 
       // 2. If it is standard SELECT, proceed through the read-only ask router
-      const data = await askQuestion(currentQuestion);
+      const data = await askQuestion(currentQuestion, overrideText ? currentQuestion : undefined, clarificationCtx);
 
       if (!data.success) {
         setMessages((prev) => [
@@ -228,7 +233,10 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           sql: data.generated_sql || "",
           records: data.result || [],
           activeTab: "table",
-          chartType: "bar"
+          chartType: "bar",
+          needs_clarification: data.needs_clarification,
+          clarification_options: data.clarification_options,
+          clarification_context: data.clarification_context
         }
       ]);
 
@@ -309,7 +317,15 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
     }
   };
 
-  const handleCancelModification = (idx: number) => {
+  const handleCancelModification = async (idx: number) => {
+    const msg = messages[idx];
+    if (msg?.confirmation_token) {
+      try {
+        await cancelModification(msg.confirmation_token);
+      } catch (e) {
+        // Safe fallback if token already invalidated or network error
+      }
+    }
     const updated = [...messages];
     updated[idx].requires_confirmation = false;
     updated[idx].canceled = true;
@@ -500,6 +516,21 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                   }`}
                 >
                   <p className="whitespace-pre-wrap font-medium text-left" dangerouslySetInnerHTML={{ __html: formatMessageText(msg.text) }} />
+
+                  {/* Clarification Option Chips */}
+                  {msg.needs_clarification && msg.clarification_options && msg.clarification_options.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                      {msg.clarification_options.map((opt, i) => (
+                        <button
+                          key={i}
+                          onClick={() => askAI(opt, msg.clarification_context)}
+                          className="px-3 py-1.5 bg-[#4379F2]/10 hover:bg-[#4379F2]/20 text-[#4379F2] border border-[#4379F2]/30 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                        >
+                          <span>{opt}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Warning tags */}
                   {msg.warning && msg.requires_confirmation && (
