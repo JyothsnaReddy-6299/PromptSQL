@@ -31,12 +31,7 @@ export default function DashboardPage() {
   const [modalView, setModalView] = useState<"options" | "create">("options");
 
   // Lifted Chat Assistant states to preserve conversation across sidebar section switches
-  const [chatMessages, setChatMessages] = useState<any[]>([
-    {
-      sender: "ai",
-      text: "Hello! I am your AI Analytics Assistant. Ask me anything about your uploaded dataset in plain English. I'll translate your question into optimized SQL, fetch the results, and explain the trends for you!"
-    }
-  ]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatQuestion, setChatQuestion] = useState("");
 
   const datasetMeta = JSON.parse(sessionStorage.getItem("dataset") || "{}");
@@ -129,12 +124,7 @@ export default function DashboardPage() {
 
   // Clean chat log only when active dataset switches
   useEffect(() => {
-    setChatMessages([
-      {
-        sender: "ai",
-        text: "Hello! I am your AI Analytics Assistant. Ask me anything about your uploaded dataset in plain English. I'll translate your question into optimized SQL, fetch the results, and explain the trends for you!"
-      }
-    ]);
+    setChatMessages([]);
     setChatQuestion("");
   }, [fileName]);
 
@@ -219,7 +209,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F5F5] text-[#303841]">
+    <div className="flex min-h-screen bg-[#F5F7FA] text-[#172B4D]">
       {/* Left Sidebar */}
       <DashboardSidebar
         activeSection={activeSection}
@@ -238,7 +228,7 @@ export default function DashboardPage() {
         />
 
         {/* Content container - reduced padding to eliminate zoomed look */}
-        <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#F5F5F5]">
+        <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-[#F5F7FA]">
         {activeSection === "reports" ? (
           <div id="reports" className="scroll-mt-24">
             <ReportsManager />
@@ -291,7 +281,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Chat box assistant */}
-            <div id="chat" className="scroll-mt-24 pb-10">
+            <div id="chat" className="scroll-mt-24 pb-1">
               <ChatBox 
                 messages={chatMessages}
                 setMessages={setChatMessages}

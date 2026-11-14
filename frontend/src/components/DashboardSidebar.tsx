@@ -1,7 +1,7 @@
 import {
   LayoutDashboard,
   Database,
-  MessageSquare,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -24,7 +24,7 @@ interface Props {
 const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
   { id: "preview", name: "Data Table", icon: Database },
-  { id: "chat", name: "Ask AI", icon: MessageSquare },
+  { id: "chat", name: "Analytics Workspace", icon: BarChart3 },
   { id: "reports", name: "Reports", icon: FileText },
   { id: "audit", name: "Audit Logs", icon: ClipboardList },
   { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },

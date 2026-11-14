@@ -1,22 +1,24 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Send, 
-  Brain, 
   Copy, 
   Check, 
   Database, 
   Download, 
   Table, 
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  Info,
-  History,
-  Trash2,
-  FolderHeart,
-  Loader2,
-  AlertTriangle,
-  Play
+  ChevronLeft, 
+  ChevronRight, 
+  Search, 
+  Info, 
+  History, 
+  Trash2, 
+  FolderHeart, 
+  Loader2, 
+  AlertTriangle, 
+  Play,
+  Sparkles,
+  BarChart3,
+  RotateCcw
 } from "lucide-react";
 
 import { 
@@ -37,7 +39,7 @@ import {
 interface Message {
   sender: "user" | "ai";
   text: string;
-  question?: string; // Cache user question for export options
+  question?: string;
   sql?: string;
   records?: Record<string, any>[];
   error?: string;
@@ -86,10 +88,10 @@ function formatMessageText(text: string): string {
     .replace(/'/g, "&#039;");
 
   // 2. Parse bold text: **text** -> <strong>text</strong>
-  escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong class=\"font-semibold text-[#172B4D]\">$1</strong>");
 
   // 3. Parse inline code snippets: `code` -> <code class="...">code</code>
-  escaped = escaped.replace(/`(.*?)`/g, '<code class="bg-[#76ABAE]/10 text-[#76ABAE] px-1.5 py-0.5 rounded font-mono text-[10px] font-bold">$1</code>');
+  escaped = escaped.replace(/`(.*?)`/g, '<code class="bg-[#168C88]/10 text-[#168C88] px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold">$1</code>');
 
   // 4. Parse line-by-line bullet points
   const lines = escaped.split("\n");
@@ -97,7 +99,7 @@ function formatMessageText(text: string): string {
     const trimmed = line.trim();
     if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       const content = trimmed.substring(2);
-      return `<li class="list-disc ml-4 mt-0.5 text-[#303841]">${content}</li>`;
+      return `<li class="list-disc ml-4 mt-0.5 text-[#172B4D]">${content}</li>`;
     }
     return line;
   });
@@ -120,14 +122,20 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   const [savingReport, setSavingReport] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const dataset = JSON.parse(sessionStorage.getItem("dataset") || "{}");
   const activeTableName = dataset?.filename || "Active Dataset";
 
+  // Filter out any stale generic greeting messages if present
+  const displayMessages = messages.filter(
+    (m) => !(m.sender === "ai" && m.text.includes("Hello! I am your AI Analytics Assistant"))
+  );
+
   useEffect(() => {
-    if (messages.length <= 1 && !loading) return;
+    if (displayMessages.length === 0 && !loading) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [displayMessages.length, loading]);
 
   useEffect(() => {
     if (showHistory) {
@@ -271,12 +279,10 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
     }
 
     try {
-      // Set executing loading state
       const updating = [...messages];
       updating[idx].is_executing = true;
       setMessages(updating);
 
-      // Execute transactionally using confirmation token
       const result = await executeModification(
         msg.sql || "",
         msg.intent || "",
@@ -293,13 +299,10 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
         finalized[idx].text = result.message || "Modification executed successfully.";
         finalized[idx].rows_affected = result.rows_affected;
         finalized[idx].execution_time_ms = result.execution_time_ms;
-        finalized[idx].records = result.records || []; // Save modified/inserted records
+        finalized[idx].records = result.records || [];
         finalized[idx].history_id = result.history_id;
         
-        // Dispatch window event so explorer table fetches latest mysql table rows immediately!
         window.dispatchEvent(new Event("dataset-modified"));
-        
-        // Refresh sidebar history drawer
         loadHistoryLogs();
       } else {
         finalized[idx].text = "Database execution failed. The transaction was automatically rolled back.";
@@ -323,7 +326,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       try {
         await cancelModification(msg.confirmation_token);
       } catch (e) {
-        // Safe fallback if token already invalidated or network error
+        // Safe fallback
       }
     }
     const updated = [...messages];
@@ -347,11 +350,7 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       if (result.success) {
         finalized[idx].is_undone = true;
         finalized[idx].text = "Database changes successfully rolled back! (Undone)";
-        
-        // Dispatch window event so explorer table fetches latest mysql table rows immediately!
         window.dispatchEvent(new Event("dataset-modified"));
-        
-        // Refresh sidebar history drawer
         loadHistoryLogs();
       } else {
         finalized[idx].error = result.message || "Failed to undo change.";
@@ -365,7 +364,6 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
     }
   };
 
-  // Reopen query history offline
   const handleReopenHistory = (item: any) => {
     let records: any[] = [];
     try {
@@ -462,323 +460,399 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   };
 
   return (
-    <div id="chat" className="bg-white border border-gray-200/80 rounded-xl p-3.5 sm:p-4 shadow-sm flex flex-col h-[500px]">
-      <div className="border-b border-gray-200 pb-3 mb-3 flex items-center justify-between">
+    <div id="chat" className="bg-white border border-[#E2E8F0] rounded-[14px] p-3.5 sm:p-4 pb-3 sm:pb-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col h-[540px]">
+      {/* 1. Header */}
+      <div className="border-b border-[#E2E8F0] pb-3 mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="bg-[#76ABAE]/10 border border-[#76ABAE]/20 p-2 rounded-xl text-[#76ABAE]">
-            <Brain size={18} className="animate-pulse text-[#76ABAE]" />
+          <div className="w-8 h-8 rounded-lg bg-[#168C88]/10 border border-[#168C88]/20 flex items-center justify-center text-[#168C88] shrink-0">
+            <BarChart3 size={17} strokeWidth={2.2} />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-[#303841]">
-              AI Analytics Chat
-            </h2>
-            <p className="text-[#4A5568] text-[10px] mt-0.5 font-semibold">
-              Ask questions to query database, generate tables & charts
-            </p>
-          </div>
+          <h2 className="text-sm sm:text-base font-semibold text-[#172B4D] tracking-tight">
+            Analytics Workspace
+          </h2>
         </div>
 
-        <button
-          onClick={() => setShowHistory(!showHistory)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold cursor-pointer transition ${
-            showHistory 
-              ? "bg-[#FF5722] text-white border-[#FF5722] shadow-sm shadow-[#FF5722]/30" 
-              : "bg-white border-[#FF5722]/50 text-[#FF5722] hover:bg-[#FF5722]/10"
-          }`}
-        >
-          <History size={12} />
-          <span>History Logs</span>
-        </button>
+        {/* Header Right Actions */}
+        <div className="flex items-center gap-2">
+          {displayMessages.length > 0 && (
+            <button
+              onClick={() => setMessages([])}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] text-xs font-medium text-[#64748B] hover:text-[#172B4D] hover:bg-[#F8FAFC] cursor-pointer transition"
+              title="Start a new analysis session"
+            >
+              <RotateCcw size={12} />
+              <span className="hidden sm:inline">New Analysis</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition ${
+              showHistory 
+                ? "bg-[#FF5722] text-white border-[#FF5722] shadow-sm shadow-[#FF5722]/30" 
+                : "bg-white border-[#FF5722]/50 text-[#FF5722] hover:bg-[#FF5722]/10"
+            }`}
+            title={showHistory ? "Close query history" : "Open query history"}
+          >
+            <History size={13} className={showHistory ? "text-white" : "text-[#FF5722]"} />
+            <span>History Logs</span>
+            {historyList.length > 0 && (
+              <span className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                showHistory ? "bg-white/25 text-white" : "bg-[#FF5722]/15 text-[#FF5722]"
+              }`}>
+                {historyList.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
+      {/* Main Workspace Body */}
       <div className="flex-1 flex gap-4 overflow-hidden mb-3">
-        <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`flex gap-3 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.sender === "ai" && (
-                <div className="w-8 h-8 bg-[#76ABAE] text-white rounded-xl flex items-center justify-center shadow-md shadow-[#76ABAE]/20 shrink-0">
-                  <Brain size={15} />
-                </div>
-              )}
-
-              <div className={`max-w-[85%] space-y-2.5 ${msg.sender === "user" ? "text-right" : "text-left"}`}>
-                {/* Regular Message Text */}
-                <div
-                  className={`p-3.5 px-4 rounded-2xl text-xs leading-relaxed ${
-                    msg.sender === "user"
-                      ? "bg-white text-[#303841] border border-gray-200 rounded-tr-sm shadow-sm"
-                      : msg.canceled
-                      ? "bg-gray-50 text-gray-400 border border-gray-200 border-dashed"
-                      : "bg-white text-[#303841] rounded-tl-sm border border-gray-200 shadow-sm"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap font-medium text-left" dangerouslySetInnerHTML={{ __html: formatMessageText(msg.text) }} />
-
-                  {/* Clarification Option Chips */}
-                  {msg.needs_clarification && msg.clarification_options && msg.clarification_options.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2 pt-2 border-t border-gray-100">
-                      {msg.clarification_options.map((opt, i) => (
-                        <button
-                          key={i}
-                          onClick={() => askAI(opt, msg.clarification_context)}
-                          className="px-3 py-1.5 bg-[#4379F2]/10 hover:bg-[#4379F2]/20 text-[#4379F2] border border-[#4379F2]/30 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-                        >
-                          <span>{opt}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Warning tags */}
-                  {msg.warning && msg.requires_confirmation && (
-                    <div className="mt-2.5 bg-terracotta-50 border border-terracotta-200 text-terracotta-800 rounded-xl p-3 flex gap-2 items-start font-semibold text-[10.5px]">
-                      <AlertTriangle size={14} className="text-terracotta-500 shrink-0 mt-0.5" />
-                      <span>{msg.warning}</span>
-                    </div>
-                  )}
-
-                  {/* Diagnostic Error Box */}
-                  {msg.error && (
-                    <div className="mt-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl p-3 font-mono text-[10px] text-left">
-                      <span className="font-bold block mb-0.5">Execution Failure:</span>
-                      {msg.error}
-                    </div>
-                  )}
-
-                  {/* Success metrics */}
-                  {!msg.requires_confirmation && msg.rows_affected !== undefined && (
-                    <div className="mt-3 pt-2.5 border-t border-[#E8DED3] flex items-center justify-between text-[9.5px] font-bold text-zinc-500">
-                      <div className="flex gap-4">
-                        <span>Rows affected: <strong className="text-zinc-700">{msg.rows_affected}</strong></span>
-                        <span>Execution time: <strong className="text-zinc-700">{msg.execution_time_ms} ms</strong></span>
-                      </div>
-                      
-                      {msg.history_id && !msg.is_undone && (
-                        <button
-                          onClick={() => handleUndo(idx, msg.history_id!)}
-                          disabled={msg.is_undoing}
-                          className="flex items-center gap-1 text-[#D95D39] hover:text-[#c44f2d] bg-[#D95D39]/5 hover:bg-[#D95D39]/10 border border-[#D95D39]/20 px-2 py-0.5 rounded-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                        >
-                          {msg.is_undoing ? (
-                            <Loader2 size={10} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={10} />
-                          )}
-                          <span>{msg.is_undoing ? "Undoing..." : "Undo Change"}</span>
-                        </button>
-                      )}
-
-                      {msg.is_undone && (
-                        <span className="text-[#3E8E5B] bg-[#3E8E5B]/5 px-2 py-0.5 rounded-md border border-[#3E8E5B]/20">
-                          ✓ Undone
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* SQL Code Block Preview */}
-                {msg.sql && !msg.canceled && (
-                  <div className="bg-[#303841] rounded-xl border border-gray-700 overflow-hidden shadow-inner text-left font-mono text-[11px]">
-                    <div className="bg-[#242c34] px-3.5 py-1.5 border-b border-gray-700/60 flex justify-between items-center text-gray-300">
-                      <span className="flex items-center gap-1 font-bold text-[9px] tracking-wide uppercase text-[#76ABAE]">
-                        <Database size={10} /> SQL Statement Preview
-                      </span>
-                      <button
-                        onClick={() => handleCopy(msg.sql!)}
-                        className="hover:text-white p-1 rounded transition flex items-center gap-1 cursor-pointer text-[9px]"
-                      >
-                        {copiedSql === msg.sql ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
-                        <span>{copiedSql === msg.sql ? "Copied" : "Copy"}</span>
-                      </button>
-                    </div>
-                    <pre className="p-3 text-gray-100 overflow-x-auto whitespace-pre">
-                      <code>{msg.sql}</code>
-                    </pre>
-                  </div>
-                )}
-
-                {/* DML/DDL Confirmation Dialog Buttons */}
-                {msg.requires_confirmation && (
-                  <div className="bg-[#1e242b] border border-gray-700/80 rounded-xl p-3.5 flex flex-col gap-2.5 text-left border-l-4 border-l-amber-500 shadow-md">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-700/60 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                          {msg.intent || "MODIFICATION"}
-                        </span>
-                        <span className="text-[10px] text-gray-300">
-                          Dataset: <strong className="text-white font-mono">{msg.target_dataset || msg.table_name}</strong>
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-gray-400">
-                        Estimated Impact: <strong className="text-amber-400">{msg.estimated_rows !== undefined && msg.estimated_rows !== null ? `${msg.estimated_rows} row(s)` : (msg.intent === "ALTER" ? "0 rows (Schema modification)" : "Uncertain / Unestimated")}</strong>
-                      </div>
-                    </div>
-
-                    <p className="text-[10.5px] font-semibold text-gray-200">
-                      This operation modifies database data or structures. Explicit approval is required.
-                    </p>
-
-                    <div className="flex gap-2 items-center pt-0.5">
-                      <button
-                        onClick={() => handleConfirmModification(idx, msg)}
-                        disabled={msg.is_executing}
-                        className="bg-[#FF5722] hover:bg-[#e64a19] disabled:bg-[#FF5722]/50 text-white px-3.5 py-1.5 rounded-lg text-[10.5px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm disabled:cursor-not-allowed"
-                      >
-                        {msg.is_executing ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Play size={10} className="fill-white" />
-                        )}
-                        <span>{msg.is_executing ? "Executing Transaction..." : "Confirm & Execute"}</span>
-                      </button>
-                      <button
-                        onClick={() => handleCancelModification(idx)}
-                        disabled={msg.is_executing}
-                        className="bg-[#2a323d] border border-gray-600 hover:bg-[#343e4b] text-gray-200 px-3 py-1.5 rounded-lg text-[10.5px] font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* SQL statements actions bar */}
-                {msg.sql && !msg.canceled && (
-                  <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm text-left">
-                    <div className="bg-[#F5F5F5] border-b border-gray-200 px-3 py-2 flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex gap-1.5">
-                        {msg.records && msg.records.length > 0 && (
-                          <button
-                            onClick={() => {
-                              const updated = [...messages];
-                              updated[idx].activeTab = "table";
-                              setMessages(updated);
-                            }}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
-                              msg.activeTab === "table"
-                                ? "bg-[#0D0D0F] text-zinc-100 border border-white/[0.08] shadow-sm"
-                                : "text-zinc-400 hover:text-white"
-                            }`}
-                          >
-                            <Table size={10} className="text-terracotta-500" /> Table View
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <button
-                          onClick={() => handleExportPDF(msg)}
-                          className="flex items-center gap-1 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] hover:bg-[#0D0D0F] px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
-                          title="Export PDF Report"
-                        >
-                          <Download size={9} className="text-terracotta-500" /> PDF
-                        </button>
-                        {msg.records && msg.records.length > 0 && (
-                          <>
-                            <button
-                              onClick={() => handleExportExcel(msg.records!)}
-                              className="flex items-center gap-1 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] hover:bg-[#0D0D0F] px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
-                              title="Export Excel"
-                            >
-                              <Download size={9} className="text-terracotta-500" /> Excel
-                            </button>
-                            <button
-                              onClick={() => handleExportCSV(msg.records!)}
-                              className="flex items-center gap-1 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] hover:bg-[#0D0D0F] px-2 py-1 rounded-md text-[9px] font-bold cursor-pointer transition"
-                              title="Export CSV"
-                            >
-                              <Download size={9} className="text-terracotta-500" /> CSV
-                            </button>
-                          </>
-                        )}
-
-                        <button
-                          onClick={() => {
-                            if (msg.reportSaved) return;
-                            setSaveReportIdx(saveReportIdx === idx ? null : idx);
-                            setReportTitle(msg.question ? `Report - ${msg.question.slice(0, 30)}` : "My Report");
-                          }}
-                          disabled={msg.reportSaved}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[9px] font-bold cursor-pointer transition border ${
-                            msg.reportSaved
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                              : "bg-[#0D0D0F] border-warmgray-150 hover:bg-[#111113] text-warmgray-600 hover:text-terracotta-600"
-                          }`}
-                        >
-                          <FolderHeart size={9} className={msg.reportSaved ? "text-emerald-500" : "text-terracotta-500"} />
-                          <span>{msg.reportSaved ? "Saved!" : "Save Report"}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Inline Save Report */}
-                    {saveReportIdx === idx && (
-                      <div className="bg-[#111113] border-b border-white/[0.06] p-2.5 flex items-center justify-between gap-2 text-[10px] font-bold">
-                        <input
-                          type="text"
-                          value={reportTitle}
-                          onChange={(e) => setReportTitle(e.target.value)}
-                          placeholder="Enter report title..."
-                          className="flex-1 bg-[#0D0D0F] border border-white/[0.12] rounded px-2 py-1 focus:outline-none focus:border-terracotta-400 font-bold"
-                        />
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleSaveAsReport(idx, msg)}
-                            disabled={savingReport || !reportTitle.trim()}
-                            className="bg-terracotta-500 hover:bg-terracotta-600 text-white px-2.5 py-1 rounded cursor-pointer disabled:opacity-50 flex items-center gap-0.5"
-                          >
-                            {savingReport && <Loader2 size={10} className="animate-spin" />}
-                            <span>Save</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSaveReportIdx(null);
-                              setReportTitle("");
-                            }}
-                            disabled={savingReport}
-                            className="bg-[#0D0D0F] border border-white/[0.12] hover:bg-white/[0.04] px-2 py-1 rounded text-warmgray-600 cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {msg.activeTab === "table" && msg.records && (
-                      <InnerTable records={msg.records} />
-                    )}
-
-                    {msg.activeTab === "chart" && msg.records && (
-                      <InnerChart records={msg.records} type={msg.chartType || "bar"} onChangeType={(type) => {
-                        const updated = [...messages];
-                        updated[idx].chartType = type;
-                        setMessages(updated);
-                      }} />
-                    )}
-                  </div>
-                )}
+        {/* Messages or Clean Centered Empty State */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4 flex flex-col">
+          {displayMessages.length === 0 ? (
+            /* 2. Compact Centered Empty State without cards */
+            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 text-center my-auto">
+              <div className="w-11 h-11 rounded-xl bg-[#168C88]/10 border border-[#168C88]/20 flex items-center justify-center text-[#168C88] mb-3 shadow-xs">
+                <Sparkles size={20} strokeWidth={2} />
               </div>
-
-              {/* User Avatar */}
-              {msg.sender === "user" && (
-                <div className="w-8 h-8 bg-[#FFFDFC] text-[#241C20] rounded-xl flex items-center justify-center font-bold text-xs shrink-0 border border-[#E8DED3] shadow-sm select-none">
-                  U
-                </div>
-              )}
+              
+              <h3 className="text-base sm:text-lg font-semibold text-[#172B4D] tracking-tight">
+                What would you like to analyze?
+              </h3>
+              <p className="text-xs text-[#64748B] mt-1 max-w-sm">
+                Ask questions about your data in natural language.
+              </p>
             </div>
-          ))}
+          ) : (
+            /* 3. Professional Chat Messages Interface */
+            displayMessages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
+              >
+                {/* User Message Card */}
+                {msg.sender === "user" ? (
+                  <div className="max-w-[85%] sm:max-w-[75%] space-y-1">
+                    <span className="text-[10px] font-medium text-[#64748B] block text-right pr-1">
+                      You
+                    </span>
+                    <div className="p-3 px-3.5 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#172B4D] shadow-xs text-left leading-relaxed">
+                      <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Assistant Analysis Card */
+                  <div className="w-full max-w-[92%] sm:max-w-[90%] space-y-1 text-left">
+                    <div className="flex items-center gap-1.5 pl-1 mb-0.5">
+                      <div className="w-4 h-4 rounded bg-[#168C88]/10 border border-[#168C88]/20 flex items-center justify-center text-[#168C88]">
+                        <Sparkles size={10} />
+                      </div>
+                      <span className="text-[10px] font-semibold text-[#172B4D] tracking-wide">
+                        Analytics Engine
+                      </span>
+                    </div>
 
-          {loading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 bg-terracotta-500 text-white rounded-xl flex items-center justify-center shadow-md animate-pulse">
-                <Brain size={16} />
+                    <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-4 shadow-xs space-y-3">
+                      {/* Summary / Analysis Text */}
+                      <div className="text-xs text-[#172B4D] leading-relaxed">
+                        <p
+                          className="whitespace-pre-wrap font-normal"
+                          dangerouslySetInnerHTML={{ __html: formatMessageText(msg.text) }}
+                        />
+                      </div>
+
+                      {/* Clarification Option Chips */}
+                      {msg.needs_clarification && msg.clarification_options && msg.clarification_options.length > 0 && (
+                        <div className="pt-2.5 border-t border-[#E2E8F0]">
+                          <span className="text-[10px] font-semibold text-[#64748B] block mb-1.5 uppercase tracking-wide">
+                            Clarify your query
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {msg.clarification_options.map((opt, i) => (
+                              <button
+                                key={i}
+                                onClick={() => askAI(opt, msg.clarification_context)}
+                                className="px-2.5 py-1 bg-[#168C88]/10 hover:bg-[#168C88]/20 text-[#168C88] border border-[#168C88]/25 rounded-lg text-xs font-medium transition cursor-pointer active:scale-95 shadow-xs"
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Warning Box */}
+                      {msg.warning && msg.requires_confirmation && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2.5 flex gap-2 items-start text-xs font-medium">
+                          <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                          <span>{msg.warning}</span>
+                        </div>
+                      )}
+
+                      {/* Diagnostic Error Box */}
+                      {msg.error && (
+                        <div className="bg-red-50 border border-red-200 text-red-900 rounded-lg p-3 font-mono text-xs">
+                          <span className="font-semibold block mb-0.5">Execution Failure:</span>
+                          {msg.error}
+                        </div>
+                      )}
+
+                      {/* SQL Code Block */}
+                      {msg.sql && !msg.canceled && (
+                        <div className="bg-[#0F172A] rounded-lg border border-[#1E293B] overflow-hidden shadow-inner font-mono text-[11px]">
+                          <div className="bg-[#1E293B] px-3 py-1.5 border-b border-slate-700/60 flex justify-between items-center text-slate-300">
+                            <span className="flex items-center gap-1.5 font-semibold text-[10px] tracking-wider uppercase text-[#168C88]">
+                              <Database size={11} /> SQL Statement
+                            </span>
+                            <button
+                              onClick={() => handleCopy(msg.sql!)}
+                              className="hover:text-white px-2 py-0.5 rounded hover:bg-slate-700/50 transition flex items-center gap-1 cursor-pointer text-[10px] text-slate-300"
+                            >
+                              {copiedSql === msg.sql ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                              <span>{copiedSql === msg.sql ? "Copied" : "Copy"}</span>
+                            </button>
+                          </div>
+                          <pre className="p-3 text-slate-100 overflow-x-auto whitespace-pre leading-relaxed">
+                            <code>{msg.sql}</code>
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* DML/DDL Confirmation Dialog */}
+                      {msg.requires_confirmation && (
+                        <div className="bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] rounded-lg p-3 flex flex-col gap-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300">
+                                {msg.intent || "MODIFICATION"}
+                              </span>
+                              <span className="text-[11px] text-amber-900">
+                                Dataset: <strong className="font-mono text-amber-950">{msg.target_dataset || msg.table_name}</strong>
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-amber-800">
+                              Estimated Impact: <strong className="text-amber-950">{msg.estimated_rows !== undefined && msg.estimated_rows !== null ? `${msg.estimated_rows} row(s)` : (msg.intent === "ALTER" ? "0 rows (Schema)" : "Uncertain")}</strong>
+                            </div>
+                          </div>
+
+                          <p className="text-xs font-medium text-amber-950">
+                            This operation modifies stored data or structure. Explicit approval is required.
+                          </p>
+
+                          <div className="flex gap-2 items-center pt-0.5">
+                            <button
+                              onClick={() => handleConfirmModification(idx, msg)}
+                              disabled={msg.is_executing}
+                              className="bg-[#168C88] hover:bg-[#137774] disabled:bg-[#168C88]/50 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:cursor-not-allowed"
+                            >
+                              {msg.is_executing ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Play size={10} className="fill-white" />
+                              )}
+                              <span>{msg.is_executing ? "Executing..." : "Confirm & Execute"}</span>
+                            </button>
+                            <button
+                              onClick={() => handleCancelModification(idx)}
+                              disabled={msg.is_executing}
+                              className="bg-white border border-amber-300 hover:bg-amber-100/50 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Results and Visualization Section */}
+                      {msg.sql && !msg.canceled && (
+                        <div className="border border-[#E2E8F0] rounded-lg bg-white overflow-hidden shadow-xs">
+                          {/* Action Toolbar */}
+                          <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] px-3 py-2 flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-1">
+                              {msg.records && msg.records.length > 0 && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      const updated = [...messages];
+                                      updated[idx].activeTab = "table";
+                                      setMessages(updated);
+                                    }}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                                      msg.activeTab === "table"
+                                        ? "bg-white text-[#172B4D] border border-[#E2E8F0] shadow-xs"
+                                        : "text-[#64748B] hover:text-[#172B4D]"
+                                    }`}
+                                  >
+                                    <Table size={12} className={msg.activeTab === "table" ? "text-[#168C88]" : "text-[#64748B]"} />
+                                    <span>Table View</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      const updated = [...messages];
+                                      updated[idx].activeTab = "chart";
+                                      if (!updated[idx].chartType) updated[idx].chartType = "bar";
+                                      setMessages(updated);
+                                    }}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition cursor-pointer ${
+                                      msg.activeTab === "chart"
+                                        ? "bg-white text-[#172B4D] border border-[#E2E8F0] shadow-xs"
+                                        : "text-[#64748B] hover:text-[#172B4D]"
+                                    }`}
+                                  >
+                                    <BarChart3 size={12} className={msg.activeTab === "chart" ? "text-[#168C88]" : "text-[#64748B]"} />
+                                    <span>Chart View</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <button
+                                onClick={() => handleExportPDF(msg)}
+                                className="flex items-center gap-1 text-[#64748B] hover:text-[#172B4D] hover:bg-white border border-[#E2E8F0] px-2 py-1 rounded text-[10px] font-medium cursor-pointer transition shadow-xs"
+                                title="Export PDF Report"
+                              >
+                                <Download size={10} className="text-[#168C88]" /> PDF
+                              </button>
+                              {msg.records && msg.records.length > 0 && (
+                                <>
+                                  <button
+                                    onClick={() => handleExportExcel(msg.records!)}
+                                    className="flex items-center gap-1 text-[#64748B] hover:text-[#172B4D] hover:bg-white border border-[#E2E8F0] px-2 py-1 rounded text-[10px] font-medium cursor-pointer transition shadow-xs"
+                                    title="Export Excel"
+                                  >
+                                    <Download size={10} className="text-[#168C88]" /> Excel
+                                  </button>
+                                  <button
+                                    onClick={() => handleExportCSV(msg.records!)}
+                                    className="flex items-center gap-1 text-[#64748B] hover:text-[#172B4D] hover:bg-white border border-[#E2E8F0] px-2 py-1 rounded text-[10px] font-medium cursor-pointer transition shadow-xs"
+                                    title="Export CSV"
+                                  >
+                                    <Download size={10} className="text-[#168C88]" /> CSV
+                                  </button>
+                                </>
+                              )}
+
+                              <button
+                                onClick={() => {
+                                  if (msg.reportSaved) return;
+                                  setSaveReportIdx(saveReportIdx === idx ? null : idx);
+                                  setReportTitle(msg.question ? `Report - ${msg.question.slice(0, 30)}` : "My Report");
+                                }}
+                                disabled={msg.reportSaved}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-medium cursor-pointer transition border shadow-xs ${
+                                  msg.reportSaved
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : "bg-white border-[#E2E8F0] text-[#64748B] hover:text-[#172B4D]"
+                                }`}
+                              >
+                                <FolderHeart size={10} className={msg.reportSaved ? "text-emerald-500" : "text-[#168C88]"} />
+                                <span>{msg.reportSaved ? "Saved" : "Save Report"}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Inline Save Report Input */}
+                          {saveReportIdx === idx && (
+                            <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] p-2.5 flex items-center justify-between gap-2 text-xs">
+                              <input
+                                type="text"
+                                value={reportTitle}
+                                onChange={(e) => setReportTitle(e.target.value)}
+                                placeholder="Enter report title..."
+                                className="flex-1 bg-white border border-[#E2E8F0] rounded px-2.5 py-1 text-xs text-[#172B4D] focus:outline-none focus:border-[#168C88]"
+                              />
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => handleSaveAsReport(idx, msg)}
+                                  disabled={savingReport || !reportTitle.trim()}
+                                  className="bg-[#168C88] hover:bg-[#137774] text-white px-2.5 py-1 rounded text-xs font-medium cursor-pointer disabled:opacity-50 flex items-center gap-1 shadow-xs"
+                                >
+                                  {savingReport && <Loader2 size={11} className="animate-spin" />}
+                                  <span>Save</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSaveReportIdx(null);
+                                    setReportTitle("");
+                                  }}
+                                  disabled={savingReport}
+                                  className="bg-white border border-[#E2E8F0] hover:bg-[#F1F5F9] px-2.5 py-1 rounded text-xs text-[#64748B] cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Table Container */}
+                          {msg.activeTab === "table" && msg.records && (
+                            <InnerTable records={msg.records} />
+                          )}
+
+                          {/* Chart Container */}
+                          {msg.activeTab === "chart" && msg.records && (
+                            <InnerChart 
+                              records={msg.records} 
+                              type={msg.chartType || "bar"} 
+                              onChangeType={(type) => {
+                                const updated = [...messages];
+                                updated[idx].chartType = type;
+                                setMessages(updated);
+                              }} 
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Success / Modification Metrics */}
+                      {!msg.requires_confirmation && msg.rows_affected !== undefined && (
+                        <div className="pt-2.5 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] font-medium text-[#64748B]">
+                          <div className="flex gap-4">
+                            <span>Rows affected: <strong className="text-[#172B4D]">{msg.rows_affected}</strong></span>
+                            <span>Execution time: <strong className="text-[#172B4D]">{msg.execution_time_ms} ms</strong></span>
+                          </div>
+                          
+                          {msg.history_id && !msg.is_undone && (
+                            <button
+                              onClick={() => handleUndo(idx, msg.history_id!)}
+                              disabled={msg.is_undoing}
+                              className="flex items-center gap-1 text-[#D95D39] hover:text-[#c44f2d] bg-red-50 hover:bg-red-100/60 border border-red-200 px-2 py-0.5 rounded text-xs transition cursor-pointer disabled:opacity-50"
+                            >
+                              {msg.is_undoing ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={11} />
+                              )}
+                              <span>{msg.is_undoing ? "Undoing..." : "Undo Change"}</span>
+                            </button>
+                          )}
+
+                          {msg.is_undone && (
+                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
+                              ✓ Undone
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="bg-[#111113] rounded-2xl p-4 border border-white/[0.06]/50 max-w-sm flex items-center gap-2">
-                <div className="w-3.5 h-3.5 border-2 border-terracotta-500 border-t-transparent rounded-full animate-spin" />
+            ))
+          )}
+
+          {/* Assistant Loading State */}
+          {loading && (
+            <div className="flex gap-2.5 items-start">
+              <div className="w-7 h-7 rounded-lg bg-[#168C88]/10 border border-[#168C88]/20 text-[#168C88] flex items-center justify-center shrink-0 mt-0.5">
+                <Sparkles size={14} />
+              </div>
+              <div className="bg-white border border-[#E2E8F0] rounded-[10px] px-3.5 py-2.5 shadow-xs flex items-center gap-2.5 text-xs text-[#172B4D]">
+                <Loader2 size={14} className="animate-spin text-[#168C88]" />
                 <LoadingText />
               </div>
             </div>
@@ -786,17 +860,17 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
           <div ref={messagesEndRef} />
         </div>
 
-        {/* History sidebar drawer */}
+        {/* Query History Sidebar Drawer */}
         {showHistory && (
-          <div className="w-60 border-l border-gray-200 pl-3 flex flex-col h-full shrink-0 overflow-hidden animate-fade-in bg-white">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-200 mb-2">
-              <span className="text-[10px] font-bold text-[#303841] flex items-center gap-1 uppercase tracking-wide">
-                <History size={12} className="text-[#FF5722]" /> Query History
+          <div className="w-64 border-l border-[#E2E8F0] pl-3 flex flex-col h-full shrink-0 overflow-hidden bg-white">
+            <div className="flex justify-between items-center pb-2.5 border-b border-[#E2E8F0] mb-2.5">
+              <span className="text-xs font-semibold text-[#172B4D] flex items-center gap-1.5 uppercase tracking-wide">
+                <History size={13} className="text-[#FF5722]" /> Query History
               </span>
               {historyList.length > 0 && (
                 <button
                   onClick={handleClearAllHistory}
-                  className="text-[9px] font-bold text-[#FF5722] hover:text-[#e04815] cursor-pointer"
+                  className="text-[11px] font-bold text-[#FF5722] hover:text-[#d84315] transition cursor-pointer"
                 >
                   Clear All
                 </button>
@@ -805,12 +879,12 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
             {loadingHistory && historyList.length === 0 ? (
               <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="animate-spin text-terracotta-500" size={20} />
+                <Loader2 className="animate-spin text-[#FF5722]" size={20} />
               </div>
             ) : historyList.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center text-zinc-500 p-2">
-                <History size={16} className="text-warmgray-300 mb-0.5" />
-                <span className="text-[9px] font-bold text-zinc-400">No query logs yet</span>
+              <div className="flex-1 flex flex-col items-center justify-center text-center text-[#64748B] p-4">
+                <History size={18} className="text-[#94A3B8] mb-1.5" />
+                <span className="text-xs font-medium text-[#64748B]">No query logs yet</span>
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -818,23 +892,23 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
                   <div
                     key={item.id}
                     onClick={() => handleReopenHistory(item)}
-                    className="p-2 bg-[#F5F5F5] hover:bg-white border border-gray-200 hover:border-[#76ABAE]/50 rounded-lg cursor-pointer transition text-left relative group/item"
-                    title="Click to reopen query results instantly"
+                    className="p-2.5 bg-[#F8FAFC] hover:bg-white border border-[#E2E8F0] hover:border-[#FF5722]/50 rounded-lg cursor-pointer transition text-left relative group shadow-xs"
+                    title="Click to reopen query results"
                   >
-                    <p className="text-[10px] font-bold text-[#303841] line-clamp-2 pr-4 leading-tight">
+                    <p className="text-xs font-medium text-[#172B4D] line-clamp-2 pr-4 leading-snug">
                       {item.question}
                     </p>
-                    <div className="flex justify-between items-center mt-1.5 text-[8.5px] text-warmgray-450 font-bold">
+                    <div className="flex justify-between items-center mt-2 text-[10px] text-[#64748B]">
                       <span>{item.result_count} records</span>
                       <span>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
 
                     <button
                       onClick={(e) => handleDeleteHistory(e, item.id)}
-                      className="absolute top-1 right-1 p-0.5 rounded hover:bg-red-50 text-gray-400 hover:text-[#FF5722] opacity-0 group-hover/item:opacity-100 transition cursor-pointer"
+                      className="absolute top-1.5 right-1.5 p-1 rounded hover:bg-red-50 text-[#94A3B8] hover:text-[#FF5722] opacity-0 group-hover:opacity-100 transition cursor-pointer"
                       title="Delete log"
                     >
-                      <Trash2 size={10} />
+                      <Trash2 size={11} />
                     </button>
                   </div>
                 ))}
@@ -844,15 +918,16 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
         )}
       </div>
 
-      {/* Input Form - Rounded search bar without inner box */}
+      {/* Input Form - Rounded search bar style from earlier chat box design */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           askAI();
         }}
-        className="border border-[#76ABAE]/35 hover:border-[#76ABAE] focus-within:border-[#76ABAE] focus-within:ring-2 focus-within:ring-[#76ABAE]/20 rounded-full p-1.5 pl-4 bg-white flex gap-2 items-center transition-all shadow-sm"
+        className="border border-[#168C88]/35 hover:border-[#168C88] focus-within:border-[#168C88] focus-within:ring-2 focus-within:ring-[#168C88]/20 rounded-full p-1.5 pl-4 bg-white flex gap-2 items-center transition-all shadow-xs"
       >
         <textarea
+          ref={textareaRef}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => {
@@ -861,16 +936,17 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
               askAI();
             }
           }}
-          placeholder="Ask anything about your data..."
+          placeholder="Ask your query..."
           rows={1}
           style={{ border: "none", outline: "none", boxShadow: "none", background: "transparent" }}
-          className="chat-input-textarea no-border flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 resize-none p-0 text-xs text-[#303841] placeholder-gray-400 font-semibold"
+          className="chat-input-textarea no-border flex-1 bg-transparent border-0 border-none outline-none focus:outline-none focus:ring-0 resize-none p-0 text-xs text-[#172B4D] placeholder-gray-400 font-medium"
         />
 
         <button
           type="submit"
           disabled={loading || !question.trim()}
-          className="bg-[#76ABAE] hover:bg-[#639396] text-white w-8 h-8 rounded-full flex items-center justify-center transition duration-200 disabled:opacity-40 disabled:scale-100 hover:scale-105 active:scale-95 cursor-pointer shrink-0 shadow-sm"
+          className="bg-[#168C88] hover:bg-[#137774] text-white w-8 h-8 rounded-full flex items-center justify-center transition duration-200 disabled:opacity-40 disabled:scale-100 hover:scale-105 active:scale-95 cursor-pointer shrink-0 shadow-xs"
+          title="Send query"
         >
           <Send size={13} />
         </button>
@@ -899,7 +975,7 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
     <div className="p-3 space-y-2.5">
       {records.length > 5 && (
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500" size={12} />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={13} />
           <input
             type="text"
             placeholder="Search query results..."
@@ -908,28 +984,28 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full bg-[#F5F5F5] border border-gray-200 rounded-md pl-7 pr-2 py-1 text-[10px] focus:outline-none focus:border-[#76ABAE] focus:bg-white text-[#303841] font-semibold"
+            className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-md pl-8 pr-3 py-1.5 text-xs text-[#172B4D] placeholder-[#94A3B8] focus:outline-none focus:border-[#168C88] focus:bg-white font-normal"
           />
         </div>
       )}
 
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full text-[10px] text-[#303841]">
-          <thead className="bg-[#F5F5F5] border-b border-gray-200">
+      <div className="overflow-x-auto border border-[#E2E8F0] rounded-lg">
+        <table className="min-w-full text-xs text-[#172B4D]">
+          <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
             <tr>
               {columns.map(c => (
-                <th key={c} className="px-2.5 py-1.5 font-bold text-[#303841] text-left uppercase whitespace-nowrap text-[9px]">
+                <th key={c} className="px-3 py-2 font-semibold text-[#64748B] text-left uppercase whitespace-nowrap text-[10px] tracking-wider">
                   {c}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-[#E2E8F0] bg-white">
             {paginated.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-[#76ABAE]/5">
+              <tr key={rIdx} className="hover:bg-[#F8FAFC] transition-colors">
                 {columns.map(c => (
-                  <td key={c} className="px-2.5 py-1.5 text-[#303841] font-medium truncate max-w-[150px]">
-                    {row[c] === null ? "null" : formatDateValue(row[c])}
+                  <td key={c} className="px-3 py-2 text-[#172B4D] font-normal truncate max-w-[180px]">
+                    {row[c] === null ? <span className="text-[#94A3B8] italic">null</span> : formatDateValue(row[c])}
                   </td>
                 ))}
               </tr>
@@ -938,22 +1014,22 @@ function InnerTable({ records }: { records: Record<string, any>[] }) {
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-[9px] text-zinc-400 font-bold">
+      <div className="flex items-center justify-between text-xs text-[#64748B]">
         <span>Showing {start + 1} to {Math.min(start + itemsPerPage, filtered.length)} of {filtered.length} entries</span>
         <div className="flex gap-1">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="p-1 rounded hover:bg-white/[0.04] disabled:opacity-30 cursor-pointer"
+            className="p-1 rounded hover:bg-[#F1F5F9] disabled:opacity-30 cursor-pointer border border-[#E2E8F0]"
           >
-            <ChevronLeft size={12} />
+            <ChevronLeft size={13} />
           </button>
           <button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages || totalPages === 0}
-            className="p-1 rounded hover:bg-white/[0.04] disabled:opacity-30 cursor-pointer"
+            className="p-1 rounded hover:bg-[#F1F5F9] disabled:opacity-30 cursor-pointer border border-[#E2E8F0]"
           >
-            <ChevronRight size={12} />
+            <ChevronRight size={13} />
           </button>
         </div>
       </div>
@@ -973,18 +1049,18 @@ function LoadingText() {
   useEffect(() => {
     const interval = setInterval(() => {
       setTextIndex((prev) => (prev + 1) % steps.length);
-    }, 2000); // Change text every 2 seconds
+    }, 2000);
     return () => clearInterval(interval);
   }, [steps.length]);
 
   return (
-    <span className="text-zinc-400 text-xs font-semibold animate-pulse">
+    <span className="text-[#64748B] text-xs font-medium">
       {steps[textIndex]}
     </span>
   );
 }
 
-// Inner SVG Chart Renderer Component
+// Inner SVG Chart Renderer Component with enterprise styling
 function InnerChart({ 
   records,
   type = "bar",
@@ -1008,8 +1084,8 @@ function InnerChart({
 
   if (!valueKey) {
     return (
-      <div className="p-4 text-center text-[10px] text-warmgray-450 font-bold">
-        <Info size={14} className="mx-auto mb-1 text-warmgray-450" />
+      <div className="p-4 text-center text-xs text-[#64748B]">
+        <Info size={15} className="mx-auto mb-1 text-[#94A3B8]" />
         No numeric columns found to construct visualization.
       </div>
     );
@@ -1045,23 +1121,23 @@ function InnerChart({
 
   return (
     <div className="p-3 space-y-3">
-      <div className="flex justify-between items-center text-[10px] font-bold">
-        <span className="text-warmgray-850">
-          Visual: {valueKey} by {labelKey} {records.length > 10 && <span className="text-[9px] font-normal text-zinc-500">(Top 10 shown)</span>}
+      <div className="flex justify-between items-center text-xs font-medium">
+        <span className="text-[#172B4D]">
+          Visual: <strong className="font-semibold">{valueKey}</strong> by <strong className="font-semibold">{labelKey}</strong> {records.length > 10 && <span className="text-[10px] text-[#64748B] font-normal">(Top 10 shown)</span>}
         </span>
-        <div className="flex border border-white/[0.12] rounded-md overflow-hidden bg-[#111113] p-0.5">
+        <div className="flex border border-[#E2E8F0] rounded-md overflow-hidden bg-[#F8FAFC] p-0.5">
           <button
             onClick={() => onChangeType("bar")}
-            className={`p-0.5 px-2 text-[9px] font-bold cursor-pointer ${
-              type === "bar" ? "bg-[#0D0D0F] text-zinc-100 shadow-sm border border-white/[0.06]" : "bg-transparent text-zinc-400 hover:text-warmgray-800"
+            className={`p-0.5 px-2 text-[10px] font-medium cursor-pointer rounded ${
+              type === "bar" ? "bg-white text-[#172B4D] shadow-xs border border-[#E2E8F0]" : "text-[#64748B] hover:text-[#172B4D]"
             }`}
           >
             Bar
           </button>
           <button
             onClick={() => onChangeType("line")}
-            className={`p-0.5 px-2 text-[9px] font-bold cursor-pointer ${
-              type === "line" ? "bg-[#0D0D0F] text-zinc-100 shadow-sm border border-white/[0.06]" : "bg-transparent text-zinc-400 hover:text-warmgray-800"
+            className={`p-0.5 px-2 text-[10px] font-medium cursor-pointer rounded ${
+              type === "line" ? "bg-white text-[#172B4D] shadow-xs border border-[#E2E8F0]" : "text-[#64748B] hover:text-[#172B4D]"
             }`}
           >
             Line
@@ -1069,8 +1145,8 @@ function InnerChart({
         </div>
       </div>
 
-      <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-2.5 flex justify-center">
-        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="max-w-[420px]">
+      <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-3 flex justify-center">
+        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="max-w-[440px]">
           {[0, 0.25, 0.5, 0.75, 1].map((ratio, gridIdx) => {
             const y = paddingTop + graphHeight - ratio * graphHeight;
             const gridVal = minValue + ratio * range;
@@ -1081,15 +1157,15 @@ function InnerChart({
                   y1={y}
                   x2={width - paddingRight}
                   y2={y}
-                  stroke="#e8e2da"
+                  stroke="#E2E8F0"
                   strokeWidth="1"
-                  strokeDasharray="4 4"
+                  strokeDasharray="3 3"
                 />
                 <text
                   x={paddingLeft - 8}
                   y={y + 3}
                   textAnchor="end"
-                  fill="#bd9f8d"
+                  fill="#64748B"
                   fontSize="8"
                   fontFamily="monospace"
                   fontWeight="bold"
@@ -1106,7 +1182,7 @@ function InnerChart({
 
           {type === "bar" && 
             points.map((pt, barIdx) => {
-              const barWidth = Math.max(graphWidth / points.length * 0.5, 6);
+              const barWidth = Math.max(graphWidth / points.length * 0.45, 6);
               const barX = pt.x - barWidth / 2;
               const barY = pt.y;
               const barHeight = paddingTop + graphHeight - pt.y;
@@ -1118,20 +1194,20 @@ function InnerChart({
                     y={barY}
                     width={barWidth}
                     height={Math.max(barHeight, 2)}
-                    rx="2"
-                    className="fill-terracotta-500 hover:fill-terracotta-600 transition-all duration-300"
+                    rx="3"
+                    className="fill-[#168C88] hover:fill-[#137774] transition-colors cursor-pointer"
                   />
                   <title>{`${pt.label}: ${pt.value.toLocaleString()}`}</title>
                   <text
                     x={pt.x}
                     y={height - 15}
                     textAnchor="middle"
-                    fill="#a07f6b"
-                    fontSize="7"
-                    fontWeight="bold"
+                    fill="#64748B"
+                    fontSize="8"
+                    fontWeight="500"
                     transform={`rotate(-15, ${pt.x}, ${height - 15})`}
                   >
-                    {pt.label.length > 7 ? pt.label.slice(0, 6) + ".." : pt.label}
+                    {pt.label.length > 8 ? pt.label.slice(0, 7) + ".." : pt.label}
                   </text>
                 </g>
               );
@@ -1141,22 +1217,22 @@ function InnerChart({
           {type === "line" && (
             <g>
               <defs>
-                <linearGradient id="terracottaGradSmall" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#C35237" stopOpacity="0.2" />
-                  <stop offset="100%" stopColor="#C35237" stopOpacity="0.0" />
+                <linearGradient id="tealGradSmall" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#168C88" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#168C88" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
               
               <path
                 d={`${points.map((pt, ptIdx) => `${ptIdx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`).join(" ")} L ${points[points.length-1].x} ${paddingTop+graphHeight} L ${points[0].x} ${paddingTop+graphHeight} Z`}
-                fill="url(#terracottaGradSmall)"
+                fill="url(#tealGradSmall)"
               />
 
               <path
                 d={points.map((pt, ptIdx) => `${ptIdx === 0 ? "M" : "L"} ${pt.x} ${pt.y}`).join(" ")}
                 fill="none"
-                stroke="#C35237"
-                strokeWidth="2"
+                stroke="#168C88"
+                strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -1167,19 +1243,19 @@ function InnerChart({
                     cx={pt.x}
                     cy={pt.y}
                     r="3.5"
-                    className="fill-white stroke-terracotta-500 stroke-2 hover:fill-terracotta-600 transition-all"
+                    className="fill-white stroke-[#168C88] stroke-2 hover:fill-[#168C88] transition-colors cursor-pointer"
                   />
                   <title>{`${pt.label}: ${pt.value.toLocaleString()}`}</title>
                   <text
                     x={pt.x}
                     y={height - 15}
                     textAnchor="middle"
-                    fill="#a07f6b"
-                    fontSize="7"
-                    fontWeight="bold"
+                    fill="#64748B"
+                    fontSize="8"
+                    fontWeight="500"
                     transform={`rotate(-15, ${pt.x}, ${height - 15})`}
                   >
-                    {pt.label.length > 7 ? pt.label.slice(0, 6) + ".." : pt.label}
+                    {pt.label.length > 8 ? pt.label.slice(0, 7) + ".." : pt.label}
                   </text>
                 </g>
               ))}
@@ -1206,10 +1282,9 @@ export function formatDateValue(val: any): string {
   }
 
   const s = String(val);
-  // Matches "YYYY-MM-DD[T]HH:MM:SS" or similar
   if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2})?/.test(s)) {
     if (s.includes("00:00:00") || s.includes("T00:00:00")) {
-      return s.split(/[T ]/)[0]; // returns "YYYY-MM-DD"
+      return s.split(/[T ]/)[0];
     }
   }
   return s;
