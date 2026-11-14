@@ -107,12 +107,14 @@ class Settings(BaseModel):
         Detects if database is hosted on a remote cloud provider requiring SSL transport.
         """
         url = self.resolved_database_url.lower()
-        return (
-            ("localhost" not in url and "127.0.0.1" not in url)
-            or "aivencloud" in url
-            or "amazonaws" in url
-            or "ssl" in url
-        )
+        if any(marker in url for marker in ["aivencloud", "amazonaws", "azure", "rds.amazonaws.com"]):
+            return True
+        if "ssl=true" in url or "ssl_mode=" in url:
+            return True
+        local_hosts = ["localhost", "127.0.0.1", "@db:", "@db/", "@mysql:", "@mysql/", "host.docker.internal"]
+        if any(h in url for h in local_hosts):
+            return False
+        return "localhost" not in url and "127.0.0.1" not in url
 
     @model_validator(mode="after")
     def validate_production_configuration(self) -> "Settings":
@@ -162,17 +164,29 @@ class Settings(BaseModel):
                     "generate a high-entropy secret using: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
                 )
 
-            # 2. Database credentials
-            db_url = self.DATABASE_URL
-            if not db_url:
-                if not (self.MYSQL_USER and self.MYSQL_HOST and self.MYSQL_DATABASE):
+            # 2. Database credentials validation in production
+            resolved_url = self.resolved_database_url.lower()
+            if not self.DATABASE_URL and not (self.MYSQL_USER and self.MYSQL_HOST and self.MYSQL_DATABASE):
+                raise ValueError(
+                    "CRITICAL: Production database configuration is missing. "
+                    "Provide either DATABASE_URL or MYSQL_HOST, MYSQL_USER, and MYSQL_DATABASE."
+                )
+            if not os.getenv("ALLOW_LOCAL_PROD_DB"):
+                dev_patterns = [
+                    "root:root_password@db",
+                    "root_password@db",
+                    "@db:3306",
+                    "@mysql:3306",
+                    "root:@localhost",
+                    "root:password@",
+                    "localhost:3306",
+                    "127.0.0.1:3306"
+                ]
+                if any(dp in resolved_url for dp in dev_patterns):
                     raise ValueError(
-                        "CRITICAL: Production database configuration is missing. "
-                        "Provide either DATABASE_URL or MYSQL_HOST, MYSQL_USER, and MYSQL_DATABASE."
+                        "CRITICAL: Default development database credentials or local container hosts detected in production configuration. "
+                        "A production-grade database with secure credentials is required."
                     )
-            if db_url and ("localhost" in db_url or "127.0.0.1" in db_url) and not os.getenv("ALLOW_LOCAL_PROD_DB"):
-                # Warning or check for accidental local database in production
-                pass
 
             # 3. LLM API Key in production
             groq_key = (self.GROQ_API_KEY or "").strip()

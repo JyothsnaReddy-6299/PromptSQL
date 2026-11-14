@@ -29,16 +29,18 @@ def load_dataset(filepath: str):
     if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
         raise ValueError("The uploaded file is empty. Please upload a valid CSV, XLS, or XLSX file.")
 
+    STANDARD_NA_VALUES = ['', '#N/A', '#NA', 'N/A', '<NA>', 'NULL', 'null', 'NaN', '-NaN']
+
     if filepath.endswith(".csv"):
         try:
-            return pd.read_csv(filepath)
+            return pd.read_csv(filepath, keep_default_na=False, na_values=STANDARD_NA_VALUES)
         except pd.errors.EmptyDataError:
             raise ValueError("The uploaded CSV file is empty or contains no parseable columns.")
         except Exception as e:
             raise ValueError(f"Failed to parse CSV file: {str(e)}")
     elif filepath.endswith((".xlsx", ".xls")):
         try:
-            return pd.read_excel(filepath)
+            return pd.read_excel(filepath, keep_default_na=False, na_values=STANDARD_NA_VALUES)
         except Exception as e:
             raise ValueError(f"Failed to parse Excel file: {str(e)}")
     else:

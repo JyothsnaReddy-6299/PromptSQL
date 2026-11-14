@@ -79,6 +79,8 @@ Possible intents include:
 • Sorting
 • Date filtering
 • Multi-table joins
+• Derived metrics (e.g. ratios, rates, margins, completion percentages)
+• Period-over-period comparative metrics (Year-over-Year / YoY, Month-over-Month / MoM, Quarter-over-Quarter / QoQ growth)
 
 Then identify:
 
@@ -109,6 +111,24 @@ TRUNCATE
 REPLACE
 
 3. Use ONLY the table names listed above. When the question requires data spanning multiple tables, automatically generate JOIN ... ON ... clauses using the DISCOVERED RELATIONSHIPS & JOIN CONDITIONS above. Do not require the user to specify table names or join columns.
+   CRITICAL FOR 1:N MULTI-TABLE JOINS (PREVENTING FAN-OUT INFLATION):
+   When aggregating columns from a parent table (e.g. `orders.total_amount`) while also joining with a child table that has multiple rows per parent record (e.g. `order_items`), a flat join will DUPLICATE the parent rows and produce inflated sums.
+   In such cases, you MUST pre-aggregate child table metrics in a CTE or subquery grouped by the join key before joining to the parent table.
+   Example:
+   WITH item_totals AS (
+       SELECT order_id, SUM(quantity) AS total_items_quantity
+       FROM order_items
+       GROUP BY order_id
+   )
+   SELECT 
+       c.customer_id,
+       c.customer_name,
+       SUM(o.total_amount) AS total_order_amount,
+       SUM(COALESCE(it.total_items_quantity, 0)) AS total_items_quantity
+   FROM customers c
+   JOIN orders o ON c.customer_id = o.customer_id
+   LEFT JOIN item_totals it ON o.order_id = it.order_id
+   GROUP BY c.customer_id, c.customer_name;
 
 4. Use ONLY the column names listed in their respective schemas.
 
@@ -213,6 +233,28 @@ Do NOT use markdown.
 19. NEVER perform mathematical aggregate operations (like SUM, AVG, MIN, MAX) on columns representing identifiers or codes (e.g., column names containing 'id', 'code', 'zip', 'phone', 'ssn', 'pin', 'card', 'account', 'serial', 'number', 'mobile'). If the user requests calculations on these fields, return INVALID_QUERY or count them using COUNT instead.
 
 20. If the question can be completely answered using columns from the Active Table (`{friendly_name}`) alone, query ONLY the Active Table without unnecessary joins. When data from other tables is required, use the DISCOVERED RELATIONSHIPS above to perform the necessary JOINs.
+
+21. When calculating period-over-period growth (such as Year-over-Year / YoY, Month-over-Month / MoM, Quarter-over-Quarter / QoQ):
+- Use actual date and numeric columns discovered from the uploaded schemas.
+- In a Common Table Expression (CTE) using `WITH period_metrics AS (...)`, aggregate the numeric metric grouped by period (e.g. `YEAR(date_col)` for year, `DATE_FORMAT(date_col, '%Y-%m')` for month, `CONCAT(YEAR(date_col), '-Q', QUARTER(date_col))` for quarter).
+- In the outer SELECT query, use `LAG(metric) OVER (ORDER BY period)` to access the previous period.
+- Calculate growth as `(current_period - previous_period) / previous_period`, handling a missing previous period (first period) and zero previous-period values safely using:
+  CASE 
+      WHEN LAG(metric) OVER (ORDER BY period) IS NULL THEN NULL
+      WHEN LAG(metric) OVER (ORDER BY period) = 0 THEN NULL
+      ELSE ROUND((metric - LAG(metric) OVER (ORDER BY period)) / LAG(metric) OVER (ORDER BY period) * 100, 2)
+  END AS growth_percentage
+- If required date or numeric columns do not exist in the schema, return ONLY INVALID_QUERY.
+
+22. When calculating aggregate metrics across tables in a 1-to-many (1:N) relationship:
+- If aggregating columns from the parent table (e.g. `orders.total_amount`) while joining with child table rows (e.g. `order_items`), DO NOT perform a flat join that duplicates parent rows.
+- Instead, pre-aggregate child table metrics in a CTE or subquery grouped by the foreign key (e.g. `order_id`) before joining to the parent table, so each parent record is joined exactly once without inflated totals.
+- However, do not blindly pre-aggregate every join: when aggregating child metrics across parent dimensions (e.g. `SUM(orders.total_amount)` grouped by `customers.country`), a standard JOIN is correct and does not duplicate orders.
+
+23. When calculating derived rates, margins, or ratios:
+- When input columns exist, compute them using safe arithmetic (e.g. `COUNT(CASE WHEN condition THEN 1 END) / NULLIF(COUNT(*), 0)` or `(revenue - cost) / NULLIF(revenue, 0)`).
+- Provide descriptive aliases like `completion_rate`, `profit_margin`, `conversion_rate`, or `growth_percentage`.
+- If required input columns (such as cost for profit margin) do not exist in the schema, return ONLY INVALID_QUERY. Never hallucinate or assume unlisted columns.
 
 =========================
 QUESTION

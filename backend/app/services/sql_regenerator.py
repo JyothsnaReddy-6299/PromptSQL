@@ -94,6 +94,12 @@ Rules:
 
 11. If the question can be completely answered using columns from the Active Table (`{friendly_name}`) alone, query ONLY the Active Table without unnecessary joins. When data from other tables is required, use the DISCOVERED RELATIONSHIPS above to perform the necessary JOINs.
 
+12. For period-over-period metrics (YoY, MoM, QoQ), use CTEs with `LAG(metric) OVER (ORDER BY period)` and handle NULL / 0 previous values safely using CASE WHEN.
+
+13. For multi-table 1:N aggregations where parent columns could be duplicated, pre-aggregate child metrics in a CTE before joining to the parent table.
+
+14. For derived rates/margins, calculate with safe arithmetic (e.g. NULLIF divisor) and meaningful aliases. If required columns do not exist, return INVALID_QUERY.
+
 Return ONLY SQL.
 """
 

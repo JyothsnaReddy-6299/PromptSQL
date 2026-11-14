@@ -304,29 +304,71 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: Acti
     col = validate_column_identifier(req.column_name)
     safe_col = f"`{col.replace('`', '``')}`"
     new_val = req.new_value
-    row_data = req.row_data
-
-    # Build WHERE clause dynamically to identify the specific row
-    where_parts = []
-    params = {"new_val": new_val}
-
-    for idx, (k, v) in enumerate(row_data.items()):
-        valid_k = validate_column_identifier(k)
-        param_key = f"cond_{idx}"
-        safe_k = f"`{valid_k.replace('`', '``')}`"
-        if v is None or v == "":
-            where_parts.append(f"{safe_k} IS NULL")
-        else:
-            where_parts.append(f"{safe_k} = :{param_key}")
-            params[param_key] = v
-
-    where_clause = " AND ".join(where_parts) if where_parts else "1=1"
-    sql_executed = f"UPDATE {safe_tbl} SET {safe_col} = :new_val WHERE {where_clause} LIMIT 1"
+    row_data = req.row_data or {}
 
     try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        col_info = inspector.get_columns(table_name)
+        col_meta = next((c for c in col_info if c["name"] == col), None)
+        if not col_meta:
+            return {"success": False, "error": f"Column '{col}' does not exist in dataset '{table_name}'."}
+
+        col_type = str(col_meta["type"]).lower()
+        is_text = "varchar" in col_type or "text" in col_type or "char" in col_type
+
+        # Build WHERE clause dynamically to identify the specific row
+        where_parts = []
+        where_params = {}
+
+        for idx, (k, v) in enumerate(row_data.items()):
+            valid_k = validate_column_identifier(k)
+            param_key = f"cond_{idx}"
+            safe_k = f"`{valid_k.replace('`', '``')}`"
+            
+            k_meta = next((c for c in col_info if c["name"] == valid_k), None)
+            k_is_text = k_meta and any(t in str(k_meta["type"]).lower() for t in ["varchar", "text", "char"])
+
+            if v is None or v == "":
+                if k_is_text:
+                    where_parts.append(f"({safe_k} IS NULL OR {safe_k} = '')")
+                else:
+                    where_parts.append(f"{safe_k} IS NULL")
+            else:
+                where_parts.append(f"{safe_k} = :{param_key}")
+                where_params[param_key] = v
+
+        where_clause = " AND ".join(where_parts) if where_parts else "1=1"
+
+        # Pre-check row match count: must identify exactly ONE row
+        count_sql = f"SELECT COUNT(*) FROM {safe_tbl} WHERE {where_clause}"
+        with engine.connect() as conn:
+            matching_count = conn.execute(text(count_sql), where_params).scalar() or 0
+
+        if matching_count == 0:
+            return {
+                "success": False,
+                "error": "No matching row found for the specified conditions. No data was changed.",
+                "rows_affected": 0
+            }
+
+        if matching_count > 1:
+            return {
+                "success": False,
+                "error": f"Multiple rows ({matching_count}) match the specified condition. Please provide a more specific condition or include the row primary key to update a single cell.",
+                "rows_affected": 0
+            }
+
+        # Format new value according to data type
+        val_to_use = new_val
+        if (new_val is None or new_val == "") and not is_text:
+            val_to_use = None
+
+        exec_params = {**where_params, "new_val": val_to_use}
+        sql_executed = f"UPDATE {safe_tbl} SET {safe_col} = :new_val WHERE {where_clause}"
+
         with engine.begin() as conn:
-            res = conn.execute(text(sql_executed), params)
-            rows_affected = res.rowcount or 0
+            conn.execute(text(sql_executed), exec_params)
 
         # Save to Audit Log
         audit_log = AuditLog(
@@ -335,7 +377,7 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: Acti
             operation="UPDATE",
             table_name=table_name,
             generated_sql=sql_executed + f" -- New value: {new_val}",
-            rows_affected=rows_affected,
+            rows_affected=1,
             status="SUCCESS"
         )
         db.add(audit_log)
@@ -344,8 +386,10 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: Acti
         return {
             "success": True,
             "message": f"Successfully updated cell '{col}' to '{new_val}'.",
-            "rows_affected": rows_affected
+            "rows_affected": 1
         }
+    except HTTPException:
+        raise
     except Exception as e:
         return {"success": False, "error": sanitize_error_message(str(e))}
 

@@ -62,8 +62,7 @@ Instructions:
 
 3. Never assume there are more records than shown.
 
-4. If the records contain employee details,
-summarize them naturally.
+4. Summarize the records naturally and accurately, highlighting key metrics, dimensions, or patterns where relevant.
 
 {count_instruction}
 

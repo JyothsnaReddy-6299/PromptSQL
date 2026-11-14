@@ -60,6 +60,18 @@ def is_valid_date_value(val: any) -> bool:
         return False
 
 
+NA_PLACEHOLDERS = {'', 'none', 'null', 'nan', 'na', '#n/a', '<na>', 'n/a'}
+
+
+def get_non_missing_sample(series: pd.Series) -> pd.Series:
+    """
+    Extracts non-missing values from a series for type evaluation,
+    ignoring standard empty/null placeholders.
+    """
+    is_missing = series.isna() | series.astype(str).str.strip().str.lower().isin(NA_PLACEHOLDERS)
+    return series[~is_missing]
+
+
 def is_numeric_series(series: pd.Series) -> bool:
     """
     Returns True if most values in the column are numeric.
@@ -69,9 +81,12 @@ def is_numeric_series(series: pd.Series) -> bool:
     ₹1,75,391
     24%
     """
+    sample = get_non_missing_sample(series)
+    if sample.empty:
+        return False
 
     s = (
-        series.astype(str)
+        sample.astype(str)
         .str.strip()
         .str.replace(",", "", regex=False)
         .str.replace("$", "", regex=False)
@@ -94,7 +109,7 @@ def is_date_series(series: pd.Series) -> bool:
     Returns True if most non-null values in the series look like real calendar dates.
     Uses is_valid_date_value to check every entry against strict date semantics.
     """
-    sample = series.dropna()
+    sample = get_non_missing_sample(series)
     if sample.empty:
         return False
 

@@ -2,36 +2,38 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+const backendTarget = process.env.BACKEND_URL || process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000"
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
       "/upload": {
-        target: "http://127.0.0.1:8000",
+        target: backendTarget,
         changeOrigin: true
       },
       "/ask": {
-        target: "http://127.0.0.1:8000",
+        target: backendTarget,
         changeOrigin: true
       },
       "/health": {
-        target: "http://127.0.0.1:8000",
+        target: backendTarget,
         changeOrigin: true
       },
       "/preview": {
-        target: "http://127.0.0.1:8000",
+        target: backendTarget,
         changeOrigin: true
       },
       "/datasets": {
-        target: "http://127.0.0.1:8000",
+        target: backendTarget,
         changeOrigin: true
       },
       "/auth": {
-        target: "http://127.0.0.1:8000",
+        target: backendTarget,
         changeOrigin: true
       },
       "/api": {
-        target: "http://127.0.0.1:8000",
+        target: backendTarget,
         changeOrigin: true
       }
     }

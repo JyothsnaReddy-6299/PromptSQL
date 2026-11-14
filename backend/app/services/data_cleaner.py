@@ -65,23 +65,23 @@ def clean_date(series: pd.Series) -> pd.Series:
 
 def clean_text(series: pd.Series) -> pd.Series:
     """
-    Cleans text columns.
+    Cleans text columns while preserving true missing values as None (SQL NULL),
+    and preserving legitimate text values (like 'None', 'nan') as strings.
     """
+    is_na = series.isna()
+    s = series.copy()
+    non_na = s[~is_na].astype(str)
+    non_na = non_na.str.replace(r"\s+", " ", regex=True).str.strip()
+    empty_str_mask = non_na == ""
 
-    s = series.astype(str)
+    result = pd.Series(index=series.index, dtype=object)
+    result[~is_na] = non_na
+    result[is_na] = None
+    if empty_str_mask.any():
+        empty_indices = non_na[empty_str_mask].index
+        result[empty_indices] = None
 
-    s = s.str.replace(
-        r"\s+",
-        " ",
-        regex=True
-    )
-
-    s = s.str.strip()
-
-    # convert blank strings into NA
-    s = s.replace("", pd.NA)
-
-    return s
+    return result
 
 
 def clean_dataframe(df, detected_types):
