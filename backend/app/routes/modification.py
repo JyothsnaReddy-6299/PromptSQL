@@ -17,6 +17,7 @@ from app.services.modification_validator import validate_modification_sql
 from app.services.impact_estimator import estimate_affected_rows
 from app.services.impact_explainer import explain_impact
 from app.services.modification_executor import execute_modification
+from app.services.table_translator import translate_modification_tables
 from app.services.auth_service import get_current_user_id
 from app.services.dataset_guard import (
     resolve_and_authorize_dataset,
@@ -246,9 +247,13 @@ def ask_modification(
             detail=f"Failed generating SQL for modification: {safe_msg}"
         )
 
-    # Replace friendly name with physical table name in quotes
-    pattern = rf"(?<![a-zA-Z0-9_`])`?{re.escape(friendly_name)}`?(?![a-zA-Z0-9_`])"
-    physical_sql = re.sub(pattern, safe_quote_table_name(table_name, user_datasets), sql)
+    # Translate only table references into physical table name using AST (never mutate matching column names)
+    physical_sql = translate_modification_tables(
+        sql=sql,
+        friendly_name=friendly_name,
+        physical_table_name=table_name,
+        authorized_tables=user_datasets
+    )
 
     # 4. Strict AST Validation
     verify_all_referenced_tables(physical_sql, user_id, user_datasets)

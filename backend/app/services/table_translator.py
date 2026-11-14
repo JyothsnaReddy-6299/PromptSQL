@@ -255,3 +255,34 @@ def translate_query_tables(
                 )
 
     return stmt.sql("mysql")
+
+
+def translate_modification_tables(
+    sql: str,
+    friendly_name: str,
+    physical_table_name: str,
+    authorized_tables: Collection[str]
+) -> str:
+    """
+    Translates ONLY the target table references in a DML/DDL statement into the authorized
+    physical table name using SQLGlot AST parsing, ensuring column names matching
+    the table name are NEVER erroneously substituted.
+    """
+    import re
+    from app.services.dataset_guard import safe_quote_table_name
+
+    quoted_target = safe_quote_table_name(physical_table_name, authorized_tables)
+    target_clean = friendly_name.lower().strip("`")
+    physical_clean = physical_table_name.strip("`")
+
+    try:
+        parsed = sqlglot.parse_one(sql, read="mysql")
+        for table_expr in parsed.find_all(exp.Table):
+            if table_expr.name.lower().strip("`") in [target_clean, physical_clean.lower()]:
+                table_expr.set("this", exp.to_identifier(physical_clean, quoted=True))
+        return parsed.sql(dialect="mysql")
+    except Exception:
+        # Fallback: clause-scoped regex that ONLY matches table names following DML/DDL keywords
+        pattern = rf"(?i)\b(INTO|FROM|UPDATE|TABLE)\s+`?{re.escape(friendly_name)}`?(?=\s|\(|$|;)"
+        return re.sub(pattern, rf"\1 {quoted_target}", sql)
+
