@@ -5,25 +5,59 @@ import re
 NUMERIC_THRESHOLD = 0.90
 DATE_THRESHOLD = 0.90
 
-# Matches values that begin with letters followed by digits or digits followed by letters,
-# possibly separated by hyphens, slashes, dots, or underscores.
-# Examples that must NOT be parsed as dates: ST-201, EN-9001, SKU-001, EMP001, ORD-10000, 2024-Q1
-_IDENTIFIER_VALUE_PATTERN = re.compile(
-    r"^[A-Za-z][\w\-/\.]*\d"      # Starts with letter, ends near a digit: ST-201, EN-9001
-    r"|^\d[\w\-/\.]*[A-Za-z]",    # Starts with digit, ends near a letter: 2024-Q1
-    re.ASCII
-)
+MONTH_NAMES = {
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    "january", "february", "march", "april", "may", "june", "july", "august", "september",
+    "october", "november", "december"
+}
+DATE_EXTRA_TOKENS = {
+    "am", "pm", "utc", "gmt", "z", "t",
+    "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+}
+ALLOWED_DATE_ALPHA = MONTH_NAMES | DATE_EXTRA_TOKENS
 
-# Acceptable date formats — values must broadly match one of these before we
-# attempt a full parse. This prevents dateutil from interpreting arbitrary
-# alphanumeric codes (e.g. ST-201 → year 201, month 01, day 01).
-_DATE_FORMAT_PATTERNS = re.compile(
-    r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}"   # ISO / YYYY-MM-DD style: 2024-01-15
-    r"|^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}"  # DD/MM/YYYY or DD-MM-YY
-    r"|^\d{1,2}\s+\w{3,}\s+\d{4}$"      # 15 January 2024, 15 Jan 2024
-    r"|^\w{3,}\s+\d{1,2},?\s+\d{4}$",   # January 15, 2024
-    re.IGNORECASE
-)
+
+def is_valid_date_value(val: any) -> bool:
+    """
+    Validates whether a single scalar value represents a genuine calendar date.
+    
+    Guards:
+    1. If already a datetime/timestamp object, checks reasonable business year (1900-2100).
+    2. If string contains letters, EVERY letter token must be a recognised calendar word
+       (month name, day of week, am/pm, utc/z). Any foreign word (e.g. 'ST', 'EN', 'SKU', 'EMP')
+       immediately disqualifies the value from being a date.
+    3. Must contain at least one date/time separator (-, /, ., space, comma, colon, T).
+       Bare integers like 201, 1001, 2024 are rejected.
+    4. Must parse with pd.to_datetime and year must fall within 1900 <= year <= 2100.
+       Prevents dateutil from converting codes like 'ST-201' into year 201 (0201-01-01).
+    """
+    if val is None or pd.isna(val):
+        return False
+    if hasattr(val, "year") and hasattr(val, "month") and hasattr(val, "day"):
+        return 1900 <= val.year <= 2100
+
+    s = str(val).strip()
+    if not s or len(s) < 4:
+        return False
+
+    # Check 1: If string has letters, all letter tokens MUST be known calendar tokens
+    alpha_tokens = re.findall(r"[a-zA-Z]+", s.lower())
+    if alpha_tokens:
+        for tok in alpha_tokens:
+            if tok not in ALLOWED_DATE_ALPHA:
+                return False
+
+    # Check 2: Must contain at least one date/time separator
+    if not re.search(r"[-/.\s,:T]", s):
+        return False
+
+    # Check 3: Full parse attempt & realistic year verification
+    try:
+        dt = pd.to_datetime(s, errors="raise", format="mixed")
+        return 1900 <= dt.year <= 2100
+    except Exception:
+        return False
 
 
 def is_numeric_series(series: pd.Series) -> bool:
@@ -58,42 +92,17 @@ def is_numeric_series(series: pd.Series) -> bool:
 def is_date_series(series: pd.Series) -> bool:
     """
     Returns True if most non-null values in the series look like real calendar dates.
-
-    Guard rails applied before calling pd.to_datetime:
-    1. If any non-null value matches the identifier pattern (alpha prefix + digits or
-       digit prefix + alpha suffix — e.g. ST-201, EN-9001, EMP001, 2024-Q1), the whole
-       column is immediately classified as text. This prevents dateutil from silently
-       interpreting business codes as historical dates.
-    2. Values must broadly match a known date format skeleton before a full parse is
-       attempted. This blocks standalone numbers (plain years like 201) and other
-       ambiguous strings from being promoted to dates.
+    Uses is_valid_date_value to check every entry against strict date semantics.
     """
     sample = series.dropna()
     if sample.empty:
         return False
 
-    str_sample = sample.astype(str).str.strip()
+    if pd.api.types.is_datetime64_any_dtype(sample):
+        return True
 
-    # Guard 1: Reject entire column if ANY value looks like an identifier code.
-    # A single ST-201 is enough to disqualify the column from being a date column.
-    has_identifier_values = str_sample.map(
-        lambda v: bool(_IDENTIFIER_VALUE_PATTERN.match(v))
-    ).any()
-    if has_identifier_values:
-        return False
-
-    # Guard 2: Require that most values match a recognisable date format skeleton
-    # before we pay the cost of a full parse. This rejects plain numbers, random
-    # strings, and anything dateutil would only accept via heroic guessing.
-    well_formed_ratio = str_sample.map(
-        lambda v: bool(_DATE_FORMAT_PATTERNS.match(v))
-    ).mean()
-    if well_formed_ratio < DATE_THRESHOLD:
-        return False
-
-    # Full parse: now safe to call pd.to_datetime — values already look date-like.
-    dates = pd.to_datetime(str_sample, errors="coerce", format="mixed")
-    return dates.notna().mean() >= DATE_THRESHOLD
+    valid_dates = sample.map(is_valid_date_value)
+    return valid_dates.mean() >= DATE_THRESHOLD
 
 
 def is_identifier_column_name(col_name: str) -> bool:

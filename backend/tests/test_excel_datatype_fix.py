@@ -112,6 +112,14 @@ class TestIsDateSeriesGuards(unittest.TestCase):
         """15-01-2024 must be recognised as date."""
         self.assertTrue(is_date_series(self._series(["15-01-2024", "20-02-2024", "10-03-2024"])))
 
+    def test_accept_abbreviated_month_dash(self):
+        """15-Jan-2024, 01-Feb-2023 must be recognised as date."""
+        self.assertTrue(is_date_series(self._series(["15-Jan-2024", "01-Feb-2023", "12-DEC-2022"])))
+
+    def test_accept_iso_datetime_with_t_z(self):
+        """2024-01-15T14:30:00Z must be recognised as date."""
+        self.assertTrue(is_date_series(self._series(["2024-01-15T14:30:00Z", "2024-02-20T08:00:00Z"])))
+
 
 class TestIsIdentifierColumnName(unittest.TestCase):
     """Unit tests for the is_identifier_column_name() column-name heuristic."""
