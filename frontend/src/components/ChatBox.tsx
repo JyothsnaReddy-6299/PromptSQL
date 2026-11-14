@@ -14,7 +14,8 @@ import {
   Trash2, 
   FolderHeart, 
   Loader2, 
-  AlertTriangle, 
+  AlertTriangle,
+  AlertCircle, 
   Play,
   Sparkles,
   BarChart3,
@@ -66,6 +67,16 @@ interface Message {
   needs_clarification?: boolean;
   clarification_options?: string[];
   clarification_context?: Record<string, any>;
+
+  // Conversational Bulk Record Preview properties
+  is_bulk_insert?: boolean;
+  total_records?: number;
+  valid_records_count?: number;
+  invalid_records_count?: number;
+  preview_columns?: string[];
+  preview_records?: Record<string, any>[];
+  invalid_records?: Array<{ record_index: number; raw_record?: any; reason: string }>;
+  missing_fields?: string[];
 }
 
 interface ChatBoxProps {
@@ -133,6 +144,16 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
   );
 
   useEffect(() => {
+    // Check if user came from Custom Table Builder with a seed prompt
+    const seed = sessionStorage.getItem("seed_chat_prompt");
+    if (seed) {
+      setQuestion(seed);
+      sessionStorage.removeItem("seed_chat_prompt");
+      textareaRef.current?.focus();
+    }
+  }, []);
+
+  useEffect(() => {
     if (displayMessages.length === 0 && !loading) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [displayMessages.length, loading]);
@@ -179,6 +200,20 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       // 1. Intercept user question by calling intent detector and preview generator
       const modCheck = await askModification(currentQuestion);
 
+      if (modCheck.needs_clarification) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: modCheck.message || "Please clarify which table you would like to insert records into:",
+            needs_clarification: true,
+            clarification_options: modCheck.clarification_options
+          }
+        ]);
+        setLoading(false);
+        return;
+      }
+
       if (modCheck.requires_confirmation) {
         // This is a database modification (DML or DDL)
         setMessages((prev) => [
@@ -196,7 +231,16 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
             confirmation_token: modCheck.confirmation_token,
             estimated_rows: modCheck.estimated_rows,
             expires_at: modCheck.expires_at,
-            records: []
+            records: [],
+            // Structured Bulk Insertion Preview
+            is_bulk_insert: modCheck.is_bulk_insert,
+            total_records: modCheck.total_records,
+            valid_records_count: modCheck.valid_records_count,
+            invalid_records_count: modCheck.invalid_records_count,
+            preview_columns: modCheck.preview_columns,
+            preview_records: modCheck.preview_records,
+            invalid_records: modCheck.invalid_records,
+            missing_fields: modCheck.missing_fields
           }
         ]);
         setLoading(false);
@@ -204,13 +248,14 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
       }
 
       if (modCheck.error) {
-        // The modification query failed safety validation!
+        // The modification query failed safety validation or record parsing
         setMessages((prev) => [
           ...prev,
           {
             sender: "ai",
-            text: "I couldn't complete that modification. Safety validation failed:",
-            error: modCheck.error || "Safety check violation."
+            text: "I couldn't complete that modification:",
+            error: modCheck.error || "Validation failed.",
+            invalid_records: modCheck.invalid_records || []
           }
         ]);
         setLoading(false);
@@ -622,42 +667,113 @@ export default function ChatBox({ messages, setMessages, question, setQuestion }
 
                       {/* DML/DDL Confirmation Dialog */}
                       {msg.requires_confirmation && (
-                        <div className="bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] rounded-lg p-3 flex flex-col gap-2.5">
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2">
+                        <div className="bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] rounded-xl p-3.5 flex flex-col gap-3 shadow-xs">
+                          {/* Header */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2.5">
                             <div className="flex items-center gap-2">
                               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300">
-                                {msg.intent || "MODIFICATION"}
+                                {msg.is_bulk_insert ? "INSERT PREVIEW" : (msg.intent || "MODIFICATION")}
                               </span>
-                              <span className="text-[11px] text-amber-900">
-                                Dataset: <strong className="font-mono text-amber-950">{msg.target_dataset || msg.table_name}</strong>
+                              <span className="text-xs text-amber-950 font-bold">
+                                {msg.is_bulk_insert 
+                                  ? `${msg.preview_records?.length || 0} record(s) ready for insertion` 
+                                  : (msg.target_dataset || msg.table_name)}
                               </span>
                             </div>
-                            <div className="text-[11px] text-amber-800">
-                              Estimated Impact: <strong className="text-amber-950">{msg.estimated_rows !== undefined && msg.estimated_rows !== null ? `${msg.estimated_rows} row(s)` : (msg.intent === "ALTER" ? "0 rows (Schema)" : "Uncertain")}</strong>
+                            <div className="text-[11px] text-amber-900 font-mono">
+                              Target Table: <strong className="text-amber-950">{msg.target_dataset || msg.table_name}</strong>
                             </div>
                           </div>
 
-                          <p className="text-xs font-medium text-amber-950">
-                            This operation modifies stored data or structure. Explicit approval is required.
+                          {/* Impact explanation */}
+                          <p className="text-xs text-amber-950 font-medium leading-relaxed">
+                            {msg.text || "This operation modifies stored data or structure. Explicit approval is required."}
                           </p>
 
-                          <div className="flex gap-2 items-center pt-0.5">
+                          {/* Structured Records Preview Table */}
+                          {msg.preview_records && msg.preview_records.length > 0 && (
+                            <div className="border border-amber-200/80 rounded-lg overflow-hidden bg-white shadow-xs">
+                              <div className="bg-amber-50/80 px-3 py-1.5 border-b border-amber-200/60 flex items-center justify-between text-[11px] font-bold text-amber-900">
+                                <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                                  <Table size={11} className="text-[#168C88]" /> Valid Records to Insert ({msg.preview_records.length})
+                                </span>
+                              </div>
+                              <div className="overflow-x-auto max-h-56">
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-semibold text-[11px]">
+                                      <th className="p-2 border-r border-slate-200 w-10 text-center font-mono">#</th>
+                                      {(msg.preview_columns || Object.keys(msg.preview_records[0])).map((col) => (
+                                        <th key={col} className="p-2 border-r border-slate-200 font-mono whitespace-nowrap">
+                                          {col}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                                    {msg.preview_records.map((row, rIdx) => (
+                                      <tr key={rIdx} className="hover:bg-amber-50/30 transition-colors">
+                                        <td className="p-2 border-r border-slate-200 text-center font-mono text-[10px] text-slate-400">
+                                          {rIdx + 1}
+                                        </td>
+                                        {(msg.preview_columns || Object.keys(msg.preview_records![0])).map((col) => (
+                                          <td key={col} className="p-2 border-r border-slate-200 font-mono text-xs whitespace-nowrap">
+                                            {row[col] !== null && row[col] !== undefined ? String(row[col]) : <span className="text-slate-300 italic">NULL</span>}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Invalid Records Warning */}
+                          {msg.invalid_records && msg.invalid_records.length > 0 && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-900 space-y-1.5">
+                              <div className="font-bold flex items-center gap-1.5 text-red-800">
+                                <AlertCircle size={13} className="text-red-600 shrink-0" />
+                                <span>{msg.invalid_records.length} record(s) failed validation and will NOT be inserted:</span>
+                              </div>
+                              <ul className="list-disc pl-5 space-y-1 text-[11px] text-red-700">
+                                {msg.invalid_records.map((inv, invIdx) => (
+                                  <li key={invIdx}>
+                                    <strong>Record #{inv.record_index}:</strong> {inv.reason}
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="text-[10px] text-red-600 font-medium pt-0.5">
+                                Note: If you confirm, only the {msg.preview_records?.length || 0} valid record(s) listed above will be inserted into the database.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Missing / Omitted columns note */}
+                          {msg.missing_fields && msg.missing_fields.length > 0 && (
+                            <div className="text-[10px] text-amber-800/90 italic">
+                              Unspecified optional columns left as NULL: {msg.missing_fields.join(", ")}
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2 items-center pt-1">
                             <button
                               onClick={() => handleConfirmModification(idx, msg)}
-                              disabled={msg.is_executing}
-                              className="bg-[#168C88] hover:bg-[#137774] disabled:bg-[#168C88]/50 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:cursor-not-allowed"
+                              disabled={msg.is_executing || (!msg.preview_records?.length && msg.is_bulk_insert)}
+                              className="bg-[#168C88] hover:bg-[#137774] disabled:bg-[#168C88]/50 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:cursor-not-allowed"
                             >
                               {msg.is_executing ? (
                                 <Loader2 size={12} className="animate-spin" />
                               ) : (
                                 <Play size={10} className="fill-white" />
                               )}
-                              <span>{msg.is_executing ? "Executing..." : "Confirm & Execute"}</span>
+                              <span>{msg.is_executing ? "Inserting Records..." : "Confirm & Execute"}</span>
                             </button>
                             <button
                               onClick={() => handleCancelModification(idx)}
                               disabled={msg.is_executing}
-                              className="bg-white border border-amber-300 hover:bg-amber-100/50 text-amber-900 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition disabled:opacity-50"
+                              className="bg-white border border-amber-300 hover:bg-amber-100/50 text-amber-900 px-3.5 py-2 rounded-lg text-xs font-medium cursor-pointer transition disabled:opacity-50"
                             >
                               Cancel
                             </button>

@@ -148,6 +148,21 @@ export async function createTable(tableName: string, columns: { name: string; ty
   return response.json();
 }
 
+export async function generateTableSchema(prompt: string) {
+  const response = await fetch(`${API_URL}/datasets/generate-schema`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prompt }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || "Failed to generate schema from description");
+  }
+  return response.json();
+}
+
 
 // -------------------------------------------------------------
 // QUERY HISTORY LOGS API

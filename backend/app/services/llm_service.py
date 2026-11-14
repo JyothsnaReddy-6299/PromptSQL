@@ -49,7 +49,34 @@ def call_llm(
                 max_tokens=max_tokens
             )
             raw_text = response.choices[0].message.content.strip()
-            return strip_think_blocks(raw_text)
+            cleaned = strip_think_blocks(raw_text)
+            if cleaned:
+                return cleaned
+
+            # If cleaned is empty, the model was cut off inside unclosed <think> tags
+            print(f"[LLM Service] Model '{model}' output was truncated inside <think> tags. Trying alternative non-reasoning model...")
+            fallback_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+            for fb_model in fallback_models:
+                if fb_model != model:
+                    try:
+                        response = client.chat.completions.create(
+                            model=fb_model,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            temperature=temperature,
+                            max_tokens=max_tokens
+                        )
+                        fb_text = response.choices[0].message.content.strip()
+                        fb_cleaned = strip_think_blocks(fb_text)
+                        if fb_cleaned:
+                            return fb_cleaned
+                    except Exception as fb_err:
+                        print(f"[LLM Service] Fallback model '{fb_model}' failed: {sanitize_error_message(str(fb_err))}")
+                        continue
+
+            return raw_text
         except groq.RateLimitError as rle:
             if attempt < max_retries - 1:
                 sleep_sec = base_delay * (2 ** attempt)
@@ -58,7 +85,7 @@ def call_llm(
                 continue
 
             # Fallback to secondary model if primary model exhausted rate limit
-            fallback_models = ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]
+            fallback_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
             for fb_model in fallback_models:
                 if fb_model != model:
                     try:
@@ -73,7 +100,9 @@ def call_llm(
                             max_tokens=max_tokens
                         )
                         raw_text = response.choices[0].message.content.strip()
-                        return strip_think_blocks(raw_text)
+                        cleaned_fb = strip_think_blocks(raw_text)
+                        if cleaned_fb:
+                            return cleaned_fb
                     except Exception as fb_err:
                         print(f"[LLM Service] Fallback model '{fb_model}' failed: {sanitize_error_message(str(fb_err))}")
                         continue

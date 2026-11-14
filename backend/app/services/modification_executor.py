@@ -210,27 +210,31 @@ def execute_modification(sql: str, table_name: str, intent: str) -> dict:
         # Post-fetch records for INSERT or UPDATE
         if intent == "INSERT":
             try:
-                col_name, col_val = extract_first_insert_identity(sql)
-                if col_name and col_val:
-                    select_sql = f"SELECT * FROM `{table_name}` WHERE `{col_name}` = :col_val LIMIT 1"
-                    with engine.connect() as conn:
-                        res = conn.execute(text(select_sql), {"col_val": col_val})
-                        records = [dict(row._mapping) for row in res]
-                else:
-                    from sqlalchemy import inspect
-                    inspector = inspect(engine)
-                    cols = [c["name"] for c in inspector.get_columns(table_name)]
-                    pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
-                    sort_col = pk_cols[0] if pk_cols else (cols[0] if cols else None)
+                from sqlalchemy import inspect
+                inspector = inspect(engine)
+                cols = [c["name"] for c in inspector.get_columns(table_name)]
+                pk_cols = inspector.get_pk_constraint(table_name).get("constrained_columns", [])
+                sort_col = pk_cols[0] if pk_cols else (cols[0] if cols else None)
 
-                    if sort_col:
-                        select_sql = f"SELECT * FROM `{table_name}` ORDER BY `{sort_col}` DESC LIMIT 1"
-                    else:
-                        select_sql = f"SELECT * FROM `{table_name}` LIMIT 1"
-
+                limit_count = max(rows_affected, 1)
+                if sort_col:
+                    select_sql = f"SELECT * FROM `{table_name}` ORDER BY `{sort_col}` DESC LIMIT {limit_count}"
                     with engine.connect() as conn:
                         res = conn.execute(text(select_sql))
-                        records = [dict(row._mapping) for row in res]
+                        fetched = [dict(row._mapping) for row in res]
+                        records = list(reversed(fetched))
+                else:
+                    col_name, col_val = extract_first_insert_identity(sql)
+                    if col_name and col_val:
+                        select_sql = f"SELECT * FROM `{table_name}` WHERE `{col_name}` = :col_val LIMIT 1"
+                        with engine.connect() as conn:
+                            res = conn.execute(text(select_sql), {"col_val": col_val})
+                            records = [dict(row._mapping) for row in res]
+                    else:
+                        select_sql = f"SELECT * FROM `{table_name}` LIMIT {limit_count}"
+                        with engine.connect() as conn:
+                            res = conn.execute(text(select_sql))
+                            records = [dict(row._mapping) for row in res]
             except Exception as insert_err:
                 print("Failed post-fetching inserted records:", insert_err)
 

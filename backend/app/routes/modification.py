@@ -218,14 +218,7 @@ def ask_modification(
     - Persists an immutable PendingModification record with confirmation token.
     - Returns preview details to client for user approval.
     """
-    # 1. Authorize dataset
-    table_name = resolve_and_authorize_dataset(
-        user_id=user_id,
-        requested_table_name=x_table_name
-    )
-    user_datasets = get_user_datasets(user_id)
-
-    # 2. Detect Intent
+    # 1. Detect Intent first
     intent = detect_intent(payload.question)
     if intent not in ["UPDATE", "INSERT", "DELETE", "MERGE", "ALTER", "DROP", "TRUNCATE", "CREATE"]:
         return {
@@ -235,25 +228,104 @@ def ask_modification(
             "message": "This request does not appear to be a data or schema modification."
         }
 
-    friendly_name = table_name.split(f"_usr_{user_id.split('_')[-1]}")[0] if f"_usr_{user_id.split('_')[-1]}" in table_name else table_name
+    user_datasets = get_user_datasets(user_id)
 
-    # 3. Generate physical SQL
-    try:
-        sql = generate_modification_sql(payload.question, table_name, intent)
-    except Exception as e:
-        safe_msg = sanitize_error_message(str(e))
+    # 2. Contextual Target Table Resolution
+    from app.services.bulk_record_parser import (
+        resolve_target_table_from_prompt,
+        parse_and_validate_records_for_insert
+    )
+
+    candidate_table, err_type, options = resolve_target_table_from_prompt(
+        question=payload.question,
+        user_id=user_id,
+        user_datasets=user_datasets,
+        current_active_table=x_table_name
+    )
+
+    if err_type == "cross_tenant_denied":
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed generating SQL for modification: {safe_msg}"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You do not have permission to access another user's dataset."
         )
 
-    # Translate only table references into physical table name using AST (never mutate matching column names)
-    physical_sql = translate_modification_tables(
-        sql=sql,
-        friendly_name=friendly_name,
-        physical_table_name=table_name,
-        authorized_tables=user_datasets
-    )
+    if err_type == "ambiguous" and len(options or []) > 1 and not x_table_name:
+        return {
+            "success": True,
+            "needs_clarification": True,
+            "requires_confirmation": False,
+            "message": f"Multiple potential target tables found ({', '.join(options)}). Please specify which table to insert records into.",
+            "clarification_options": options
+        }
+
+    if candidate_table:
+        table_name = candidate_table
+    else:
+        table_name = resolve_and_authorize_dataset(
+            user_id=user_id,
+            requested_table_name=x_table_name
+        )
+
+    friendly_name = table_name.split(f"_usr_{user_id.split('_')[-1]}")[0] if f"_usr_{user_id.split('_')[-1]}" in table_name else table_name
+
+    # 3. Generate physical SQL and structured preview
+    is_bulk_insert = False
+    preview_columns = []
+    preview_records = []
+    invalid_records = []
+    missing_fields = []
+
+    if intent == "INSERT":
+        bulk_res = parse_and_validate_records_for_insert(
+            question=payload.question,
+            physical_table_name=table_name,
+            friendly_name=friendly_name
+        )
+        if not bulk_res.get("success", False):
+            return {
+                "success": False,
+                "error": bulk_res.get("error", "Failed to parse records for insertion."),
+                "requires_confirmation": False,
+                "invalid_records": bulk_res.get("invalid_records", [])
+            }
+
+        sql = bulk_res["friendly_sql"]
+        physical_sql = bulk_res["physical_sql"]
+        is_bulk_insert = True
+        preview_columns = bulk_res["preview_columns"]
+        preview_records = bulk_res["preview_records"]
+        invalid_records = bulk_res["invalid_records"]
+        missing_fields = bulk_res["missing_fields"]
+        est_rows = bulk_res["valid_records_count"]
+        impact_text = bulk_res["impact_text"]
+        is_reliable = True
+    else:
+        try:
+            sql = generate_modification_sql(payload.question, table_name, intent)
+        except Exception as e:
+            safe_msg = sanitize_error_message(str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed generating SQL for modification: {safe_msg}"
+            )
+
+        # Translate only table references into physical table name using AST (never mutate matching column names)
+        physical_sql = translate_modification_tables(
+            sql=sql,
+            friendly_name=friendly_name,
+            physical_table_name=table_name,
+            authorized_tables=user_datasets
+        )
+
+        # Estimate affected rows (cleanly distinguish reliable from unreliable)
+        est_result = estimate_affected_rows(physical_sql, table_name, intent, user_id, user_datasets)
+        est_rows = est_result["estimated_rows"]
+        is_reliable = est_result["reliable"]
+
+        # Generate natural language impact explanation
+        impact_text = explain_impact(physical_sql, table_name, intent, est_rows)
+        if not is_reliable:
+            impact_text = "Impact could not be estimated reliably. " + impact_text
 
     # 4. Strict AST Validation
     verify_all_referenced_tables(physical_sql, user_id, user_datasets)
@@ -266,21 +338,11 @@ def ask_modification(
             "requires_confirmation": False
         }
 
-    # 5. Estimate affected rows (cleanly distinguish reliable from unreliable)
-    est_result = estimate_affected_rows(physical_sql, table_name, intent, user_id, user_datasets)
-    est_rows = est_result["estimated_rows"]
-    is_reliable = est_result["reliable"]
-
-    # 6. Generate natural language impact explanation
-    impact_text = explain_impact(physical_sql, table_name, intent, est_rows)
-    if not is_reliable:
-        impact_text = "Impact could not be estimated reliably. " + impact_text
-
-    # 7. Execution Policy: separate DML vs DDL
+    # 5. Execution Policy: separate DML vs DDL
     is_ddl = intent.upper() in ["ALTER", "DROP", "TRUNCATE", "CREATE"]
     policy = "DDL" if is_ddl else "DML"
 
-    # 8. Create server-side PendingModification record
+    # 6. Create server-side PendingModification record
     confirmation_token = secrets.token_hex(32)
     created_at = get_ist_time()
     expires_at = created_at + datetime.timedelta(minutes=MODIFICATION_TTL_MINUTES)
@@ -316,7 +378,16 @@ def ask_modification(
         "estimated_rows": est_rows,
         "reliable_estimate": is_reliable,
         "confirmation_token": confirmation_token,
-        "expires_at": expires_at.isoformat()
+        "expires_at": expires_at.isoformat(),
+        # Bulk Preview Data
+        "is_bulk_insert": is_bulk_insert,
+        "total_records": (len(preview_records) + len(invalid_records)) if is_bulk_insert else est_rows,
+        "valid_records_count": len(preview_records) if is_bulk_insert else est_rows,
+        "invalid_records_count": len(invalid_records),
+        "preview_columns": preview_columns,
+        "preview_records": preview_records,
+        "invalid_records": invalid_records,
+        "missing_fields": missing_fields
     }
 
 

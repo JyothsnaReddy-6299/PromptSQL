@@ -357,10 +357,53 @@ class CreateTableRequest(BaseModel):
     columns: List[ColumnDefinition]
 
 
+class GenerateSchemaRequest(BaseModel):
+    prompt: Optional[str] = None
+    description: Optional[str] = None
+
+
+@router.post("/datasets/generate-schema")
+@router.post("/custom-tables/generate-schema")
+def generate_custom_table_schema(
+    req: GenerateSchemaRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    AI-Assisted Table Schema Generation:
+    Takes a natural language description and infers table name and column definitions.
+    Enforces PromptSQL conventions (auto-skips PK 'id', infers appropriate SQL types).
+    """
+    from app.services.table_schema_generator import generate_table_schema_from_prompt
+
+    user_prompt = (req.prompt or req.description or "").strip()
+    if not user_prompt:
+        raise HTTPException(
+            status_code=400,
+            detail="A natural language description is required to generate a schema."
+        )
+
+    try:
+        schema = generate_table_schema_from_prompt(user_prompt)
+        return schema
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        safe_msg = sanitize_error_message(str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Schema generation failed: {safe_msg}"
+        )
+
+
 @router.post("/datasets/create")
 def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_current_user_id)):
     from app.database.connection import engine
     from sqlalchemy import text
+    from app.services.table_schema_generator import (
+        validate_custom_table_schema,
+        normalize_sql_type,
+        ALLOWED_DATA_TYPES
+    )
     
     # 1. Validate Table Name (alphanumeric + underscore only)
     validate_table_identifier_format(req.table_name)
@@ -373,6 +416,11 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
     if is_system_table(physical_table_name):
         raise HTTPException(status_code=403, detail="Cannot create table with system table name")
 
+    # Validate schema (reject reserved words, duplicate columns, id PK collision, invalid types)
+    is_valid, validation_err = validate_custom_table_schema(clean_table_name, [c.dict() for c in req.columns])
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=validation_err)
+
     # 2. Build Column Definitions SQL
     col_definitions = []
     # Always add an auto-incrementing id column as primary key
@@ -380,14 +428,11 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
     
     for col in req.columns:
         clean_col_name = re.sub(r'[^a-zA-Z0-9_]', '', col.name).lower()
-        if not clean_col_name:
-            continue
-        if clean_col_name == "id":
+        if not clean_col_name or clean_col_name == "id":
             continue
             
-        allowed_types = ["VARCHAR(255)", "INT", "DOUBLE", "DATE", "TEXT"]
-        selected_type = col.type.upper()
-        if selected_type not in allowed_types:
+        selected_type = normalize_sql_type(col.type)
+        if selected_type not in ALLOWED_DATA_TYPES:
             selected_type = "VARCHAR(255)"
             
         col_definitions.append(f"`{clean_col_name}` {selected_type} NULL")
