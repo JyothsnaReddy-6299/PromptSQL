@@ -193,6 +193,13 @@ class Settings(BaseModel):
             if not groq_key or groq_key.startswith("gsk_your_groq_api_key"):
                 raise ValueError("CRITICAL: GROQ_API_KEY must be configured in production environment.")
 
+            # 4. CORS Origins validation in production (Issue 17.10)
+            if self.CORS_ORIGINS == ["*"] or "*" in self.CORS_ORIGINS:
+                raise ValueError(
+                    "CRITICAL: Wildcard CORS origin ('*') is prohibited in production. "
+                    "Configure explicit trusted origins in CORS_ORIGINS."
+                )
+
         # Normalize GROQ model name
         if "qwen3.6" in self.GROQ_MODEL.lower():
             object.__setattr__(self, "GROQ_MODEL", "qwen/qwen3.8-27b")

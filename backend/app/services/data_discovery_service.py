@@ -571,8 +571,56 @@ def discover_statistical_patterns(
 
 
 # ---------------------------------------------------------------------------
-# Section 2.3 — Trend Discovery
+# Section 2.3 — Trend Discovery & Semantic Date Filtering
 # ---------------------------------------------------------------------------
+DEMOGRAPHIC_DATE_KEYWORDS = {
+    "dob", "date_of_birth", "birth_date", "birthdate", "birthday", "birth_day",
+    "death_date", "expiry_date", "expiration_date", "due_date", "valid_until", "valid_to"
+}
+
+EVENT_DATE_KEYWORDS = [
+    "order_date", "transaction_date", "created_at", "sale_date", "sales_date",
+    "invoice_date", "event_date", "timestamp", "exam_date", "booking_date",
+    "payment_date", "purchase_date", "ship_date", "delivery_date", "log_date"
+]
+
+
+def is_valid_trend_date_column(col_name: str, metric_col: Optional[str] = None) -> bool:
+    """
+    Determines if a date column represents a valid temporal event sequence
+    suitable for trend analysis and time-series charts, rather than a demographic
+    or fixed personal attribute such as date of birth.
+    """
+    if not col_name:
+        return False
+    col_lower = col_name.lower().strip()
+    for kw in DEMOGRAPHIC_DATE_KEYWORDS:
+        if kw in col_lower:
+            return False
+    if metric_col and any(m in metric_col.lower() for m in ["salary", "pay", "wage", "compensation", "income"]):
+        if any(h in col_lower for h in ["hire", "join", "start"]):
+            return False
+    return True
+
+
+def select_best_trend_date_column(date_cols: List[str], metric_col: Optional[str] = None) -> Optional[str]:
+    """
+    Selects the best date column for trend analysis from available date columns.
+    Prioritizes explicit event date keywords, falls back to non-demographic dates,
+    and returns None if only demographic dates (like date of birth) exist.
+    """
+    if not date_cols:
+        return None
+    valid_cols = [c for c in date_cols if is_valid_trend_date_column(c, metric_col)]
+    if not valid_cols:
+        return None
+    for event_kw in EVENT_DATE_KEYWORDS:
+        for c in valid_cols:
+            if event_kw in c.lower():
+                return c
+    return valid_cols[0]
+
+
 def discover_trends(
     table_name: str,
     profile: Dict[str, Any]
@@ -586,11 +634,13 @@ def discover_trends(
     num_cols = profile.get("numeric_columns", [])
     total_rows = profile["total_records"]
 
-    if not date_cols or total_rows < 3:
+    target_metric = num_cols[0] if num_cols else None
+    date_col = select_best_trend_date_column(date_cols, target_metric)
+
+    if not date_col or total_rows < 3:
         return insights
 
     safe_tbl = f"`{table_name}`"
-    date_col = date_cols[0]
 
     # Analyze volume over time or numeric metrics over time
     target_metric = num_cols[0] if num_cols else None
@@ -1220,8 +1270,14 @@ def enhance_insights_with_ai(insights: List[Dict[str, Any]], dataset_name: str) 
     try:
         facts_summary = []
         for i, ins in enumerate(candidates):
+            # Enforce small-group disclosure suppression for outbound AI prompt
+            sample_size = ins.get("sample_size") or ins.get("count") or ins.get("row_count")
+            metric_val = ins['metric_value']
+            if sample_size is not None and 0 < sample_size < 3:
+                metric_val = "[SUPPRESSED_SMALL_GROUP]"
+
             facts_summary.append(
-                f"Insight {i+1} ({ins['title']}): Metric = {ins['metric_value']}, Evidence = {ins.get('plain_explanation') or ins.get('description')}"
+                f"Insight {i+1} ({ins['title']}): Metric = {metric_val}, Evidence = {ins.get('plain_explanation') or ins.get('description')}"
             )
 
         prompt = f"""
@@ -1234,7 +1290,10 @@ Task: For each insight above, provide a 1-sentence executive analytical takeaway
 Output in valid JSON array of strings, e.g.:
 ["takeaway 1", "takeaway 2"]
 """
-        response_text = call_llm(prompt=prompt, system_instruction="You are an enterprise data discovery analyst. Return ONLY a valid JSON array of strings.")
+        response_text = call_llm(
+            system_prompt="You are an enterprise data discovery analyst. Return ONLY a valid JSON array of strings.",
+            user_prompt=prompt
+        )
         parsed = json.loads(response_text)
         if isinstance(parsed, list):
             for idx, text_val in enumerate(parsed):
@@ -2002,6 +2061,23 @@ def inspect_order_amount_grain(
             for k in ["line_amount", "line_total", "item_amount", "item_total", "item_price", "unit_price", "line_item", "product_price", "product_amount"]
         )
 
+        # Mixed and Inconsistent Order Amounts: Some orders have constant amounts, others varying
+        if const_cnt > 0 and vary_cnt > 0:
+            return {
+                "grain_case": "AMBIGUOUS",
+                "is_line_item": True,
+                "is_ambiguous": True,
+                "total_orders": dist_orders,
+                "tot_rev_sql": None,
+                "tot_orders_sql": f"SELECT COUNT(DISTINCT `{order_col}`) FROM `{table_name}` {where_sql}",
+                "aov_sql": None,
+                "max_order_sql": None,
+                "explanation": (
+                    f"Dataset contains mixed order-amount grain ({const_cnt} orders with constant amounts, "
+                    f"{vary_cnt} with varying amounts). Total revenue and AOV are suppressed to prevent inaccurate aggregation."
+                )
+            }
+
         # Case B: Varying amounts within orders -> clearly individual line amounts
         if vary_cnt > 0:
             return {
@@ -2084,7 +2160,7 @@ def generate_dynamic_kpis(
     raw_cat = profile.get("categorical_columns", []) + profile.get("text_columns", [])
     cat_cols = list(dict.fromkeys(raw_cat))
     date_cols = profile.get("date_columns", [])
-    primary_date = date_cols[0] if date_cols else None
+    primary_date = select_best_trend_date_column(date_cols)
     
     domain = domain_info.get("domain", "generic")
     is_line_item = domain_info.get("is_line_item", False)
@@ -3152,8 +3228,9 @@ def generate_visual_analytics(
 
     with engine.connect() as conn:
         # 1. Performance Overview Chart: Latest 12 periods with metric-aware aggregation
-        if date_cols and primary_num:
-            d_col = date_cols[0]
+        trend_date_col = select_best_trend_date_column(date_cols, primary_num)
+        if trend_date_col and primary_num:
+            d_col = trend_date_col
             is_avg_metric = any(k in primary_num.lower() for k in ["salary", "pay", "marks", "score", "rating", "unit_price", "price", "gpa", "discount_pct"])
             agg_fn = "AVG" if is_avg_metric else "SUM"
             agg_title = "Average" if is_avg_metric else "Total"
@@ -3433,8 +3510,9 @@ def get_available_filters(table_name: str, profile: Dict[str, Any]) -> List[Dict
                 except Exception:
                     pass
                     
-        if date_cols:
-            d_col = date_cols[0]
+        trend_date = select_best_trend_date_column(date_cols)
+        d_col = trend_date if trend_date else (date_cols[0] if date_cols else None)
+        if d_col:
             try:
                 sql_range = f"SELECT MIN(`{d_col}`), MAX(`{d_col}`) FROM `{table_name}` WHERE `{d_col}` IS NOT NULL"
                 min_d, max_d = conn.execute(text(sql_range)).fetchone()

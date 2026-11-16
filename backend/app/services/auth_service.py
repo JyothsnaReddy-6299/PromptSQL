@@ -1,12 +1,46 @@
 import bcrypt
 import jwt
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Set
 from fastapi import Header, HTTPException, status
 
 from app.core.config import get_settings
 
 MAX_PASSWORD_BYTES = 72  # Maximum length supported natively by bcrypt
+
+# Session revocation registry (Issue 17.1 & Part 5)
+_REVOKED_TOKENS: Set[str] = set()
+_USER_MIN_IAT: Dict[str, int] = {}  # user_id -> min_valid_iat timestamp
+
+
+def revoke_token(token: str) -> None:
+    """Marks a specific JWT token as revoked."""
+    if token:
+        _REVOKED_TOKENS.add(token.strip())
+
+
+def revoke_all_user_sessions(user_id: int) -> None:
+    """Invalidates all tokens issued for this user prior to the current timestamp."""
+    _USER_MIN_IAT[str(user_id)] = int(datetime.now(timezone.utc).timestamp())
+
+
+def is_token_revoked(token: str, payload: Dict[str, Any]) -> bool:
+    """Checks whether the token or user session has been revoked."""
+    clean_token = token.strip() if token else ""
+    if clean_token in _REVOKED_TOKENS:
+        return True
+    sub = payload.get("sub")
+    iat = payload.get("iat", 0)
+    if sub and str(sub) in _USER_MIN_IAT:
+        if iat < _USER_MIN_IAT[str(sub)]:
+            return True
+    return False
+
+
+def clear_revocation_registry_for_testing() -> None:
+    """Clears the revocation registry for isolated test runs."""
+    _REVOKED_TOKENS.clear()
+    _USER_MIN_IAT.clear()
 
 
 def hash_password(password: str) -> str:
@@ -101,6 +135,13 @@ def decode_and_validate_token(token: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token."
+        )
+
+    # Check if token or session has been revoked (Issue 17.1 & Part 5)
+    if is_token_revoked(token, payload):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has been revoked or invalidated. Please log in again."
         )
 
     # Validate token type claim

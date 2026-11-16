@@ -9,6 +9,7 @@ import ReportsManager from "../components/ReportsManager";
 import AuditManager from "../components/AuditManager";
 import DataCleaner from "../components/DataCleaner";
 import AIInsightsWorkspace from "../components/AIInsightsWorkspace";
+import PrivacyGuardian from "../components/PrivacyGuardian";
 import { getPreview } from "../services/api";
 import QueryWorkspaceModal from "../components/QueryWorkspaceModal";
 
@@ -273,6 +274,13 @@ export default function DashboardPage() {
             <AIInsightsWorkspace
               fileName={fileName}
               onInvestigate={handleInvestigateInsight}
+              onRefresh={() => setRefreshTrigger((p) => p + 1)}
+            />
+          </div>
+        ) : activeSection === "privacy" ? (
+          <div id="privacy" className="scroll-mt-24">
+            <PrivacyGuardian
+              fileName={fileName}
               onRefresh={() => setRefreshTrigger((p) => p + 1)}
             />
           </div>

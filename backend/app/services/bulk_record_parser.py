@@ -13,7 +13,9 @@ from dateutil import parser as date_parser
 from sqlalchemy import inspect
 from app.database.connection import engine
 from app.services.llm_service import call_llm
+from app.services.privacy_redactor import extract_sensitive_query_parameters
 from app.utils.think_stripper import strip_think_blocks
+from app.utils.error_sanitizer import sanitize_error_message
 
 
 def get_table_schema_metadata(physical_table_name: str) -> List[Dict[str, Any]]:
@@ -144,13 +146,16 @@ def extract_raw_records_with_llm(
         "6. Output ONLY a valid JSON object with key 'records' containing the array of objects. No markdown, no commentary."
     )
 
+    # 1. Enforce Privacy Guardian: extract sensitive literals locally before LLM prompt transmission
+    sanitized_question, param_store = extract_sensitive_query_parameters(question)
+
     user_message = f"""
 Target Table: `{friendly_name}`
 Target Columns:
 {columns_desc}
 
 User Request:
-"{question}"
+"{sanitized_question}"
 
 Output Format:
 {{
@@ -173,11 +178,21 @@ Output Format:
         parsed = json.loads(cleaned)
         records = parsed.get("records", [])
         if isinstance(records, list) and len(records) > 0:
+            # 2. Server-side restoration: restore exact original literals before validation & insertion
+            if param_store:
+                for rec in records:
+                    for k, v in rec.items():
+                        if isinstance(v, str):
+                            v_str = v
+                            for token, orig_val in param_store.items():
+                                if token in v_str:
+                                    v_str = v_str.replace(token, orig_val)
+                            rec[k] = v_str
             return records
     except Exception as err:
         print(f"Error parsing LLM records JSON: {err}")
 
-    # Resilient heuristic fallback if LLM returned empty or malformed output
+    # Resilient heuristic fallback if LLM returned empty or malformed output (uses original question)
     return heuristic_parse_records(question, user_cols)
 
 
@@ -347,7 +362,7 @@ def parse_and_validate_records_for_insert(
             invalid_records.append({
                 "record_index": idx + 1,
                 "raw_record": raw_rec,
-                "reason": reason
+                "reason": sanitize_error_message(reason)
             })
             continue
 

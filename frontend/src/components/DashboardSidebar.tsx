@@ -11,6 +11,7 @@ import {
   Check,
   Trash2,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
@@ -29,6 +30,7 @@ const menuItems = [
   { id: "reports", name: "Reports", icon: FileText },
   { id: "audit", name: "Audit Logs", icon: ClipboardList },
   { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },
+  { id: "privacy", name: "Privacy Guardian", icon: ShieldCheck },
 ];
 
 export default function DashboardSidebar({

@@ -1,16 +1,27 @@
 from dotenv import load_dotenv
 import os
 import json
+from typing import Optional, Dict, Any
 from app.services.llm_service import call_llm
+from app.services.privacy_redactor import redact_records_for_ai, redact_text_for_ai
 
 load_dotenv()
 
 MAX_RECORDS_FOR_SUMMARY = 20
 
 
-def generate_summary(question, records, is_truncated: bool = False):
+def generate_summary(
+    question: str,
+    records: list,
+    is_truncated: bool = False,
+    policies: Optional[Dict[str, Dict[str, Any]]] = None,
+    sql: Optional[str] = None
+):
     """
     Generates a natural language summary for row-based query results.
+    Enforces Privacy Guardian: Raw sensitive and restricted values are redacted
+    or excluded before records are included in the external LLM prompt.
+    Derives small-group disclosure suppression from AST of executed SQL (Issue 17.6).
 
     Aggregate queries (COUNT, SUM, AVG, MIN, MAX)
     are handled separately by aggregate_summary.py.
@@ -19,7 +30,11 @@ def generate_summary(question, records, is_truncated: bool = False):
     if not records:
         return "No matching records found."
 
-    sample_records = records[:MAX_RECORDS_FOR_SUMMARY]
+    # 1. Sanitize records across the AI boundary according to active dataset policies
+    clean_sample_records = redact_records_for_ai(records[:MAX_RECORDS_FOR_SUMMARY], policies or {}, sql=sql)
+
+    # 2. Sanitize any raw sensitive literals in the question
+    safe_question, _ = redact_text_for_ai(question)
 
     if is_truncated:
         count_instruction = f"""5. The query result was truncated/capped at the system limit.
@@ -49,10 +64,10 @@ You are an expert data analyst.
 A SQL query has already been executed.
 
 User Question:
-{question}
+{safe_question}
 
 Returned Records:
-{json.dumps(sample_records, indent=2, default=str)}
+{json.dumps(clean_sample_records, indent=2, default=str)}
 
 Instructions:
 

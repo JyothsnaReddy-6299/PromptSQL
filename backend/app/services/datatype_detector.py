@@ -72,6 +72,25 @@ def get_non_missing_sample(series: pd.Series) -> pd.Series:
     return series[~is_missing]
 
 
+def has_leading_zero_text(series: pd.Series) -> bool:
+    """
+    Checks if a series contains textual codes or identifiers with leading zeros
+    (e.g. '00123', '09432') that would lose their leading zeros if coerced to numeric (Issue 18).
+    """
+    sample = get_non_missing_sample(series)
+    if sample.empty:
+        return False
+    leading_zero_count = 0
+    checked_count = 0
+    for val in sample.head(100):
+        if isinstance(val, str):
+            s = val.strip()
+            if len(s) > 1 and s.startswith("0") and s[1].isdigit() and not s.startswith("0."):
+                leading_zero_count += 1
+            checked_count += 1
+    return checked_count > 0 and (leading_zero_count / checked_count) >= 0.15
+
+
 def is_numeric_series(series: pd.Series) -> bool:
     """
     Returns True if most values in the column are numeric.
@@ -81,6 +100,10 @@ def is_numeric_series(series: pd.Series) -> bool:
     ₹1,75,391
     24%
     """
+    # Guard: do not coerce text identifiers with leading zeros into numbers
+    if has_leading_zero_text(series):
+        return False
+
     sample = get_non_missing_sample(series)
     if sample.empty:
         return False

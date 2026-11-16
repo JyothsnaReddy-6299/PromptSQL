@@ -100,6 +100,8 @@ Rules:
 
 14. For derived rates/margins, calculate with safe arithmetic (e.g. NULLIF divisor) and meaningful aliases. If required columns do not exist, return INVALID_QUERY.
 
+15. If the question contains protected privacy parameter tokens (e.g. `[EMAIL_PARAM_1]`, `[PHONE_PARAM_1]`), treat them as exact literal strings in the WHERE clause (e.g. `WHERE ``email`` = '[EMAIL_PARAM_1]'`).
+
 Return ONLY SQL.
 """
 

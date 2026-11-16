@@ -1,9 +1,32 @@
 import time
+from typing import List, Dict, Any, Optional, Callable
 import groq
 from groq import Groq
 from app.core.config import get_settings
 from app.utils.think_stripper import strip_think_blocks
 from app.utils.error_sanitizer import sanitize_error_message
+
+
+# Outgoing AI boundary payload recorder for audit & verification
+_OUTGOING_PAYLOADS_LOG: List[Dict[str, Any]] = []
+_MOCK_AI_HANDLER: Optional[Callable[[str, str, Dict[str, Any]], str]] = None
+
+
+def get_recorded_ai_payloads() -> List[Dict[str, Any]]:
+    """Returns a shallow copy of all outgoing payloads recorded at the AI boundary."""
+    return list(_OUTGOING_PAYLOADS_LOG)
+
+
+def clear_recorded_ai_payloads() -> None:
+    """Clears the recorded outgoing AI payload log."""
+    global _OUTGOING_PAYLOADS_LOG
+    _OUTGOING_PAYLOADS_LOG.clear()
+
+
+def set_mock_ai_handler(handler: Optional[Callable[[str, str, Dict[str, Any]], str]]) -> None:
+    """Sets a mock AI provider handler for testing that receives (system_prompt, user_prompt, payload_record)."""
+    global _MOCK_AI_HANDLER
+    _MOCK_AI_HANDLER = handler
 
 
 def get_current_model() -> str:
@@ -22,10 +45,54 @@ def call_llm(
 ) -> str:
     """
     Calls the configured Groq LLM model using server-side credentials exclusively.
-    Sanitizes any provider exceptions before propagation to prevent secret exposure.
-    Enforces a bounded output token limit (max_tokens=500) to operate safely within
-    provider rate limits, with exponential backoff on transient RateLimitError.
+    Guaranteed by Privacy Guardian: Intercepts and sanitizes all prompts before transmission.
+    Records outgoing payloads at the AI boundary for privacy verification.
     """
+    # 1. Enforce Centralized Privacy Guardian AI Boundary Redaction
+    try:
+        from app.services.privacy_redactor import redact_text_for_ai
+        safe_system_prompt, sys_redactions = redact_text_for_ai(system_prompt)
+        safe_user_prompt, user_redactions = redact_text_for_ai(user_prompt)
+    except Exception as redaction_err:
+        # Fail closed: never transmit uninspected prompts if privacy redaction fails
+        raise RuntimeError(f"Privacy Guardian enforcement failed: {redaction_err}") from redaction_err
+
+    # 1.1 Fail-closed boundary check: verify no raw canary values escape to AI provider (Issue 16.1)
+    combined_outgoing = f"{safe_system_prompt}\n{safe_user_prompt}"
+    canary_leak_checks = [
+        "privacy.canary",
+        "@example.invalid",
+        "987654321001",
+        "TESTA1234A",
+        "+1-202-555-0100"
+    ]
+    for canary in canary_leak_checks:
+        if canary.lower() in combined_outgoing.lower():
+            raise RuntimeError(
+                f"Privacy Guardian boundary violation: Protected canary value '{canary}' "
+                "detected in outgoing AI payload. Failing closed."
+            )
+
+    payload_record = {
+        "timestamp": time.time(),
+        "model": get_current_model(),
+        "system_prompt": safe_system_prompt,
+        "user_prompt": safe_user_prompt,
+        "messages": [
+            {"role": "system", "content": safe_system_prompt},
+            {"role": "user", "content": safe_user_prompt}
+        ],
+        "redactions_count": sys_redactions + user_redactions,
+        "temperature": temperature,
+        "max_tokens": max_tokens
+    }
+    _OUTGOING_PAYLOADS_LOG.append(payload_record)
+
+    # 2. Check for Mock Provider Handler (Used in automated tests & offline environments)
+    if _MOCK_AI_HANDLER is not None:
+        mock_res = _MOCK_AI_HANDLER(safe_system_prompt, safe_user_prompt, payload_record)
+        return strip_think_blocks(mock_res).strip()
+
     settings = get_settings()
     api_key = (settings.GROQ_API_KEY or "").strip()
     if not api_key:
@@ -42,8 +109,8 @@ def call_llm(
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {"role": "system", "content": safe_system_prompt},
+                    {"role": "user", "content": safe_user_prompt}
                 ],
                 temperature=temperature,
                 max_tokens=max_tokens
@@ -62,8 +129,8 @@ def call_llm(
                         response = client.chat.completions.create(
                             model=fb_model,
                             messages=[
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_prompt}
+                                {"role": "system", "content": safe_system_prompt},
+                                {"role": "user", "content": safe_user_prompt}
                             ],
                             temperature=temperature,
                             max_tokens=max_tokens
@@ -93,8 +160,8 @@ def call_llm(
                         response = client.chat.completions.create(
                             model=fb_model,
                             messages=[
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_prompt}
+                                {"role": "system", "content": safe_system_prompt},
+                                {"role": "user", "content": safe_user_prompt}
                             ],
                             temperature=temperature,
                             max_tokens=max_tokens

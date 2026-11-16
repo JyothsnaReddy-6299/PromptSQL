@@ -256,6 +256,8 @@ Do NOT use markdown.
 - Provide descriptive aliases like `completion_rate`, `profit_margin`, `conversion_rate`, or `growth_percentage`.
 - If required input columns (such as cost for profit margin) do not exist in the schema, return ONLY INVALID_QUERY. Never hallucinate or assume unlisted columns.
 
+24. If the question contains protected privacy parameter tokens (e.g. `[EMAIL_PARAM_1]`, `[PHONE_PARAM_1]`, `[PAN_PARAM_1]`, `[AADHAAR_PARAM_1]`, `[CARD_PARAM_1]`), treat them as exact literal strings in the WHERE clause (e.g. `WHERE ``email`` = '[EMAIL_PARAM_1]'`). Never replace them with guessed or hallucinated values.
+
 =========================
 QUESTION
 =========================

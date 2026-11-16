@@ -1,5 +1,9 @@
 import os
+import re
+import time
+import uuid
 import pandas as pd
+from sqlalchemy import text, inspect
 
 from app.database.connection import engine
 from app.services.datatype_detector import detect_column_types
@@ -7,25 +11,43 @@ from app.services.data_cleaner import clean_dataframe
 from app.services.table_manager import set_current_table
 
 
-def clean_table_name(filename: str):
+def clean_table_name(filename: str) -> str:
     """
-    Creates a valid MySQL table name.
-    Only the table name is cleaned.
-    Column names remain EXACTLY as uploaded.
+    Creates a safe, sanitized SQL table identifier base from an uploaded filename.
+    Strips dangerous characters (backticks, quotes, parentheses, semicolons, unicode, etc.)
+    and replaces non-alphanumeric characters with underscores.
+    Guarantees valid identifier characters [a-z0-9_] and non-empty name (Issue 17.3).
     """
-    table_name = filename.rsplit(".", 1)[0]
-    table_name = (
-        table_name
-        .strip()
-        .replace(" ", "_")
-        .replace("-", "_")
-        .replace("/", "_")
-        .lower()
-    )
-    return table_name
+    if not filename or not str(filename).strip():
+        return "dataset"
+    base = str(filename).rsplit(".", 1)[0] if "." in str(filename) else str(filename)
+    # Remove backticks, quotes, brackets, semicolons, slashes
+    base = re.sub(r"[`'\"\\;\(\)\[\]\{\}<>\/\?\*\|\&!@#\$%\^+=:]", "", base)
+    # Replace whitespace, hyphens, and dots with underscores
+    base = re.sub(r"[\s\-\.]+", "_", base)
+    # Keep only ASCII alphanumeric and underscores
+    base = re.sub(r"[^a-zA-Z0-9_]", "", base).strip("_").lower()
+    if not base:
+        base = "dataset"
+    # Cap length to 40 characters to leave ample room for _usr_<id>
+    if len(base) > 40:
+        base = base[:40].rstrip("_")
+    # Avoid reserved system table prefixes
+    if base.startswith("mysql_") or base.startswith("sys_") or base.startswith("information_schema"):
+        base = f"data_{base}"
+    return base or "dataset"
 
 
-def load_dataset(filepath: str):
+def load_dataset(
+    filepath: str,
+    sheet_name: Optional[str] = None,
+    header_row: Optional[int] = None
+) -> pd.DataFrame:
+    """
+    Loads dataset into pandas DataFrame.
+    For Excel files (.xlsx, .xls), invokes intelligent header-row detection and multi-sheet resolution.
+    For CSV files, reads with standard CSV parser.
+    """
     if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
         raise ValueError("The uploaded file is empty. Please upload a valid CSV, XLS, or XLSX file.")
 
@@ -40,33 +62,63 @@ def load_dataset(filepath: str):
             raise ValueError(f"Failed to parse CSV file: {str(e)}")
     elif filepath.endswith((".xlsx", ".xls")):
         try:
-            return pd.read_excel(filepath, keep_default_na=False, na_values=STANDARD_NA_VALUES)
+            from app.services.excel_header_service import load_excel_with_detected_header
+            df, _ = load_excel_with_detected_header(
+                filepath,
+                sheet_name=sheet_name,
+                header_row=header_row
+            )
+            return df
         except Exception as e:
             raise ValueError(f"Failed to parse Excel file: {str(e)}")
     else:
         raise ValueError("Unsupported file type. Please upload a CSV, XLS, or XLSX file.")
 
 
-def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
+def upload_dataset(
+    filepath: str,
+    filename: str,
+    user_id: str = "default_user",
+    sheet_name: Optional[str] = None,
+    header_row: Optional[int] = None
+):
     """
-    Complete upload pipeline.
+    Complete upload pipeline. Supports multi-worksheet selection and intelligent header detection.
     """
     # ------------------------
     # Read dataset
     # ------------------------
-    df = load_dataset(filepath)
+    meta_info: Dict[str, Any] = {}
+    if filepath.endswith((".xlsx", ".xls")):
+        from app.services.excel_header_service import load_excel_with_detected_header
+        df, meta_info = load_excel_with_detected_header(
+            filepath,
+            sheet_name=sheet_name,
+            header_row=header_row
+        )
+    else:
+        df = load_dataset(filepath)
 
     if df.empty and len(df.columns) == 0:
         raise ValueError("The uploaded dataset contains no columns.")
 
     # ------------------------
-    # Preserve ORIGINAL column names (stripped of surrounding whitespace)
+    # Preserve and sanitize column names
     # ------------------------
-    df.columns = [str(c).strip() for c in df.columns]
-    valid_cols = [c for c in df.columns if c and not c.startswith("Unnamed:")]
-    if not valid_cols:
-        raise ValueError("The uploaded file does not contain any valid named columns.")
-    df = df[valid_cols]
+    sanitized_cols = []
+    seen_cols: Dict[str, int] = {}
+    for i, col in enumerate(df.columns):
+        c_str = str(col).strip()
+        if not c_str or c_str.startswith("Unnamed:"):
+            c_str = f"Column_{i + 1}"
+        lower_c = c_str.lower()
+        if lower_c in seen_cols:
+            seen_cols[lower_c] += 1
+            c_str = f"{c_str}_{seen_cols[lower_c]}"
+        else:
+            seen_cols[lower_c] = 0
+        sanitized_cols.append(c_str)
+    df.columns = sanitized_cols
 
     # ------------------------
     # Detect datatypes
@@ -126,16 +178,61 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
         
     sql_create = f"CREATE TABLE `{table_name}` (\n  " + ",\n  ".join(col_defs) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
     
-    with engine.begin() as conn:
-        conn.execute(text(f"DROP TABLE IF EXISTS `{table_name}`"))
-        conn.execute(text(sql_create))
+    # ------------------------
+    # Safe Staging and Swap Table Activation (Issue 17.3)
+    # Never drops the existing table until the new dataset is fully validated!
+    # ------------------------
+    staging_suffix = f"stg_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    staging_table = f"{table_name[:40]}_{staging_suffix}"
+    backup_table = f"{table_name[:40]}_bak_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    sql_create_staging = f"CREATE TABLE `{staging_table}` (\n  " + ",\n  ".join(col_defs) + "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
 
-    cleaned_df.to_sql(
-        name=table_name,
-        con=engine,
-        if_exists="append",
-        index=False
-    )
+    staging_created = False
+    try:
+        # 1. Create staging table
+        with engine.begin() as conn:
+            conn.execute(text(f"DROP TABLE IF EXISTS `{staging_table}`"))
+            conn.execute(text(sql_create_staging))
+            staging_created = True
+
+        # 2. Populate staging table with cleaned records
+        cleaned_df.to_sql(
+            name=staging_table,
+            con=engine,
+            if_exists="append",
+            index=False
+        )
+
+        # 3. Validate staging table integrity and row count
+        with engine.connect() as conn:
+            actual_rows = conn.execute(text(f"SELECT COUNT(*) FROM `{staging_table}`")).scalar()
+            if actual_rows != len(cleaned_df):
+                raise ValueError(
+                    f"Data integrity error: Expected {len(cleaned_df)} rows in staging table, "
+                    f"but found {actual_rows}. Aborting upload to preserve existing data."
+                )
+
+        # 4. Atomic activation / swap
+        with engine.begin() as conn:
+            inspector = inspect(conn)
+            table_exists = inspector.has_table(table_name)
+            if table_exists:
+                # Safe swap: rename existing to backup, then staging to active table
+                conn.execute(text(f"RENAME TABLE `{table_name}` TO `{backup_table}`, `{staging_table}` TO `{table_name}`"))
+                conn.execute(text(f"DROP TABLE IF EXISTS `{backup_table}`"))
+            else:
+                conn.execute(text(f"RENAME TABLE `{staging_table}` TO `{table_name}`"))
+            staging_created = False
+
+    finally:
+        # 5. Clean up abandoned staging table if activation did not complete
+        if staging_created:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"DROP TABLE IF EXISTS `{staging_table}`"))
+                    conn.execute(text(f"DROP TABLE IF EXISTS `{backup_table}`"))
+            except Exception:
+                pass
 
     # ------------------------
     # Save current table (user-scoped)
@@ -143,9 +240,9 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
     set_current_table(table_name, user_id=user_id)
 
     # ------------------------
-    # Statistics
+    # Statistics & Response Metadata
     # ------------------------
-    return {
+    resp = {
         "filename": filename,
         "table_name": table_name,
         "rows": len(cleaned_df),
@@ -155,3 +252,9 @@ def upload_dataset(filepath: str, filename: str, user_id: str = "default_user"):
         ),
         "detected_types": detected_types
     }
+    if meta_info:
+        resp["sheet_name"] = meta_info.get("sheet_name")
+        resp["header_row"] = meta_info.get("header_row_1_based")
+        resp["warnings"] = meta_info.get("warnings", [])
+        resp["confidence"] = meta_info.get("confidence")
+    return resp

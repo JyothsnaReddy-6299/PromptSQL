@@ -94,24 +94,53 @@ def remove_duplicates(db: Session = Depends(get_db), ctx: ActiveTableContext = D
                 rows_deleted = res.rowcount or 0
                 count_after = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
         else:
-            # Fallback for tables without a primary key or composite PKs
+            # Fallback for tables without a primary key or composite PKs:
+            # Safe Staging and Swap to prevent table truncation or data loss
+            import time
+            import uuid
+
             with engine.connect() as conn:
                 count_before = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
 
-            temp_table = f"temp_dedup_{table_name}"
-            safe_temp = f"`{temp_table.replace('`', '``')}`"
-            
-            # Copy unique rows to temp, truncate original, insert back
-            with engine.begin() as conn:
-                conn.execute(text("SET SESSION sql_require_primary_key = 0"))
-                conn.execute(text(f"DROP TABLE IF EXISTS {safe_temp}"))
-                conn.execute(text(f"CREATE TABLE {safe_temp} AS SELECT DISTINCT * FROM {safe_tbl}"))
-                conn.execute(text(f"TRUNCATE TABLE {safe_tbl}"))
-                conn.execute(text(f"INSERT INTO {safe_tbl} SELECT * FROM {safe_temp}"))
-                conn.execute(text(f"DROP TABLE {safe_temp}"))
+            suffix = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
+            stg_table = f"stg_dedup_{table_name[:30]}_{suffix}"
+            bak_table = f"bak_dedup_{table_name[:30]}_{suffix}"
+            safe_stg = f"`{stg_table.replace('`', '``')}`"
+            safe_bak = f"`{bak_table.replace('`', '``')}`"
 
-                # Get count after
-                count_after = conn.execute(text(f"SELECT COUNT(*) FROM {safe_tbl}")).scalar() or 0
+            bak_created = False
+            try:
+                with engine.connect() as conn:
+                    if engine.dialect.name == "mysql":
+                        conn.execute(text("SET SESSION sql_require_primary_key = 0"))
+                    conn.execute(text(f"DROP TABLE IF EXISTS {safe_stg}"))
+                    conn.execute(text(f"CREATE TABLE {safe_stg} AS SELECT DISTINCT * FROM {safe_tbl}"))
+                    conn.commit()
+
+                    count_after = conn.execute(text(f"SELECT COUNT(*) FROM {safe_stg}")).scalar() or 0
+                    if count_after > count_before:
+                        raise RuntimeError(f"Deduplication staging row count {count_after} exceeds original row count {count_before}")
+
+                    # Safe swap without destructive truncate
+                    if engine.dialect.name == "mysql":
+                        conn.execute(text(f"RENAME TABLE {safe_tbl} TO {safe_bak}, {safe_stg} TO {safe_tbl}"))
+                        bak_created = True
+                        conn.execute(text(f"DROP TABLE IF EXISTS {safe_bak}"))
+                    else:
+                        conn.execute(text(f"ALTER TABLE {safe_tbl} RENAME TO {safe_bak}"))
+                        bak_created = True
+                        conn.execute(text(f"ALTER TABLE {safe_stg} RENAME TO {safe_tbl}"))
+                        conn.execute(text(f"DROP TABLE IF EXISTS {safe_bak}"))
+                    conn.commit()
+            finally:
+                try:
+                    with engine.connect() as conn:
+                        conn.execute(text(f"DROP TABLE IF EXISTS {safe_stg}"))
+                        if bak_created:
+                            conn.execute(text(f"DROP TABLE IF EXISTS {safe_bak}"))
+                        conn.commit()
+                except Exception:
+                    pass
 
             rows_deleted = count_before - count_after
 

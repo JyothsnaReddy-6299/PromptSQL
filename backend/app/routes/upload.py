@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Depends, status
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Header, Depends, status
 import os
 import re
 import secrets
@@ -6,6 +6,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 from app.services.upload_service import upload_dataset
+from app.services.excel_header_service import detect_and_preview_excel
 from app.services.auth_service import get_current_user_id
 from app.services.table_manager import get_current_table, set_current_table
 from app.services.dataset_guard import (
@@ -25,8 +26,88 @@ MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB limit
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 
 
+@router.post("/upload/preview-excel")
+async def preview_excel_file(
+    file: UploadFile = File(...),
+    sheet_name: Optional[str] = Form(None),
+    header_row: Optional[int] = Form(None),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Inspects an Excel workbook (.xlsx or .xls) without modifying the database (Issue 18).
+    Returns available worksheets, intelligent header detection score, detected column names,
+    estimated row count, warnings, and the first 10 data rows.
+    Allows real-time recalculation when the user alters the selected worksheet or header row.
+    """
+    raw_filename = file.filename or ""
+    safe_filename = os.path.basename(raw_filename).strip()
+    if not safe_filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename is required."
+        )
+
+    _, ext = os.path.splitext(safe_filename)
+    if ext.lower() not in (".xlsx", ".xls"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported format for Excel preview. Please upload an .xlsx or .xls file."
+        )
+
+    temp_filename = f"prev_{user_id}_{secrets.token_hex(8)}_{safe_filename}"
+    filepath = os.path.join(UPLOAD_DIR, temp_filename)
+
+    try:
+        content = await file.read()
+        if len(content) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded Excel file is empty."
+            )
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="File size exceeds the 50MB maximum allowed limit."
+            )
+
+        with open(filepath, "wb") as buffer:
+            buffer.write(content)
+
+        preview_data = detect_and_preview_excel(
+            filepath=filepath,
+            sheet_name=sheet_name,
+            header_row=header_row
+        )
+        preview_data["filename"] = safe_filename
+        return preview_data
+
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=sanitize_error_message(str(ve))
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=sanitize_error_message(str(e))
+        )
+    finally:
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+
+
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
+async def upload_file(
+    file: UploadFile = File(...),
+    sheet_name: Optional[str] = Form(None),
+    header_row: Optional[int] = Form(None),
+    user_id: str = Depends(get_current_user_id)
+):
     raw_filename = file.filename or ""
     safe_filename = os.path.basename(raw_filename).strip()
     if not safe_filename:
@@ -65,7 +146,9 @@ async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_c
         result = upload_dataset(
             filepath=filepath,
             filename=safe_filename,
-            user_id=user_id
+            user_id=user_id,
+            sheet_name=sheet_name,
+            header_row=header_row
         )
 
         try:
@@ -73,6 +156,12 @@ async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_c
             invalidate_insights_cache(user_id=user_id, table_name=result.get("table_name"))
         except Exception:
             pass
+
+        try:
+            from app.services.privacy_service import scan_and_save_dataset_privacy
+            scan_and_save_dataset_privacy(user_id=user_id, table_name=result.get("table_name"))
+        except Exception as scan_err:
+            print(f"[Upload] Initial privacy scan warning: {scan_err}")
 
         return result
 

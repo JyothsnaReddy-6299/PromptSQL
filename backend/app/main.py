@@ -17,6 +17,7 @@ from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.models.pending_modification import PendingModification
 from app.models.user_active_dataset import UserActiveDataset
+from app.models.privacy import PrivacyColumnPolicy, PrivacyAuditLog
 
 from app.routes.upload import router as upload_router
 from app.routes.ask import router as ask_router
@@ -28,6 +29,7 @@ from app.routes.audit import router as audit_router
 from app.routes.cleaner import router as cleaner_router
 from app.routes.auth import router as auth_router
 from app.routes.discovery import router as discovery_router
+from app.routes.privacy import router as privacy_router
 
 settings = get_settings()
 
@@ -126,6 +128,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 app.include_router(auth_router)
 app.include_router(upload_router)
+app.include_router(upload_router, prefix="/api")
 app.include_router(ask_router)
 app.include_router(export_router, prefix="/api")
 app.include_router(history_router, prefix="/api")
@@ -134,6 +137,7 @@ app.include_router(modification_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
 app.include_router(cleaner_router, prefix="/api")
 app.include_router(discovery_router, prefix="/api")
+app.include_router(privacy_router, prefix="/api")
 
 
 @app.get("/health")

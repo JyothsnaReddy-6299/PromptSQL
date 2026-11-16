@@ -656,3 +656,104 @@ export async function invalidateInsightsCache(tableName?: string) {
   if (!response.ok) return { success: false };
   return response.json();
 }
+
+// -------------------------------------------------------------
+// PRIVACY GUARDIAN API (Issue 16)
+// -------------------------------------------------------------
+export interface PrivacyColumn {
+  id?: number;
+  column_name: string;
+  detected_category: string;
+  sensitivity_level: "low" | "medium" | "high" | "critical";
+  detection_method: string;
+  confidence: "high" | "medium" | "low" | "requires_review";
+  policy: "normal" | "sensitive" | "restricted" | "custom";
+  status: "protected" | "pending_review" | "configured" | "normal";
+  explanation?: string;
+}
+
+export interface PrivacyOverviewResponse {
+  table_name: string;
+  friendly_name: string;
+  last_scanned_at: string;
+  columns_scanned: number;
+  sensitive_columns_count: number;
+  restricted_columns_count: number;
+  review_required_count: number;
+  columns: PrivacyColumn[];
+}
+
+export interface PrivacyAuditRecord {
+  id: number;
+  event_type: string;
+  details: any;
+  timestamp: string;
+}
+
+export async function getPrivacyOverview(tableName?: string): Promise<PrivacyOverviewResponse> {
+  const response = await fetch(`${API_URL}/api/privacy/overview`, {
+    headers: {
+      ...(tableName ? { "X-Table-Name": tableName } : {})
+    }
+  });
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || errData.error || "Failed to load privacy overview.");
+  }
+  return response.json();
+}
+
+export async function rescanPrivacy(tableName?: string): Promise<PrivacyOverviewResponse> {
+  const response = await fetch(`${API_URL}/api/privacy/scan`, {
+    method: "POST",
+    headers: {
+      ...(tableName ? { "X-Table-Name": tableName } : {})
+    }
+  });
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || errData.error || "Failed to rescan dataset privacy.");
+  }
+  return response.json();
+}
+
+export async function updatePrivacyPolicy(
+  columnName: string,
+  policy: string,
+  status?: string,
+  tableName?: string
+): Promise<any> {
+  const response = await fetch(`${API_URL}/api/privacy/policy`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...(tableName ? { "X-Table-Name": tableName } : {})
+    },
+    body: JSON.stringify({
+      column_name: columnName,
+      policy: policy,
+      status: status
+    })
+  });
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || errData.error || "Failed to update column privacy policy.");
+  }
+  return response.json();
+}
+
+export async function getPrivacyAuditLogs(
+  limit: number = 50,
+  tableName?: string
+): Promise<{ success: boolean; logs: PrivacyAuditRecord[] }> {
+  const response = await fetch(`${API_URL}/api/privacy/audit?limit=${limit}`, {
+    headers: {
+      ...(tableName ? { "X-Table-Name": tableName } : {})
+    }
+  });
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || errData.error || "Failed to fetch privacy audit logs.");
+  }
+  return response.json();
+}

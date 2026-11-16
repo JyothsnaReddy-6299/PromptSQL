@@ -19,6 +19,12 @@ from app.services.result_interpreter import interpret_result
 from app.services.aggregate_summary import generate_aggregate_summary
 from app.services.summary_generator import generate_summary
 from app.services.auth_service import get_current_user_id
+from app.services.privacy_redactor import (
+    extract_sensitive_query_parameters,
+    bind_query_parameters_ast,
+    resolve_query_parameters_ast
+)
+from app.services.privacy_service import get_dataset_column_policies
 from app.core.config import get_settings
 from app.utils.error_sanitizer import sanitize_error_message, get_safe_exception_message
 
@@ -67,10 +73,16 @@ def ask_question(
         else:
             clear_pending_clarification(user_id=user_id, table_name=table_name)
 
+    # -----------------------------------------
+    # Privacy Guardian: Protect Sensitive Literals
+    # -----------------------------------------
+    # Extract sensitive values (emails, phones, PAN, Aadhaar) into server-side parameter store
+    sanitized_question, param_store = extract_sensitive_query_parameters(effective_question)
+
     # Dynamic Schema Discovery, Relationship Inference & Query Context Resolution
     from app.services.relationship_service import resolve_query_context
     query_context = resolve_query_context(
-        question=effective_question,
+        question=sanitized_question,
         user_id=user_id,
         active_table=table_name
     )
@@ -103,7 +115,7 @@ def ask_question(
     print("\n==============================")
     print("Current Table :", table_name)
     print("User Tables   :", user_tables)
-    print("Question      :", effective_question)
+    print("Question      :", sanitized_question)
     print("Multi-Table   :", query_context.is_multi_table)
 
     try:
@@ -111,11 +123,16 @@ def ask_question(
         # Generate SQL
         # -----------------------------------------
         sql_query = generate_sql(
-            effective_question,
+            sanitized_question,
             table_name,
             user_id,
             context=query_context
         )
+
+        # True driver-level parameter binding: map sensitive tokens to placeholders (:param_name)
+        exec_params: Dict[str, Any] = {}
+        if param_store:
+            sql_query, exec_params = bind_query_parameters_ast(sql_query, param_store)
 
         print("\nGenerated SQL")
         print(sql_query)
@@ -146,13 +163,15 @@ def ask_question(
                     sanitized_message = sanitized_message.replace(t, friendly_tbl)
 
                 sql_query = regenerate_sql(
-                    payload.question,
+                    sanitized_question,
                     table_name,
                     sql_query,
                     sanitized_message,
                     user_id,
                     context=query_context
                 )
+                if param_store:
+                    sql_query, exec_params = bind_query_parameters_ast(sql_query, param_store)
                 print("\nRegenerated SQL:")
                 print(sql_query)
                 continue
@@ -178,13 +197,15 @@ def ask_question(
                 sanitized_message = sanitized_message.replace(t, friendly_tbl)
 
             sql_query = regenerate_sql(
-                payload.question,
+                sanitized_question,
                 table_name,
                 sql_query,
                 sanitized_message,
                 user_id,
                 context=query_context
             )
+            if param_store:
+                sql_query, exec_params = bind_query_parameters_ast(sql_query, param_store)
 
             print("\nRegenerated SQL")
             print(sql_query)
@@ -196,7 +217,7 @@ def ask_question(
             }
 
         # -----------------------------------------
-        # Execute SQL
+        # Execute SQL with Genuine Parameter Binding
         # -----------------------------------------
         # CRITICAL: The SQL executed is byte-for-byte the exact same SQL that was validated!
         physical_sql = validated_physical_sql
@@ -204,7 +225,10 @@ def ask_question(
         # Multi-table authorization verification: every referenced table must be authorized
         verify_all_referenced_tables(physical_sql, user_id, user_tables)
 
-        exec_res = execute_sql(physical_sql)
+        if exec_params:
+            exec_res = execute_sql(physical_sql, parameters=exec_params)
+        else:
+            exec_res = execute_sql(physical_sql)
         records = exec_res.records
         is_truncated = exec_res.is_truncated
         truncation_reason = exec_res.truncation_reason
@@ -213,8 +237,7 @@ def ask_question(
         total_rows = getattr(exec_res, "total_rows", (len(records) if not is_truncated else None))
 
         print("\nReturned Records :", len(records))
-        if len(records) > 0:
-            print(records[:3])
+        # Note: Do not print raw record rows to stdout to prevent log leakage (Issue 16.1)
 
         # -----------------------------------------
         # Decide summary type
@@ -229,10 +252,13 @@ def ask_question(
         # -----------------------------------------
         # Generate Summary
         # -----------------------------------------
+        # Enforce Privacy Guardian: Redact records across AI boundary
+        dataset_policies = get_dataset_column_policies(user_id=user_id, table_name=table_name)
+
         if result_type in ["AGGREGATE", "GROUP_AGGREGATE"]:
             print("Using Aggregate Summary")
             summary = generate_aggregate_summary(
-                payload.question,
+                sanitized_question,
                 sql_query,
                 records,
                 is_truncated=is_truncated
@@ -240,16 +266,18 @@ def ask_question(
         else:
             print("Using LLM Summary")
             summary = generate_summary(
-                payload.question,
+                sanitized_question,
                 records,
-                is_truncated=is_truncated
+                is_truncated=is_truncated,
+                policies=dataset_policies,
+                sql=sql_query
             )
 
         print("\nSummary")
         print(summary)
 
         # -----------------------------------------
-        # Save to Query History (Bounded payload)
+        # Save to Query History (Bounded payload, Sanitized Query)
         # -----------------------------------------
         try:
             from app.database.connection import SessionLocal
@@ -266,10 +294,11 @@ def ask_question(
                 history_payload = json.dumps(history_sample)
 
             db_session = SessionLocal()
+            # Enforce multi-turn privacy: store sanitized_question so sensitive canaries cannot re-enter LLM context (Issue 17.5)
             db_history = QueryHistory(
                 user_id=user_id,
                 table_name=table_name,
-                question=effective_question,
+                question=sanitized_question,
                 generated_sql=sql_query,
                 summary=summary,
                 result_count=returned_rows,

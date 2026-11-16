@@ -327,17 +327,19 @@ def execute_sql(
     max_rows: int = DEFAULT_MAX_ROWS,
     max_result_bytes: int = DEFAULT_MAX_RESULT_BYTES,
     max_cell_bytes: int = DEFAULT_MAX_CELL_BYTES,
+    parameters: Optional[Dict[str, Any]] = None,
 ) -> ExecutionResult:
     """
     Executes a validated read-only SQL query with comprehensive safeguards:
     1. AST-based physical query bounding (max_rows + 1).
     2. Programmatic MySQL MAX_EXECUTION_TIME optimizer hint.
     3. Database-level read-only transaction lifecycle (START TRANSACTION READ ONLY).
-    4. Result byte budgeting: limits total serialized bytes and individual cell sizes.
-    5. Safe result fetching with truncation reporting and metadata.
-    6. Deterministic cleanup: closes cursor and explicitly rolls back transaction.
-    7. Fail-closed connection invalidation and detachment disposal.
-    8. Naturally propagates primary query/fetch exceptions with original tracebacks.
+    4. Driver-level parameter binding for sensitive values (parameters dict).
+    5. Result byte budgeting: limits total serialized bytes and individual cell sizes.
+    6. Safe result fetching with truncation reporting and metadata.
+    7. Deterministic cleanup: closes cursor and explicitly rolls back transaction.
+    8. Fail-closed connection invalidation and detachment disposal.
+    9. Naturally propagates primary query/fetch exceptions with original tracebacks.
 
     Returns:
         ExecutionResult: Subclasses tuple (records, is_truncated) for full backward
@@ -353,7 +355,10 @@ def execute_sql(
                 result = None
                 primary_exc = None
                 try:
-                    result = connection.execute(text(bounded_sql))
+                    if parameters:
+                        result = connection.execute(text(bounded_sql), parameters)
+                    else:
+                        result = connection.execute(text(bounded_sql))
                     columns = list(result.keys())
                     fetch_limit = max_rows + 1
                     rows = result.fetchmany(fetch_limit)
