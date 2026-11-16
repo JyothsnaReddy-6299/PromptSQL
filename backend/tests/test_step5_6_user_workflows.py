@@ -11,6 +11,9 @@ Verifies complete end-to-end functionality across all PromptSQL core user workfl
 """
 
 import unittest
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import io
 import json
 import secrets
@@ -107,10 +110,10 @@ class TestStep56UserWorkflows(unittest.TestCase):
     # 1. AUTHENTICATION WORKFLOWS
     # =========================================================================
     def test_01_registration_password_validation(self):
-        """Rejects passwords shorter than 12 chars or longer than 72 bytes."""
-        short_res = self.client.post("/auth/signup", json={"username": f"short_{self.suffix}", "password": "Short1!"})
+        """Rejects passwords shorter than 6 chars or longer than 72 bytes."""
+        short_res = self.client.post("/auth/signup", json={"username": f"short_{self.suffix}", "password": "12345"})
         self.assertEqual(short_res.status_code, 400)
-        self.assertIn("at least 12 characters", short_res.json()["detail"])
+        self.assertIn("at least 6 characters", short_res.json()["detail"])
 
         long_pwd = "A" * 73
         long_res = self.client.post("/auth/signup", json={"username": f"long_{self.suffix}", "password": long_pwd})

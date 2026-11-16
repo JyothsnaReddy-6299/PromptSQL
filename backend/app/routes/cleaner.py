@@ -23,6 +23,14 @@ from app.utils.error_sanitizer import sanitize_error_message
 router = APIRouter(prefix="/clean", tags=["Data Cleaner"])
 
 
+def _on_dataset_cleaned(ctx: "ActiveTableContext"):
+    try:
+        from app.services.data_discovery_service import invalidate_insights_cache
+        invalidate_insights_cache(user_id=ctx.user_id, table_name=ctx.table_name)
+    except Exception:
+        pass
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -119,6 +127,7 @@ def remove_duplicates(db: Session = Depends(get_db), ctx: ActiveTableContext = D
         )
         db.add(audit_log)
         db.commit()
+        _on_dataset_cleaned(ctx)
 
         return {
             "success": True,
@@ -226,6 +235,7 @@ def impute_column(req: ImputeRequest, db: Session = Depends(get_db), ctx: Active
         )
         db.add(audit_log)
         db.commit()
+        _on_dataset_cleaned(ctx)
 
         return {
             "success": True,
@@ -382,6 +392,7 @@ def update_cell(req: UpdateCellRequest, db: Session = Depends(get_db), ctx: Acti
         )
         db.add(audit_log)
         db.commit()
+        _on_dataset_cleaned(ctx)
 
         return {
             "success": True,
@@ -453,6 +464,7 @@ def convert_type(req: ConvertTypeRequest, db: Session = Depends(get_db), ctx: Ac
         )
         db.add(audit_log)
         db.commit()
+        _on_dataset_cleaned(ctx)
 
         return {
             "success": True,
@@ -532,6 +544,7 @@ def standardize_text(req: StandardizeTextRequest, db: Session = Depends(get_db),
         )
         db.add(audit_log)
         db.commit()
+        _on_dataset_cleaned(ctx)
 
         return {
             "success": True,
@@ -574,6 +587,7 @@ def extract_numbers(req: ExtractNumbersRequest, db: Session = Depends(get_db), c
         )
         db.add(audit_log)
         db.commit()
+        _on_dataset_cleaned(ctx)
 
         return {
             "success": True,
@@ -674,6 +688,7 @@ def extract_and_convert(req: ExtractAndConvertRequest, db: Session = Depends(get
         )
         db.add(audit_log)
         db.commit()
+        _on_dataset_cleaned(ctx)
 
         return {
             "success": True,

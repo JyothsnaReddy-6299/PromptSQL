@@ -147,6 +147,12 @@ def undo_history_item(
         db.delete(item)
         db.commit()
         
+        try:
+            from app.services.data_discovery_service import invalidate_insights_cache
+            invalidate_insights_cache(user_id=user_id, table_name=item.table_name)
+        except Exception:
+            pass
+
         return {"success": True, "message": "Database changes successfully rolled back!"}
         
     except HTTPException:

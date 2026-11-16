@@ -696,6 +696,12 @@ def execute_modification_query(
         else:
             result["bookkeeping_status"] = "COMPLETED"
 
+        try:
+            from app.services.data_discovery_service import invalidate_insights_cache
+            invalidate_insights_cache(user_id=user_id, table_name=table_name)
+        except Exception:
+            pass
+
         return result
     else:
         pending.status = "FAILED"

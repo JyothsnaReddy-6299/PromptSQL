@@ -2,8 +2,8 @@ import {
   LayoutDashboard,
   Database,
   BarChart3,
+  Sparkles,
   ChevronLeft,
-  ChevronRight,
   FileText,
   ClipboardList,
   Wand2,
@@ -25,6 +25,7 @@ const menuItems = [
   { id: "overview", name: "Overview & Stats", icon: LayoutDashboard },
   { id: "preview", name: "Data Table", icon: Database },
   { id: "chat", name: "Analytics Workspace", icon: BarChart3 },
+  { id: "insights", name: "AI Data Analytics", icon: Sparkles },
   { id: "reports", name: "Reports", icon: FileText },
   { id: "audit", name: "Audit Logs", icon: ClipboardList },
   { id: "cleaner", name: "AI Data Cleaner", icon: Wand2 },
@@ -151,33 +152,42 @@ export default function DashboardSidebar({
 
   return (
     <div
-      className={`h-screen bg-[#303841] flex flex-col justify-between sticky top-0 transition-all duration-300 sidebar-scrollbar z-30 ${
+      className={`h-screen bg-[#303841] flex flex-col justify-between sticky top-0 transition-all duration-300 ease-in-out sidebar-scrollbar z-30 shrink-0 overflow-hidden ${
         collapsed ? "w-[68px]" : "w-60"
       }`}
     >
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {/* Logo - Clean without unnecessary lines */}
-        <div className={`flex items-center ${collapsed ? "justify-center py-4 px-3" : "gap-3 px-5 py-4"}`}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        {/* Logo - Smooth text fade on collapse */}
+        <div className="flex items-center px-4 py-4 h-16 shrink-0 overflow-hidden">
           <div
             onClick={() => navigate("/")}
             className="w-8 h-8 bg-[#76ABAE] rounded-lg flex items-center justify-center cursor-pointer hover:shadow-lg hover:shadow-[#76ABAE]/30 transition-all shrink-0 border border-[#76ABAE]/40"
           >
             <Database size={16} className="text-[#303841]" />
           </div>
-          {!collapsed && (
-            <div onClick={() => navigate("/")} className="cursor-pointer">
-              <div className="font-black italic tracking-tighter text-base select-none">
-                <span className="text-white">Prompt</span>
-                <span className="text-[#0DA4AA]">SQL</span>
-              </div>
-              <div className="text-[9px] text-[#76ABAE] font-semibold uppercase tracking-wider">Analytics Hub</div>
+          <div
+            onClick={() => navigate("/")}
+            className={`cursor-pointer whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
+              collapsed ? "max-w-0 opacity-0 ml-0 pointer-events-none" : "max-w-xs opacity-100 ml-3"
+            }`}
+          >
+            <div className="font-black italic tracking-tighter text-base select-none">
+              <span className="text-white">Prompt</span>
+              <span className="text-[#0DA4AA]">SQL</span>
             </div>
-          )}
+            <div className="text-[9px] text-[#76ABAE] font-semibold uppercase tracking-wider">Analytics Hub</div>
+          </div>
         </div>
 
-        {/* Dataset Library */}
-        <div className={`px-3 pt-2 pb-2 ${collapsed ? "hidden" : "block"}`}>
-          <div className="text-[9px] text-[#76ABAE] font-extrabold uppercase tracking-wider mb-2 px-2 flex items-center gap-1.5">
+        {/* Dataset Library - Smooth height collapse */}
+        <div
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            collapsed
+              ? "max-h-0 opacity-0 py-0 px-3 pointer-events-none"
+              : "max-h-48 opacity-100 px-3 pt-2 pb-2"
+          }`}
+        >
+          <div className="text-[9px] text-[#76ABAE] font-extrabold uppercase tracking-wider mb-2 px-2 flex items-center gap-1.5 whitespace-nowrap">
             <FolderOpen size={10} className="text-[#76ABAE]" /> Dataset Library
           </div>
           <div className="space-y-0.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
@@ -222,7 +232,7 @@ export default function DashboardSidebar({
           </div>
         </div>
 
-        {/* Nav items */}
+        {/* Nav items - Smooth label collapse */}
         <div className="p-3 space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -232,53 +242,96 @@ export default function DashboardSidebar({
                 key={item.id}
                 onClick={() => handleItemClick(item.id)}
                 title={collapsed ? item.name : undefined}
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer group ${
+                className={`flex items-center w-full px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer group overflow-hidden ${
                   isActive
                     ? "bg-[#76ABAE] text-white font-semibold shadow-sm shadow-[#76ABAE]/30"
                     : "text-white/75 hover:text-white hover:bg-white/5"
-                } ${collapsed ? "justify-center" : ""}`}
+                }`}
               >
-                <Icon
-                  size={15}
-                  className={`shrink-0 ${isActive ? "text-white" : "text-white/60 group-hover:text-white"}`}
-                />
-                {!collapsed && (
-                  <span className="text-xs font-medium truncate">{item.name}</span>
-                )}
+                <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                  <Icon
+                    size={15}
+                    className={`${isActive ? "text-white" : "text-white/60 group-hover:text-white"} transition-colors`}
+                  />
+                </div>
+                <span
+                  className={`text-xs font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
+                    collapsed ? "max-w-0 opacity-0 ml-0" : "max-w-xs opacity-100 ml-2.5"
+                  }`}
+                >
+                  {item.name}
+                </span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Sidebar Footer - Only Logout Symbol, expands strictly on click */}
-      <div className="p-3 space-y-2 shrink-0">
-        <div ref={logoutRef} className="flex items-center justify-center">
-          <button
-            onClick={handleLogoutClick}
-            title={logoutExpanded ? "Click again to confirm Logout" : "Logout"}
-            className={`relative bg-[#FF4742] hover:bg-[#E93B36] text-white rounded-full flex items-center justify-center overflow-hidden shadow-md shadow-[#FF4742]/35 hover:shadow-lg hover:shadow-[#FF4742]/50 transition-all duration-300 ease-in-out cursor-pointer active:scale-95 ${
-              logoutExpanded ? "w-28 h-9 px-3.5 gap-2" : "w-9 h-9 p-0"
-            }`}
+      {/* Sidebar Footer - Smoothly gliding Logout & Collapse Controls */}
+      <div
+        className={`px-3 py-2 shrink-0 border-t border-white/5 transition-all duration-300 ease-in-out ${
+          collapsed ? "h-[94px]" : "h-[54px]"
+        }`}
+      >
+        <div className="relative w-full h-full">
+          {/* Logout Button */}
+          <div
+            ref={logoutRef}
+            style={{
+              position: "absolute",
+              top: collapsed ? "0px" : "4px",
+              left: collapsed
+                ? "50%"
+                : logoutExpanded
+                ? "calc(50% - 74px)"
+                : "calc(50% - 42px)",
+              transform: collapsed ? "translateX(-50%)" : "none",
+              transition: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
           >
-            <LogOut size={15} className="shrink-0 transition-transform duration-200" />
-            <span
-              className={`text-xs font-bold tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
-                logoutExpanded ? "max-w-xs opacity-100 ml-1.5" : "max-w-0 opacity-0"
+            <button
+              onClick={handleLogoutClick}
+              title={logoutExpanded ? "Click again to confirm Logout" : "Logout"}
+              className={`relative bg-[#FF4742] hover:bg-[#E93B36] text-white rounded-full flex items-center justify-center overflow-hidden shadow-md shadow-[#FF4742]/35 hover:shadow-lg hover:shadow-[#FF4742]/50 transition-all duration-300 ease-in-out cursor-pointer active:scale-95 shrink-0 ${
+                logoutExpanded ? "w-28 h-9 px-3.5 gap-2" : "w-9 h-9 p-0"
               }`}
             >
-              Logout
-            </span>
-          </button>
-        </div>
+              <LogOut size={15} className="shrink-0 transition-transform duration-200" />
+              <span
+                className={`text-xs font-bold tracking-wide whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
+                  logoutExpanded ? "max-w-xs opacity-100 ml-1.5" : "max-w-0 opacity-0"
+                }`}
+              >
+                Logout
+              </span>
+            </button>
+          </div>
 
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full p-1 rounded-lg text-[#76ABAE]/60 hover:text-[#76ABAE] hover:bg-white/5 transition-all cursor-pointer"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
+          {/* Collapse / Expand Button */}
+          <div
+            style={{
+              position: "absolute",
+              top: collapsed ? "44px" : "4px",
+              left: collapsed
+                ? "50%"
+                : logoutExpanded
+                ? "calc(50% + 50px)"
+                : "calc(50% + 6px)",
+              transform: collapsed ? "translateX(-50%)" : "none",
+              transition: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+          >
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 text-[#76ABAE]/70 hover:text-[#76ABAE] border border-white/5 hover:border-white/10 flex items-center justify-center transition-all duration-200 cursor-pointer shrink-0 active:scale-95"
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <div className={`transition-transform duration-300 ease-in-out ${collapsed ? "rotate-180" : "rotate-0"}`}>
+                <ChevronLeft size={15} />
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

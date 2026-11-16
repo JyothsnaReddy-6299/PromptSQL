@@ -68,6 +68,12 @@ async def upload_file(file: UploadFile = File(...), user_id: str = Depends(get_c
             user_id=user_id
         )
 
+        try:
+            from app.services.data_discovery_service import invalidate_insights_cache
+            invalidate_insights_cache(user_id=user_id, table_name=result.get("table_name"))
+        except Exception:
+            pass
+
         return result
 
     except HTTPException:
@@ -450,6 +456,12 @@ def create_manual_table(req: CreateTableRequest, user_id: str = Depends(get_curr
             
         set_current_table(physical_table_name, user_id=user_id)
         
+        try:
+            from app.services.data_discovery_service import invalidate_insights_cache
+            invalidate_insights_cache(user_id=user_id, table_name=physical_table_name)
+        except Exception:
+            pass
+
         return {
             "success": True, 
             "table_name": physical_table_name,

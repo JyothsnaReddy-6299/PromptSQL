@@ -24,16 +24,20 @@ class AuthRequest(BaseModel):
     username: str
     password: str
 
+class ResetPasswordRequest(BaseModel):
+    username: str
+    new_password: str
+
 @router.post("/signup")
 def signup(req: AuthRequest, db: Session = Depends(get_db)):
     username = req.username.strip().lower()
     if not username or not req.password:
         raise HTTPException(status_code=400, detail="Username and password are required")
     
-    if len(req.password) < 12:
+    if len(req.password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 12 characters long"
+            detail="Password must be at least 6 characters long"
         )
     if len(req.password.encode("utf-8")) > 72:
         raise HTTPException(
@@ -65,9 +69,35 @@ def signup(req: AuthRequest, db: Session = Depends(get_db)):
         "message": "Registration successful"
     }
 
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    username = req.username.strip().lower()
+    if not username or not req.new_password:
+        raise HTTPException(status_code=400, detail="Username and new password are required")
+    
+    if len(req.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long"
+        )
+    if len(req.new_password.encode("utf-8")) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password exceeds maximum length of 72 UTF-8 bytes"
+        )
+        
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.password_hash = hash_password(req.new_password)
+    db.commit()
+    return {"success": True, "message": "Password updated successfully"}
+
 @router.post("/login")
 def login(req: AuthRequest, db: Session = Depends(get_db)):
     username = req.username.strip().lower()
+    print(f"=== [AUTH] Login attempt for username: '{username}' ===", flush=True)
     if not username or not req.password:
         raise HTTPException(status_code=400, detail="Username and password are required")
     

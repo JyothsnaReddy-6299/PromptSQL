@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Lock, User, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { login, signup } from "../services/api";
+import { login, signup, resetPassword } from "../services/api";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export default function AuthModal({
   onClose,
   onSuccess,
 }: AuthModalProps) {
-  const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const [mode, setMode] = useState<"login" | "signup" | "reset">(initialMode);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -71,7 +71,7 @@ export default function AuthModal({
       return;
     }
 
-    if (mode === "signup") {
+    if (mode === "signup" || mode === "reset") {
       if (!confirmPassword.trim()) {
         setError("Please confirm your password.");
         return;
@@ -80,8 +80,8 @@ export default function AuthModal({
         setError("Passwords do not match.");
         return;
       }
-      if (password.length < 12) {
-        setError("Password must be at least 12 characters long.");
+      if (password.length < 6) {
+        setError("Password must be at least 6 characters long.");
         return;
       }
     }
@@ -99,7 +99,7 @@ export default function AuthModal({
         clearPromptSQLSessionState();
         if (onSuccess) onSuccess();
         onClose();
-      } else {
+      } else if (mode === "signup") {
         const data = await signup(username, password);
         setSuccessMsg("Account created successfully!");
         localStorage.setItem("promptsql_token", data.token);
@@ -110,12 +110,20 @@ export default function AuthModal({
           if (onSuccess) onSuccess();
           onClose();
         }, 800);
+      } else if (mode === "reset") {
+        await resetPassword(username, password);
+        setSuccessMsg("Password reset successfully! You can now sign in.");
+        setTimeout(() => {
+          switchMode("login");
+        }, 1200);
       }
     } catch (err: any) {
       setError(
         err.message ||
           (mode === "login"
             ? "Invalid username or password. Please try again."
+            : mode === "reset"
+            ? "Failed to reset password. Please check your username."
             : "Failed to create account. Username might be taken.")
       );
     } finally {
@@ -123,7 +131,7 @@ export default function AuthModal({
     }
   };
 
-  const switchMode = (newMode: "login" | "signup") => {
+  const switchMode = (newMode: "login" | "signup" | "reset") => {
     setMode(newMode);
     setError("");
     setSuccessMsg("");
@@ -157,7 +165,7 @@ export default function AuthModal({
             </span>
           </div>
           <h2 className="text-lg font-bold text-[#241C20] tracking-tight">
-            {mode === "login" ? "Sign In" : "Create an account"}
+            {mode === "login" ? "Sign In" : mode === "signup" ? "Create an account" : "Reset Password"}
           </h2>
         </div>
 
@@ -197,22 +205,33 @@ export default function AuthModal({
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-[#6F6A67] uppercase tracking-wider mb-1">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[10px] font-semibold text-[#6F6A67] uppercase tracking-wider">
+                {mode === "reset" ? "New Password" : "Password"}
+              </label>
+              {mode === "login" && (
+                <button
+                  type="button"
+                  onClick={() => switchMode("reset")}
+                  className="text-[10px] text-[#0DA4AA] hover:underline cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#B0A79E]" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={mode === "reset" ? "Min 6 characters" : "••••••••"}
                 className="w-full pl-9 pr-3.5 py-2 bg-[#F7F2EC] border border-[#E8DED3] focus:border-[#0DA4AA] rounded-xl text-[#241C20] placeholder-[#B0A79E] focus:outline-none focus:ring-2 focus:ring-[#0DA4AA]/15 transition-all text-xs"
               />
             </div>
           </div>
 
-          {mode === "signup" && (
+          {(mode === "signup" || mode === "reset") && (
             <div>
               <label className="block text-[10px] font-semibold text-[#6F6A67] uppercase tracking-wider mb-1">
                 Confirm Password
@@ -242,11 +261,23 @@ export default function AuthModal({
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{mode === "login" ? "Signing in..." : "Creating account..."}</span>
+                  <span>
+                    {mode === "login"
+                      ? "Signing in..."
+                      : mode === "reset"
+                      ? "Resetting password..."
+                      : "Creating account..."}
+                  </span>
                 </>
               ) : (
                 <>
-                  <span>{mode === "login" ? "Sign In" : "Create Account"}</span>
+                  <span>
+                    {mode === "login"
+                      ? "Sign In"
+                      : mode === "reset"
+                      ? "Reset Password"
+                      : "Create Account"}
+                  </span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}

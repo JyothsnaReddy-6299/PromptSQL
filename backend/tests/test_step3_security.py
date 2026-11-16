@@ -306,16 +306,16 @@ class Step3PasswordPolicyAndCompatibilityTests(unittest.TestCase):
         self.test_suffix = uuid.uuid4().hex[:8]
 
     def test_22_password_below_minimum_length_rejected_at_signup(self):
-        """Registration must reject passwords shorter than 12 characters."""
+        """Registration must reject passwords shorter than 6 characters."""
         username = f"short_pwd_{self.test_suffix}"
-        resp = self.client.post("/auth/signup", json={"username": username, "password": "Short12345!"})
+        resp = self.client.post("/auth/signup", json={"username": username, "password": "12345"})
         self.assertEqual(resp.status_code, 400)
-        self.assertIn("at least 12 characters", resp.json().get("detail", ""))
+        self.assertIn("at least 6 characters", resp.json().get("detail", ""))
 
     def test_23_password_at_minimum_length_accepted_at_signup(self):
-        """Registration must accept passwords of exactly 12 characters."""
-        username = f"exact_12_{self.test_suffix}"
-        resp = self.client.post("/auth/signup", json={"username": username, "password": "Pass12345678"})
+        """Registration must accept passwords of exactly 6 characters."""
+        username = f"exact_6_{self.test_suffix}"
+        resp = self.client.post("/auth/signup", json={"username": username, "password": "Pass12"})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertTrue(data.get("success"))

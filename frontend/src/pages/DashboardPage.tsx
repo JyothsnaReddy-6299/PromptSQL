@@ -8,6 +8,7 @@ import TablePreview from "../components/TablePreview";
 import ReportsManager from "../components/ReportsManager";
 import AuditManager from "../components/AuditManager";
 import DataCleaner from "../components/DataCleaner";
+import AIInsightsWorkspace from "../components/AIInsightsWorkspace";
 import { getPreview } from "../services/api";
 import QueryWorkspaceModal from "../components/QueryWorkspaceModal";
 
@@ -145,7 +146,7 @@ export default function DashboardPage() {
 
     const handleScroll = () => {
       if (isManualNavRef.current) return;
-      if (activeSection === "reports" || activeSection === "audit" || activeSection === "cleaner") return;
+      if (activeSection === "reports" || activeSection === "audit" || activeSection === "cleaner" || activeSection === "insights") return;
 
       const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
       const chatEl = document.getElementById("chat");
@@ -179,7 +180,7 @@ export default function DashboardPage() {
 
   const handleSectionClick = (sectionId: string) => {
     setActiveSection(sectionId);
-    if (sectionId === "reports" || sectionId === "audit" || sectionId === "cleaner") {
+    if (sectionId === "reports" || sectionId === "audit" || sectionId === "cleaner" || sectionId === "insights") {
       return;
     }
 
@@ -206,6 +207,25 @@ export default function DashboardPage() {
     setTimeout(() => {
       isManualNavRef.current = false;
     }, 1200);
+  };
+
+  const handleInvestigateInsight = (question: string) => {
+    setActiveSection("overview");
+    setChatQuestion(question);
+    isManualNavRef.current = true;
+    setTimeout(() => {
+      const chatEl = document.getElementById("chat");
+      const container = contentScrollRef.current;
+      if (chatEl && container) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "smooth"
+        });
+        const inputEl = chatEl.querySelector("input") as HTMLInputElement;
+        if (inputEl) inputEl.focus();
+      }
+      isManualNavRef.current = false;
+    }, 120);
   };
 
   return (
@@ -246,6 +266,14 @@ export default function DashboardPage() {
               columnStats={columnStats}
               onRefresh={() => setRefreshTrigger((p) => p + 1)}
               loading={loadingPreview}
+            />
+          </div>
+        ) : activeSection === "insights" ? (
+          <div id="insights" className="scroll-mt-24">
+            <AIInsightsWorkspace
+              fileName={fileName}
+              onInvestigate={handleInvestigateInsight}
+              onRefresh={() => setRefreshTrigger((p) => p + 1)}
             />
           </div>
         ) : (

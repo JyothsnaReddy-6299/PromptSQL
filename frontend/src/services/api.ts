@@ -565,6 +565,36 @@ export async function signup(username: string, password: string) {
   return data || {};
 }
 
+export async function resetPassword(username: string, newPassword: string) {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, new_password: newPassword }),
+    });
+  } catch (err: any) {
+    throw new Error("Unable to connect to backend service. Please ensure server is running.");
+  }
+
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const errorMsg =
+      data?.detail ||
+      data?.message ||
+      `Reset failed (Status: ${response.status})`;
+    throw new Error(errorMsg);
+  }
+
+  return data || {};
+}
+
 export async function logoutUser() {
   try {
     await fetch(`${API_URL}/auth/logout`, { method: "POST" });
@@ -590,4 +620,39 @@ export async function downloadRawCSV() {
 export async function downloadRawExcel() {
   const response = await fetch(`${API_URL}/api/export/raw/excel`);
   await triggerBlobDownload(response, "dataset.xlsx");
+}
+
+// AUTOMATED DATA DISCOVERY & AI INSIGHTS API (Issue 15 & 15.3)
+export async function getDatasetInsights(
+  tableName?: string,
+  forceRefresh: boolean = false,
+  filters?: Record<string, any>
+) {
+  const response = await fetch(`${API_URL}/api/insights/discover`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(tableName ? { "X-Table-Name": tableName } : {})
+    },
+    body: JSON.stringify({
+      table_name: tableName,
+      force_refresh: forceRefresh,
+      filters: filters
+    })
+  });
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || errData.error || "Failed to discover dataset insights.");
+  }
+  return response.json();
+}
+
+export async function invalidateInsightsCache(tableName?: string) {
+  const response = await fetch(`${API_URL}/api/insights/cache/invalidate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table_name: tableName })
+  });
+  if (!response.ok) return { success: false };
+  return response.json();
 }
