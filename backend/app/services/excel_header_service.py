@@ -373,29 +373,179 @@ def normalize_column_names(raw_headers: List[Any]) -> Tuple[List[str], List[str]
     return clean_cols, warnings
 
 
+def auto_select_excel_worksheet(filepath: str) -> str:
+    """
+    Automatically identifies and selects the appropriate worksheet from an Excel workbook (Issue 18.1).
+    
+    Selection Strategy:
+    1. If the workbook contains only one sheet, select it automatically.
+    2. If multiple sheets exist, inspect each sheet's structure:
+       - Ignore completely blank sheets.
+       - Ignore obvious instruction, readme, notes, guide, or metadata sheets.
+       - Disqualify sheets without valid tabular structure (less than 2 columns, 0 data rows, or low header confidence).
+    3. If exactly one worksheet contains tabular data, select it automatically.
+    4. If multiple worksheets contain tabular data:
+       - Evaluate composite suitability (confidence, column count, data rows).
+       - If multiple worksheets are equally plausible, raise a clear ValueError asking the user to simplify
+         the workbook rather than silently importing the wrong sheet.
+       - Otherwise, select the unambiguously superior data sheet.
+    """
+    sheets = get_excel_sheet_names(filepath)
+    if not sheets:
+        raise ValueError("The Excel workbook contains no worksheets.")
+
+    if len(sheets) == 1:
+        return sheets[0]
+
+    # Evaluate all sheets
+    sheet_candidates = []
+    instruction_keywords = (
+        "instruction", "instructions", "readme", "read_me", "notes", "note",
+        "help", "guide", "info", "information", "metadata", "about", "cover",
+        "contents", "glossary", "documentation"
+    )
+
+    for s in sheets:
+        try:
+            raw_df = pd.read_excel(filepath, sheet_name=s, header=None, nrows=35, dtype=object)
+        except Exception:
+            continue
+
+        if raw_df.empty:
+            continue
+
+        # Check total non-empty cells
+        total_non_empty = sum(
+            sum(1 for v in raw_df.iloc[r] if not _is_empty_cell(v))
+            for r in range(len(raw_df))
+        )
+        if total_non_empty == 0:
+            continue
+
+        # Run header detection for this sheet
+        try:
+            detection = detect_header_row(filepath, sheet_name=s)
+        except Exception:
+            continue
+
+        header_idx = detection["header_row_0_based"]
+        conf = detection["confidence"]
+        is_ambig = detection["is_ambiguous"]
+
+        # Header columns count
+        header_vals = [v for v in raw_df.iloc[header_idx].tolist() if not _is_empty_cell(v)]
+        col_count = len(header_vals)
+
+        # Count data rows below header
+        data_rows = 0
+        for r in range(header_idx + 1, len(raw_df)):
+            if any(not _is_empty_cell(v) for v in raw_df.iloc[r]):
+                data_rows += 1
+
+        s_clean = s.lower().strip()
+        is_instruction_name = any(k in s_clean for k in instruction_keywords)
+
+        # Check if text is mostly long narrative paragraphs (instruction content)
+        all_cells = [str(v).strip() for row in raw_df.values for v in row if not _is_empty_cell(v)]
+        avg_text_len = (sum(len(c) for c in all_cells) / max(1, len(all_cells))) if all_cells else 0
+        is_narrative = (avg_text_len > 45 and col_count <= 2)
+
+        # A valid tabular data sheet must have:
+        # - at least 2 columns
+        # - at least 1 data row
+        # - header confidence >= 0.50
+        # - not an obvious instruction or narrative notes sheet
+        if col_count >= 2 and data_rows >= 1 and conf >= 0.50 and not is_instruction_name and not is_narrative:
+            # Composite suitability score
+            suitability = (conf * 50.0) + (min(col_count, 15) * 2.5) + (min(data_rows, 20) * 1.5)
+            sheet_candidates.append({
+                "sheet_name": s,
+                "confidence": conf,
+                "is_ambiguous": is_ambig,
+                "col_count": col_count,
+                "data_rows": data_rows,
+                "suitability": suitability
+            })
+
+    if not sheet_candidates:
+        # No sheet cleanly qualified as tabular data sheet; default to first sheet
+        return sheets[0]
+
+    if len(sheet_candidates) == 1:
+        return sheet_candidates[0]["sheet_name"]
+
+    # Multiple tabular data candidate sheets: check if equally plausible
+    sheet_candidates.sort(key=lambda x: x["suitability"], reverse=True)
+    top_sheet = sheet_candidates[0]
+    runner_up = sheet_candidates[1]
+
+    # Equal plausibility condition:
+    # Both have high confidence, valid columns and rows, and score margin is very narrow (within 15%)
+    score_diff = top_sheet["suitability"] - runner_up["suitability"]
+    diff_ratio = score_diff / max(1.0, top_sheet["suitability"])
+
+    if (
+        top_sheet["confidence"] >= 0.70
+        and runner_up["confidence"] >= 0.70
+        and top_sheet["col_count"] >= 2
+        and runner_up["col_count"] >= 2
+        and (score_diff <= 15.0 or diff_ratio <= 0.15)
+    ):
+        raise ValueError(
+            f"The workbook contains multiple plausible data worksheets ('{top_sheet['sheet_name']}', '{runner_up['sheet_name']}'). "
+            f"Please simplify the workbook to contain only the single worksheet you wish to import."
+        )
+
+    return top_sheet["sheet_name"]
+
+
 def load_excel_with_detected_header(
     filepath: str,
     sheet_name: Optional[str] = None,
     header_row: Optional[int] = None
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Loads an Excel sheet using either user-confirmed header row (1-based) or intelligent detection.
+    Loads an Excel sheet using automatic worksheet selection and intelligent header detection (Issue 18.1).
+    
+    If header_row is not explicitly provided:
+    - Enforces confidence threshold (>= 0.60).
+    - Enforces unambiguous header candidates (is_ambiguous == False).
+    - Stops import and raises clear user-friendly ValueError if headers cannot be reliably identified.
     
     Returns:
       (cleaned_dataframe, metadata_dict)
     """
-    detection = detect_header_row(filepath, sheet_name=sheet_name)
-    resolved_sheet = detection["sheet_name"]
+    if not sheet_name:
+        resolved_sheet = auto_select_excel_worksheet(filepath)
+    else:
+        resolved_sheet = sheet_name
 
-    # If user provided header_row (1-based), use it; otherwise use auto-detected row
+    detection = detect_header_row(filepath, sheet_name=resolved_sheet)
+
+    # If user provided header_row (1-based), use it; otherwise enforce automatic detection safeguards
     if header_row is not None and header_row >= 1:
         header_row_0 = header_row - 1
         confidence = 1.0
         is_ambiguous = False
     else:
+        # Safeguard 1: Ambiguity check
+        if detection["is_ambiguous"]:
+            raise ValueError(
+                "Unable to reliably identify column headings in this Excel worksheet because "
+                "multiple plausible heading rows were detected. Please simplify the worksheet "
+                "layout and ensure column headers are distinct from title and data rows."
+            )
+
+        # Safeguard 2: Confidence threshold
+        if detection["confidence"] < 0.60:
+            raise ValueError(
+                "Unable to reliably identify column headings in this Excel worksheet. "
+                "Please ensure your table has clear column headers and simplify the sheet structure."
+            )
+
         header_row_0 = detection["header_row_0_based"]
         confidence = detection["confidence"]
-        is_ambiguous = detection["is_ambiguous"]
+        is_ambiguous = False
 
     # Read Excel sheet with header_row_0
     STANDARD_NA_VALUES = ['', '#N/A', '#NA', 'N/A', '<NA>', 'NULL', 'null', 'NaN', '-NaN']
@@ -446,79 +596,3 @@ def load_excel_with_detected_header(
     }
 
     return df, metadata
-
-
-def detect_and_preview_excel(
-    filepath: str,
-    sheet_name: Optional[str] = None,
-    header_row: Optional[int] = None
-) -> Dict[str, Any]:
-    """
-    Generates preview payload for the frontend import preview modal/panel.
-    
-    Returns:
-    {
-        "success": True,
-        "filename": "...",
-        "sheets": ["Sheet1", "Sheet2"],
-        "selected_sheet": "Sheet1",
-        "detected_header_row": 2,
-        "selected_header_row": 2,
-        "confidence": 0.95,
-        "is_ambiguous": False,
-        "columns": ["Order ID", "Customer", "Amount"],
-        "preview_rows": [{"Order ID": "101", ...}],
-        "total_rows": 125,
-        "warnings": []
-    }
-    """
-    sheets = get_excel_sheet_names(filepath)
-    if not sheets:
-        raise ValueError("Workbook contains no worksheets.")
-
-    selected_sheet = sheet_name if (sheet_name and sheet_name in sheets) else sheets[0]
-    detection = detect_header_row(filepath, sheet_name=selected_sheet)
-
-    selected_header_row = header_row if (header_row is not None and header_row >= 1) else detection["header_row_1_based"]
-
-    df, meta = load_excel_with_detected_header(
-        filepath,
-        sheet_name=selected_sheet,
-        header_row=selected_header_row
-    )
-
-    # Format first 10 rows for JSON preview
-    preview_rows = []
-    preview_slice = df.head(10)
-    for _, row in preview_slice.iterrows():
-        row_dict = {}
-        for col in df.columns:
-            val = row[col]
-            if _is_empty_cell(val):
-                row_dict[col] = None
-            elif hasattr(val, "isoformat"):
-                row_dict[col] = str(val)[:10]
-            else:
-                row_dict[col] = str(val) if isinstance(val, (int, float, str)) else str(val)
-        preview_rows.append(row_dict)
-
-    all_warnings = list(meta["warnings"])
-    if detection["is_ambiguous"] and (header_row is None):
-        all_warnings.insert(
-            0,
-            f"Multiple plausible / ambiguous heading rows detected. Selected Row {detection['header_row_1_based']} by default; please verify."
-        )
-
-    return {
-        "success": True,
-        "sheets": sheets,
-        "selected_sheet": selected_sheet,
-        "detected_header_row": detection["header_row_1_based"],
-        "selected_header_row": selected_header_row,
-        "confidence": detection["confidence"],
-        "is_ambiguous": detection["is_ambiguous"],
-        "columns": df.columns.tolist(),
-        "preview_rows": preview_rows,
-        "total_rows": meta["total_rows"],
-        "warnings": all_warnings
-    }
