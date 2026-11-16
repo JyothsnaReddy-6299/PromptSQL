@@ -211,8 +211,15 @@ class Settings(BaseModel):
         """
         Instantiates Settings by parsing current environment variables.
         """
-        cors_raw = os.getenv("CORS_ORIGINS", "*").strip()
-        cors_origins = [o.strip() for o in cors_raw.split(",") if o.strip()] or ["*"]
+        app_env = (os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "development").strip().lower()
+        cors_raw = os.getenv("CORS_ORIGINS")
+        if cors_raw:
+            cors_origins = [o.strip() for o in cors_raw.split(",") if o.strip()]
+        elif app_env in ("production", "prod"):
+            # Safe default for production on Render: trusted PromptSQL frontend host
+            cors_origins = ["https://promptsql-frontend.onrender.com"]
+        else:
+            cors_origins = ["*"]
 
         debug_val = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
